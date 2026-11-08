@@ -1,7 +1,13 @@
 import numpy as np
 import pytest
 
-from nearlink_sdr.phy.gfsk import GFSKDemodulator, GFSKModulator, _gaussian_filter
+from nearlink_sdr.phy.gfsk import (
+    GFSK_BW_CONFIG,
+    GFSKDemodulator,
+    GFSKModulator,
+    _gaussian_filter,
+)
+from nearlink_sdr.phy.rf_compliance import GFSK_FREQ_DEV_SPECS
 
 
 class TestGFSK:
@@ -162,3 +168,36 @@ class TestGaussianFilter:
 
         assert len(actual) == len(expected)
         np.testing.assert_allclose(actual, expected, atol=1e-12)
+
+
+class TestGFSKSpecTables:
+    """GFSK 频偏限值必须与标准 §8.2.2.1 一致, 且与调制系数范围自洽。"""
+
+    RATES = (0.1, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0)
+
+    def test_bandwidth_config_matches_freq_dev_specs(self):
+        """两张限值表必须给出同一组最小频偏。
+
+        回归: GFSK_BW_CONFIG 曾原样抄录标准 §6.2.1.1 的表格, 而该表对
+        0.125/0.25/0.5 Msym/s 的数值与 §8.2.2.1 及本节 h 范围矛盾。
+        """
+        assert set(GFSK_BW_CONFIG) == set(GFSK_FREQ_DEV_SPECS)
+        for rate, spec in GFSK_FREQ_DEV_SPECS.items():
+            cfg = GFSK_BW_CONFIG[rate]
+            assert cfg["symbol_period_us"] == pytest.approx(spec.symbol_interval_us)
+            assert cfg["min_freq_dev_khz"] == pytest.approx(spec.min_deviation_khz)
+
+    @pytest.mark.parametrize("rate", RATES)
+    def test_min_deviation_reachable_within_modulation_index(self, rate):
+        """最小频偏要求不得高于 h∈[0.45, 0.55] 在该速率下能产生的上限。"""
+        spec = GFSK_FREQ_DEV_SPECS[rate]
+        symbol_period_s = spec.symbol_interval_us * 1e-6
+        max_deviation_khz = 0.55 / (2 * symbol_period_s) / 1e3
+        assert spec.min_deviation_khz <= max_deviation_khz
+
+    @pytest.mark.parametrize("rate", RATES)
+    def test_fd1_range_contains_nominal_half_deviation(self, rate):
+        """fd1 区间必须包含 h=0.5 的标称频偏 h/(2T)。"""
+        spec = GFSK_FREQ_DEV_SPECS[rate]
+        nominal_khz = 0.5 / (2 * spec.symbol_interval_us * 1e-6) / 1e3
+        assert spec.fd1_min_khz < nominal_khz < spec.fd1_max_khz

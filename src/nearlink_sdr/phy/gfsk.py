@@ -11,14 +11,21 @@ import numpy as np
 # TXS-10002-2025 6.2.1.1 GFSK调制
 # BT = 0.5, 调制系数 h 在 0.45~0.55 之间
 
-# 标准带宽与符号间隔对应关系
+# 标准带宽与符号间隔对应关系。
+#
+# 注意: §6.2.1.1 与 §8.2.2.1 对 0.1~0.5 Msym/s 的"最小频偏"给出不同数值。
+# §6.2.1.1 的 46.25 / 92.5 / 185 kHz 分别高于同一节 h∈[0.45, 0.55] 在该符号
+# 速率下所能产生的上限 34.375 / 68.75 / 137.5 kHz, 与本节自身矛盾, 应为标准
+# 排版行移; §8.2.2.1 与 h 范围自洽 (其 fd1 区间正好以 h=0.5 的标称频偏为中心)。
+# 此处按 §8.2.2.1 取值, 可执行的验收限值见
+# nearlink_sdr.phy.rf_compliance.GFSK_FREQ_DEV_SPECS。
 GFSK_BW_CONFIG = {
-    0.1:  {"symbol_period_us": 10,  "min_freq_dev_khz": 23.125},
-    0.125: {"symbol_period_us": 8,  "min_freq_dev_khz": 46.25},
-    0.25: {"symbol_period_us": 4,   "min_freq_dev_khz": 92.5},
-    0.5:  {"symbol_period_us": 2,   "min_freq_dev_khz": 185},
-    1.0:  {"symbol_period_us": 1,   "min_freq_dev_khz": 185},
-    2.0:  {"symbol_period_us": 0.5, "min_freq_dev_khz": 370},
+    0.1:  {"symbol_period_us": 10,   "min_freq_dev_khz": 18.5},
+    0.125: {"symbol_period_us": 8,   "min_freq_dev_khz": 23.125},
+    0.25: {"symbol_period_us": 4,    "min_freq_dev_khz": 46.25},
+    0.5:  {"symbol_period_us": 2,    "min_freq_dev_khz": 92.5},
+    1.0:  {"symbol_period_us": 1,    "min_freq_dev_khz": 185},
+    2.0:  {"symbol_period_us": 0.5,  "min_freq_dev_khz": 370},
     4.0:  {"symbol_period_us": 0.25, "min_freq_dev_khz": 740},
 }
 
