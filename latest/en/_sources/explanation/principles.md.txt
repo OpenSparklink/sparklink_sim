@@ -82,7 +82,7 @@ $$
 其中 $h$ 为调制指数, $a_k \in \{-1, +1\}$ 为数据符号, $g(t)$ 为高斯脉冲 (带宽时间积 $BT$):
 
 $$
-g(t) = \frac{1}{2T}\left[\operatorname{erf}\!\left(\frac{\pi}{\sqrt{\ln 2}} \cdot BT \cdot \frac{t + T/2}{T}\right) - \operatorname{erf}\!\left(\frac{\pi}{\sqrt{\ln 2}} \cdot BT \cdot \frac{t - T/2}{T}\right)\right]
+g(t) = \frac{1}{2T}\left[\operatorname{erf}\!\left(\frac{\sqrt{2}\,\pi}{\sqrt{\ln 2}} \cdot BT \cdot \frac{t + T/2}{T}\right) - \operatorname{erf}\!\left(\frac{\sqrt{2}\,\pi}{\sqrt{\ln 2}} \cdot BT \cdot \frac{t - T/2}{T}\right)\right]
 $$
 
 SparkLink SLE 标准规定调制指数 $h = 0.5$ (最小频移), $BT = 0.5$。

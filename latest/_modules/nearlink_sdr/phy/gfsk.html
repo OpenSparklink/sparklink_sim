@@ -404,14 +404,21 @@
 <span class="c1"># TXS-10002-2025 6.2.1.1 GFSK调制</span>
 <span class="c1"># BT = 0.5, 调制系数 h 在 0.45~0.55 之间</span>
 
-<span class="c1"># 标准带宽与符号间隔对应关系</span>
+<span class="c1"># 标准带宽与符号间隔对应关系。</span>
+<span class="c1">#</span>
+<span class="c1"># 注意: §6.2.1.1 与 §8.2.2.1 对 0.1~0.5 Msym/s 的&quot;最小频偏&quot;给出不同数值。</span>
+<span class="c1"># §6.2.1.1 的 46.25 / 92.5 / 185 kHz 分别高于同一节 h∈[0.45, 0.55] 在该符号</span>
+<span class="c1"># 速率下所能产生的上限 34.375 / 68.75 / 137.5 kHz, 与本节自身矛盾, 应为标准</span>
+<span class="c1"># 排版行移; §8.2.2.1 与 h 范围自洽 (其 fd1 区间正好以 h=0.5 的标称频偏为中心)。</span>
+<span class="c1"># 此处按 §8.2.2.1 取值, 可执行的验收限值见</span>
+<span class="c1"># nearlink_sdr.phy.rf_compliance.GFSK_FREQ_DEV_SPECS。</span>
 <span class="n">GFSK_BW_CONFIG</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="mf">0.1</span><span class="p">:</span>  <span class="p">{</span><span class="s2">&quot;symbol_period_us&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>  <span class="s2">&quot;min_freq_dev_khz&quot;</span><span class="p">:</span> <span class="mf">23.125</span><span class="p">},</span>
-    <span class="mf">0.125</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;symbol_period_us&quot;</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span>  <span class="s2">&quot;min_freq_dev_khz&quot;</span><span class="p">:</span> <span class="mf">46.25</span><span class="p">},</span>
-    <span class="mf">0.25</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;symbol_period_us&quot;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>   <span class="s2">&quot;min_freq_dev_khz&quot;</span><span class="p">:</span> <span class="mf">92.5</span><span class="p">},</span>
-    <span class="mf">0.5</span><span class="p">:</span>  <span class="p">{</span><span class="s2">&quot;symbol_period_us&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>   <span class="s2">&quot;min_freq_dev_khz&quot;</span><span class="p">:</span> <span class="mi">185</span><span class="p">},</span>
-    <span class="mf">1.0</span><span class="p">:</span>  <span class="p">{</span><span class="s2">&quot;symbol_period_us&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>   <span class="s2">&quot;min_freq_dev_khz&quot;</span><span class="p">:</span> <span class="mi">185</span><span class="p">},</span>
-    <span class="mf">2.0</span><span class="p">:</span>  <span class="p">{</span><span class="s2">&quot;symbol_period_us&quot;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span> <span class="s2">&quot;min_freq_dev_khz&quot;</span><span class="p">:</span> <span class="mi">370</span><span class="p">},</span>
+    <span class="mf">0.1</span><span class="p">:</span>  <span class="p">{</span><span class="s2">&quot;symbol_period_us&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>   <span class="s2">&quot;min_freq_dev_khz&quot;</span><span class="p">:</span> <span class="mf">18.5</span><span class="p">},</span>
+    <span class="mf">0.125</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;symbol_period_us&quot;</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span>   <span class="s2">&quot;min_freq_dev_khz&quot;</span><span class="p">:</span> <span class="mf">23.125</span><span class="p">},</span>
+    <span class="mf">0.25</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;symbol_period_us&quot;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>    <span class="s2">&quot;min_freq_dev_khz&quot;</span><span class="p">:</span> <span class="mf">46.25</span><span class="p">},</span>
+    <span class="mf">0.5</span><span class="p">:</span>  <span class="p">{</span><span class="s2">&quot;symbol_period_us&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>    <span class="s2">&quot;min_freq_dev_khz&quot;</span><span class="p">:</span> <span class="mf">92.5</span><span class="p">},</span>
+    <span class="mf">1.0</span><span class="p">:</span>  <span class="p">{</span><span class="s2">&quot;symbol_period_us&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>    <span class="s2">&quot;min_freq_dev_khz&quot;</span><span class="p">:</span> <span class="mi">185</span><span class="p">},</span>
+    <span class="mf">2.0</span><span class="p">:</span>  <span class="p">{</span><span class="s2">&quot;symbol_period_us&quot;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span>  <span class="s2">&quot;min_freq_dev_khz&quot;</span><span class="p">:</span> <span class="mi">370</span><span class="p">},</span>
     <span class="mf">4.0</span><span class="p">:</span>  <span class="p">{</span><span class="s2">&quot;symbol_period_us&quot;</span><span class="p">:</span> <span class="mf">0.25</span><span class="p">,</span> <span class="s2">&quot;min_freq_dev_khz&quot;</span><span class="p">:</span> <span class="mi">740</span><span class="p">},</span>
 <span class="p">}</span>
 

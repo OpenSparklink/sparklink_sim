@@ -413,6 +413,18 @@
 </ul>
 </li>
 <li><p>新增高斯滤波器回归测试: 单边 -3 dB 带宽、闭式冲激响应、对称性与单位直流增益、整条调制链与独立参考实现逐点比对</p></li>
+<li><p>修正 <code class="docutils literal notranslate"><span class="pre">GFSK_BW_CONFIG</span></code> 的最小频偏: 原表照录标准 §6.2.1.1, 但该表对 0.125/0.25/0.5 Msym/s 的 46.25/92.5/185 kHz 高于同一节 <code class="docutils literal notranslate"><span class="pre">h</span></code>
+在 0.45~0.55 内所能产生的上限 34.375/68.75/137.5 kHz, 与本节自身矛盾</p>
+<ul>
+<li><p>按 §8.2.2.1 改为 18.5/23.125/46.25/92.5/185/370/740 kHz, 与 <code class="docutils literal notranslate"><span class="pre">rf_compliance.GFSK_FREQ_DEV_SPECS</span></code> 及调制系数范围自洽</p></li>
+</ul>
+</li>
+<li><p>修正 <code class="docutils literal notranslate"><span class="pre">docs/explanation/principles.md</span></code> 的高斯脉冲 <code class="docutils literal notranslate"><span class="pre">g(t)</span></code> 公式: <code class="docutils literal notranslate"><span class="pre">erf</span></code> 自变量缺少 √2, 按该式反解得到的带宽为 <code class="docutils literal notranslate"><span class="pre">BT</span></code>/√2 (偏窄)</p>
+<ul>
+<li><p>同步更新英文翻译 <code class="docutils literal notranslate"><span class="pre">principles.po</span></code> 与编译产物 <code class="docutils literal notranslate"><span class="pre">principles.mo</span></code></p></li>
+</ul>
+</li>
+<li><p>新增标准限值回归测试: 两张频偏表一致性、最小频偏在调制系数范围内可达、<code class="docutils literal notranslate"><span class="pre">fd1</span></code> 区间包含 <code class="docutils literal notranslate"><span class="pre">h=0.5</span></code> 标称频偏</p></li>
 </ul>
 </section>
 <section id="changed">
