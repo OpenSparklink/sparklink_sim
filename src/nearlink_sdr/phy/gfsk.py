@@ -24,12 +24,26 @@ GFSK_BW_CONFIG = {
 
 
 def _gaussian_filter(bt: float, span: int, sps: int) -> np.ndarray:
-    """生成高斯滤波器的脉冲响应。"""
+    """生成高斯滤波器的脉冲响应。
+
+    ``BT`` 定义为高斯滤波器单边 -3 dB 带宽与符号周期之积, 因此
+
+    .. math:: h(t) \\propto \\exp\\!\\left(-\\frac{t^2}{2\\sigma^2}\\right),
+              \\quad \\frac{\\sigma}{T} = \\frac{\\sqrt{\\ln 2}}{2\\pi \\cdot BT}
+
+    该约定与 MathWorks ``gaussdesign`` 一致, 也与
+    ``sparklink-hw/scripts/generate/gfsk_tables.py`` 的系数生成使用同一定义。
+
+    :param bt: 带宽时间积 ``BT``
+    :param span: 单侧截断跨度 (符号数)
+    :param sps: 每符号采样数
+
+    :returns: 归一化到单位直流增益的冲激响应
+    """
     t = np.arange(-span * sps / 2, span * sps / 2 + 1) / sps
-    alpha = np.sqrt(np.log(2) / 2) / bt
-    h = np.sqrt(2 * np.pi) / alpha * np.exp(-2 * (np.pi * t / alpha) ** 2)
-    h = h / np.sum(h)
-    return h
+    sigma = np.sqrt(np.log(2)) / (2 * np.pi * bt)
+    h = np.exp(-0.5 * (t / sigma) ** 2)
+    return h / np.sum(h)
 
 
 class GFSKModulator:

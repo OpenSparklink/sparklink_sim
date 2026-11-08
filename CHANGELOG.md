@@ -7,6 +7,13 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- 修复 `phy/gfsk.py` 高斯滤波器冲激响应多乘一个因子 2 的问题: 实际单边 -3 dB 带宽为标称 `BT` 的 √2 倍 (BT=0.5 时实测 0.706/T)
+  - 改用 `h(t) ∝ exp(-t²/(2σ²))`, `σ/T = √(ln 2)/(2π·BT)`, 与 `sparklink-hw` 的 `gfsk_tables.py` / `gfsk_reference.py` 使用同一定义
+  - 该偏差不改变解调闭环与 BER 判决, 只影响占用带宽与频谱, 因此原有 8 个 GFSK 测试无法覆盖; 受影响的结论包括频谱模板、邻道功率和占用带宽
+- 新增高斯滤波器回归测试: 单边 -3 dB 带宽、闭式冲激响应、对称性与单位直流增益、整条调制链与独立参考实现逐点比对
+
 ### Changed
 
 - 全量 docstring 格式从 NumPy 风格统一为 RST field list 风格 (`:param:` / `:returns:` / `:rtype:` / `:ivar:`)，修复 autodoc2 解析失败和 "Duplicate implicit target name" 警告
