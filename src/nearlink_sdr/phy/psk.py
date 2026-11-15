@@ -251,8 +251,9 @@ def acquire_psk_capture(signal: np.ndarray, quiet: np.ndarray, sample_hz: float,
     timing_tracking=True时同步之后启用NDA Gardner/PI持续跟踪；实际采样坐标单独返回。
     energy_window_symbols可扩大能量平均窗抑制低SNR下包内切碎；默认1保留旧路径。
     """
-    from scipy.interpolate import CubicSpline
-    from scipy.signal import correlate, fftconvolve
+    from scipy.signal import fftconvolve
+
+    from nearlink_sdr.phy.psk_sync import search_psk_sync
 
     if timing_config is None:
         timing_config = PSKTimingConfig()
@@ -281,7 +282,6 @@ def acquire_psk_capture(signal: np.ndarray, quiet: np.ndarray, sample_hz: float,
     energy = np.convolve(abs(x) ** 2, box, "same") > threshold
     starts = np.flatnonzero(np.diff(energy.astype(int), prepend=0) == 1)
     ends = np.flatnonzero(np.diff(energy.astype(int), append=0) == -1) + 1
-    dr = ref[1:] * ref[:-1].conj()
     bursts = []
     for a, b in zip(starts, ends, strict=True):
         row = dict(start_raw=int(a), end_raw_exclusive=int(b),
@@ -291,27 +291,11 @@ def acquire_psk_capture(signal: np.ndarray, quiet: np.ndarray, sample_hz: float,
             continue
         lo, hi = max(0, int(a) - 32 * sps), min(len(x), int(b) + 32 * sps)
         z = fftconvolve(x[lo:hi], rrc_filter(.4, sps), mode="same")
-        interpolator = CubicSpline(np.arange(len(z)), z) if timing_subdivisions > 1 else None
-
-        def sample(phase):
-            if interpolator is None:
-                return z[int(phase)::sps]
-            return interpolator(np.arange(phase, len(z) - 1, sps))
-
-        best = None
-        for tick in range(sps * timing_subdivisions):
-            phase = tick / timing_subdivisions if interpolator is not None else tick
-            y = sample(phase)
-            dy = y[1:] * y[:-1].conj()
-            corr = correlate(dy, dr, mode="valid")
-            norm = np.sqrt(np.convolve(abs(dy) ** 2, np.ones(len(dr)), "valid")
-                           * np.sum(abs(dr) ** 2))
-            scores = abs(corr) / np.maximum(norm, 1e-30)
-            offset = int(scores.argmax())
-            score = float(scores[offset])
-            if best is None or score > best[0]:
-                best = score, phase, offset, float(np.angle(corr[offset]))
-        score, phase, offset, delta = best
+        selected = search_psk_sync(z, sps, ref, timing_subdivisions)
+        if selected is None:
+            row.update(status="no_sync", sync_score=0.)
+            continue
+        score, phase, offset, delta = (selected[k] for k in ("score", "phase", "offset", "delta"))
         row.update(status="no_sync", sync_score=score)
         if score < .85:
             continue
@@ -327,7 +311,7 @@ def acquire_psk_capture(signal: np.ndarray, quiet: np.ndarray, sample_hz: float,
                        timing_detector_error=tracked["detector_error"],
                        timing_loop=tracked["diagnostics"])
         else:
-            y = sample(phase)[offset:]
+            y = selected["phase_symbols"][offset:]
             centers = raw_start + np.arange(len(y)) * sps
             y = y[centers < stop]
         t = np.arange(len(y))

@@ -13,6 +13,7 @@ import struct
 __all__ = [
     "MacCaptureResult",
     "MacRxResult",
+    "MacStreamReceiver",
     "QosLink",
     "bits_to_bytes",
     "bytes_to_bits",
@@ -143,6 +144,19 @@ class MacCaptureResult:
     diagnostics: dict
 
 
+def _verified_mac_packets(frames):
+    packets = []
+    for row in frames:
+        if (row["status"] != "valid" or row.get("header_crc") is not True
+                or row.get("data_crc") is not True or row.get("length_ok") is not True
+                or row.get("payload") is None):
+            continue
+        packets.append(MacRxResult(
+            row["payload"], np.empty(0, dtype=np.int8),
+            bool(row["data_crc"]), bool(row["header_crc"]), header=row["header"]))
+    return packets
+
+
 def iq_to_mac_capture(iq_signal: np.ndarray, quiet: np.ndarray, profile, **options) -> MacCaptureResult:
     """Receive unknown packet positions/lengths using an explicit strict PHY profile.
 
@@ -151,10 +165,34 @@ def iq_to_mac_capture(iq_signal: np.ndarray, quiet: np.ndarray, profile, **optio
     length/MCS validation and data CRC enter packets; diagnostics retains failures.
     """
     result = receive_capture(iq_signal, quiet, profile, **options)
-    packets = [MacRxResult(row["payload"], np.empty(0, dtype=np.int8), True, True,
-                           header=row["header"])
-               for row in result["frames"] if row["status"] == "valid"]
+    packets = _verified_mac_packets(result["frames"])
     return MacCaptureResult(packets, result)
+
+
+class MacStreamReceiver:
+    """Bounded strict PSK stream adapter; deliver only complete verified MAC packets."""
+
+    def __init__(self, profile, quiet: np.ndarray, **options):
+        from nearlink_sdr.phy.stream_rx import PSKStreamReceiver
+        self.phy = PSKStreamReceiver(profile, quiet, **options)
+
+    def _wrap(self, events):
+        frames = [event["frame"] for event in events]
+        packets = _verified_mac_packets(frames)
+        return MacCaptureResult(packets, dict(frames=frames, events=events))
+
+    def feed(self, samples: np.ndarray) -> MacCaptureResult:
+        """Return newly completed packets and all candidate diagnostics for this call."""
+        return self._wrap(self.phy.feed(samples))
+
+    def iter_feed(self, samples: np.ndarray):
+        """Yield one candidate/packet at a time before consuming the rest of a large input."""
+        for event in self.phy.iter_feed(samples):
+            yield self._wrap([event])
+
+    def finish(self) -> MacCaptureResult:
+        """Flush once and return final candidates, including unfinished truncations."""
+        return self._wrap(self.phy.finish())
 
 
 def iq_to_mac(

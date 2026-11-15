@@ -72,3 +72,48 @@ UV_CACHE_DIR=/tmp/rx-uv uv run --frozen --no-sync pytest tests/test_strict_recei
 audit 使用独立角度映射及连续时间脉冲参考（不使用接收插值），在执行前冻结输入/源码哈希。
 需要仓库中的测试参考文件和开发依赖。失败 IQ、参数、采样轨迹、旧/新入口结果全部落盘。
 真实 IQ 的冻结回放命令及结果见[接收链修复记录](../reference/rx-chain-hardening.md)。
+
+## 持续接收任意 IQ 分块
+
+```python
+from nearlink_sdr.phy.mac_interface import MacStreamReceiver
+
+receiver = MacStreamReceiver(profile, quiet_iq, timing_subdivisions=8,
+                              energy_window_symbols=8)
+for chunk in iq_blocks:
+    for result in receiver.iter_feed(chunk):
+        for packet in result.packets:
+            consume(packet.mac_payload)
+        save_diagnostics(result.diagnostics["events"])
+final = receiver.finish()
+save_diagnostics(final.diagnostics["events"])
+```
+
+`iter_feed` 在包完成时逐事件输出，必须耗尽迭代器后再给下一块。
+便利接口 `feed` 返回这一调用的事件列表；当一个调用传入很大的数组且输出很多包时，
+该列表归调用者所有，欲同时限制输出积累应使用 `iter_feed`。
+`finish` 只调用一次；重复调用返回空结果，结束后再 feed 报错。
+
+同一包保留 FIR 状态、局部插值邻点、前一符号/中点、功率与 Gardner/PI 速率积分状态，
+在读取到合法头后确定精确载荷边界；数据 CRC 完成便输出，不等 EOF。
+包间保留连续 FIR 历史，但重新初始化已知同步、CFO/增益、定时环和帧状态。
+坏头不读取其长度，也不解载荷；保留拒收事件后继续按已知同步搜索。
+同一能量段中的连续包现在可分别接收，不依赖段落结束。
+
+居中 RRC 通过因果 FIR＋固定群时延实现；局部四点三次 Lagrange 插值需两个未来滤波样本。
+滤波/插值的未来样本需求为 `10*sps+2`；内部处理量子为 `8*sps`，
+输出还可能等待最多一个量子。头/整包完成和残余载波拟合另有帧级等待，不能当成零延迟。
+EOF 以零延拓冲洗滤波器，但只输出原输入范围内的采样中心；未完成头/数据保留截断。
+零延拓不等于接收到了未来空口信号。
+
+搜索历史上限为 `max(64, sync_symbols+32)*sps + 4*(8*sps)`，
+另保存有限 FIR/能量状态及不足一个量子的输入余数；符号缓冲仅容纳一个按 profile 上限计算的合法帧。
+默认最大长度 2047 字节，可在 profile 中设更小的长度上限；未校验长度不能触发扩大分配。
+校准 IQ 一次性读取，限制为 65..2²² 个样本，并须容纳能量窗；不作为流式输入缓存保留。
+返回的诊断轨迹由调用者保存，接收器不积累全部已完成包。
+
+目前局部插值与旧整段 CubicSpline 是不同的数值方法。
+分块一致性预先固定为：包判定完全相同、符号绝对误差≤1e-12、中心误差≤1e-10采样、速率状态≤1e-8ppm。
+相对于旧整段轨迹另预定义 .25采样的对照容差，它不是 CRC 或成功率的放宽。
+开发参考与初步真实 IQ 通过，全部冻结真实/噪声输入的流式验收仍待后续记录。
+当前 Python 开发样本实测约0.73MS/s，未达到16MS/s；尚无实时能力结论。

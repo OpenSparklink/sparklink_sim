@@ -7,9 +7,9 @@
 |---|---|---|
 | 1 | 真实 A/B 头 CRC、上下文、截断/非法长度、失败停止交付；基线复现及全量回归 | 实现并验证 |
 | 2 | 捕获/同步/跟踪/严格帧解析接入 MAC；普通与 WS63 profile 分离，未知起点和长度反例 | 整段 PSK 集成完成；流式仍待下一阶段 |
-| 3 | 有界增量滤波/插值/定时/帧状态；任意分块、多包、结束截断与整段轨迹对照 | 待完成 |
+| 3 | 有界增量滤波/插值/定时/帧状态；任意分块、多包、结束截断与整段轨迹对照 | 开发闭环完成；冻结流式全量复核待完成 |
 | 4 | 按实际星座/旋转/导频生成可靠度 LLR；编码开发/保留集与 Polar 对照 | 待完成 |
-| 5 | 真实路径 profile、吞吐/延迟/内存；独立记录 Python/Rust，并验证优化等价性 | 待完成 |
+| 5 | 真实路径 profile、吞吐/延迟/内存；独立记录 Python/Rust，并验证优化等价性 | 已定位流式原型热点；优化和Rust对照待完成 |
 | 6 | CI 触发、依赖跳过、加速一致性；剩余低 SNR 的真值诊断及独立重复样本 | 待完成 |
 
 每阶段更新本文及 CHANGELOG，运行针对性反例、ruff、全量测试，再单独提交推送。
@@ -110,6 +110,47 @@ PYTHONPATH=src UV_CACHE_DIR=/tmp/rx-uv uv run --frozen --no-sync python \
 
 当前 CI 仅 master push / master PR 触发，特性分支直接推送尚未触发 CI；
 本阶段只报告已执行的本地 lint/测试与远端提交核验，触发修正在 CI 阶段完成。
+
+## 阶段 3a：有界流式开发闭环
+
+`af9f126` 上，同一能量段的两个连续独立参考包只收到一个；原始输入、两个真值同步位置、
+哈希和预定义容差保存在 `streaming-baseline-input.npz` / `streaming-baseline.json`。
+新 `PSKStreamReceiver` / `MacStreamReceiver` 在 EOF 前收到两个完整包。
+逐包定时/载波状态重置、连续 FIR 状态保留，不用 CRC 选择下一同步或重试参数。
+
+已测试固定1/7/31/32/37/511采样块和随机分块；整块/分块的包判定与轨迹满足事先固定容差。
+覆盖头/数据跨块、坏头后连续好包、EOF头/数据截断、长静默、非法配置和输入结束后误用。
+FT2/3/4 编码样本与离线路径比较；最大2047字节A3、±100ppm、30kHz CFO 的完整内容及独立定时真值也验证。
+迭代接口在消耗完整大输入之前便产生第一个包，避免仅在 EOF 后批量处理。
+全量2905通过、2跳过，覆盖率91%；ruff通过。
+
+差分已知同步搜索和 Gardner/PI 状态被抽为共享组件，旧整段方法保留 CubicSpline，
+流式用局部四点插值。重构后开发真实 IQ 的30个中心/速率/TED数组与旧冻结记录逐位一致。
+共享组件的364输入整段回放仍无成功位置退化（`shared-sync-pi-replay`）；
+这不代表所有这些输入的流式路径已经复核。
+
+开发真实 IQ `series-02/mode-057/rx-00` 按原哈希读取，流式和整段均正确接收10个完整包。
+原型未加 profiler 的流式耗时1.435s、约0.731MS/s；整段0.179s，目标16MS/s未达到。
+初始化0.035s单列。状态NumPy数组约452776字节；原型历史/滤波状态495元素，能量历史另存，
+进程RSS高水位约219MiB包含调用者IQ、校准、诊断及profiler，不能写成接收器只用0.45MB。
+这些是单次开发观察，还不是延迟分布或可信的性能提升比例。
+
+cProfile 3.358s中短块lfilter累计约1.984s，65540次调用；短块数组准备/拼接和重复搜索亦可见。
+先保存原型及源码快照，再据此优化，不能仅凭循环数判断热点。
+`stream-initial-profile` 保存原始输入/校准哈希、全部帧、轨迹、.pstats、热点表、精确原型源码快照。
+原型快照早于逐事件迭代接口，哈希已逐文件验证；正式结果应以对应快照重放。
+一次原型驱动将十六进制JSON种子误传为字符串，接收器拒绝配置；该错误记录保留，
+修正驱动的显式数值解析后才执行算法，不更改接收规则。
+
+```sh
+PYTHONPATH=src UV_CACHE_DIR=/tmp/rx-uv uv run --frozen --no-sync python \
+  scripts/profile_rx_stream.py \
+  --original "$B/rx-timing-tracking/final" \
+  --dataset /home/sanchuanhehe/Documents/opensparklink/sparklink-hw/datasets/sle-rf/ws63/20261115-rx2 \
+  --sample-id series-02/mode-057/rx-00 --output /tmp/stream-profile-new
+```
+
+$B沿用前述证据根目录。纯Python，Rust未安装；未改变原低SNR保留集，也尚未给出流式的全量误检/漏检结论。
 
 ## 复现与证据
 
