@@ -80,12 +80,13 @@ def payload_coded_length(n_info_bits: int, cfg: TxConfig) -> int:
 
 
 def decode_payload(scrambled_bits: np.ndarray, cfg: TxConfig,
-                   n_info_bits: int) -> tuple[np.ndarray, bool]:
+                   n_info_bits: int, *, llr: np.ndarray | None = None) -> tuple[np.ndarray, bool]:
     """载荷解码: 解扰 → [Polar 解码] → CRC 校验。
 
     :param scrambled_bits: 加扰后的载荷比特 (txPyLdW)。
     :param cfg: 发射/接收配置。
     :param n_info_bits: 原始信息比特数 (data_bytes * 8, 不含 CRC)。
+    :param llr: 可选加扰域真实符号 LLR（正值为0）；省略时保留理想仿真的硬判决接口。
     :returns: (data_bits, crc_ok) — 原始数据比特和 CRC 校验结果。
     """
     if (not isinstance(n_info_bits, int) or isinstance(n_info_bits, bool)
@@ -96,12 +97,18 @@ def decode_payload(scrambled_bits: np.ndarray, cfg: TxConfig,
         raise ValueError("Payload must be a one-dimensional binary array")
     b_len = n_info_bits + cfg.crc_len
     expected = payload_coded_length(n_info_bits, cfg)
+    if llr is not None:
+        llr = np.asarray(llr, dtype=float)
+        if llr.shape != scrambled_bits.shape or not np.isfinite(llr).all():
+            raise ValueError("LLR must be finite and match the scrambled coded bits")
     if len(scrambled_bits) != expected:
         return np.empty(0, dtype=np.int8), False
     # 解扰
     offset = _HEAD_CODED_LEN[cfg.frame_type]
     sc = scramble_sequence(offset + len(scrambled_bits), cfg.whitening_seed)
     coded = np.asarray(scrambled_bits, dtype=np.uint8) ^ sc[offset: offset + len(scrambled_bits)]
+    soft = (None if llr is None else np.clip(llr, -64., 64.) *
+            (1.0 - 2.0 * sc[offset:offset+len(scrambled_bits)].astype(float)))
 
     if cfg.is_uncoded:
         data_with_crc = coded.astype(np.int8)
@@ -116,10 +123,11 @@ def decode_payload(scrambled_bits: np.ndarray, cfg: TxConfig,
         for n_code, info in segments:
             k = len(info)
             block = coded[pos: pos + n_code]
-            # 硬比特 → LLR: 0 → +1, 1 → -1
-            llr = (1.0 - 2.0 * block.astype(np.float64)) * 10.0
+            # Compatibility fallback is explicitly hard; strict coded RX supplies soft LLR.
+            block_llr = ((1.0 - 2.0 * block.astype(np.float64)) * 10.0
+                         if soft is None else soft[pos:pos+n_code])
             dec = get_polar_decoder(n_code, k)
-            info_blocks.append(dec.decode(llr))
+            info_blocks.append(dec.decode(block_llr))
             pos += n_code
 
         # FT3/FT4: 处理 segment_with_crc 的分段结构

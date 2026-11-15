@@ -6,11 +6,11 @@
 | 阶段 | 子任务及完成标准 | 状态 |
 |---|---|---|
 | 1 | 真实 A/B 头 CRC、上下文、截断/非法长度、失败停止交付；基线复现及全量回归 | 实现并验证 |
-| 2 | 捕获/同步/跟踪/严格帧解析接入 MAC；普通与 WS63 profile 分离，未知起点和长度反例 | 整段 PSK 集成完成；流式仍待下一阶段 |
-| 3 | 有界增量滤波/插值/定时/帧状态；任意分块、多包、结束截断与整段轨迹对照 | 开发闭环完成；冻结流式全量复核待完成 |
-| 4 | 按实际星座/旋转/导频生成可靠度 LLR；编码开发/保留集与 Polar 对照 | 待完成 |
+| 2 | 捕获/同步/跟踪/严格帧解析接入 MAC；普通与 WS63 profile 分离，未知起点和长度反例 | 完成PSK FT2/3/4；FT1另有前端，未纳入新流式入口 |
+| 3 | 有界增量滤波/插值/定时/帧状态；任意分块、多包、结束截断与整段轨迹对照 | 完整冻结364输入复核，无退化/分块差异 |
+| 4 | 按实际星座/旋转/导频生成可靠度 LLR；编码开发/保留集与 Polar 对照 | 完成；保留低SNR编码失败 |
 | 5 | 真实路径 profile、吞吐/延迟/内存；独立记录 Python/Rust，并验证优化等价性 | 已定位流式原型热点；优化和Rust对照待完成 |
-| 6 | CI 触发、依赖跳过、加速一致性；剩余低 SNR 的真值诊断及独立重复样本 | 待完成 |
+| 6 | CI 触发、依赖跳过、加速一致性；剩余低 SNR 的真值诊断及独立重复样本 | CI完成，独立边界复核待完成 |
 
 每阶段更新本文及 CHANGELOG，运行针对性反例、ruff、全量测试，再单独提交推送。
 只涉及离线模型、测试、文档和 CI；不操作设备、固件、RTL 或 Release。
@@ -293,3 +293,50 @@ uv run --frozen --no-sync pytest tests/test_crypto.py tests/conformance/test_sec
 ```
 
 常规 `uv sync` 会调整环境依赖；开发者应在独立环境分别运行上述后端，不能用同一个标签混合两类性能结果。
+
+
+## 阶段 4：编码软信息
+
+基线 `1b015fa` 源码快照在 `soft-baseline`：所有编码符号先硬判决，再转换成固定±10 LLR。
+新严格路径在载波细化后计算真实星座 LLR，保留可靠度、正确软解扰和码块切分；
+理想 API 硬判决兼容路径保留。独立角度与逐标签高斯似然验证 BPSK/QPSK/8PSK、
+绝对索引0/1/65、两种似然和导频；测试 FT2/3/4 跨码块、非零加扰、原始IQ及分块轨迹。
+
+冻结 AWGN 诊断240包：开发/保留各120，种子71016/72016，MCS6/10，255字节随机内容，
+Es/N0=2/4/6/8/10dB，每点12包，导频8，数据起点索引65，码块几何逐输入保存。
+使用独立解析角度发送和复数高斯噪声，已知符号边界/载波/增益以隔离软信息；
+不能把此结果算成实际捕获通过率。每个硬判决输出与冻结旧 `decode_payload` 逐位一致。
+编码、头部格式和期待答案没有随结果调整；没有为未编码实验增加编码。
+
+| 保留集，12包/点 | dB | 硬判决正确 | max-log正确 | log-MAP正确 |
+|---|---:|---:|---:|---:|
+| QPSK MCS6 | 2 / 4 | 0 / 0 | 0 / 0 | 0 / 0 |
+| QPSK MCS6 | 6 | 1 | 12 | 12 |
+| QPSK MCS6 | 8 / 10 | 12 / 12 | 12 / 12 | 12 / 12 |
+| 8PSK MCS10 | 2 / 4 / 6 / 8 | 0 / 0 / 0 / 0 | 0 / 0 / 0 / 0 | 0 / 0 / 0 / 0 |
+| 8PSK MCS10 | 10 | 0 | 11 | 11 |
+
+保留集总计25/120→47/120；开发+保留共44包恢复、无原成功包退化，仍有大量低 SNR 失败。
+log-MAP 与 max-log 在86个输入的错误位数不同，但完整包数相同，不能宣称更复杂算法必然更好。
+两者进入已有 Python/Rust SSC SC，同一冻结集240输入的判定、译码比特和LLR逐项完全一致；本阶段没有引入 SCL。
+Rust串行相同范围耗时为0.029s/0.062s/0.183s，表明译码已加速后log-MAP开销更明显，仍保留max-log默认。
+纯Python串行预热、循环方法顺序的240包解映射LLR+译码总耗时：硬判决1.290s、max-log1.326s、log-MAP1.449s。
+不含共同硬解映射、输入加载及接收捕获；不是原始IQ吞吐。每点仅12包，统计不确定度较大。
+
+`soft-awgn-python` 保存首次冻结输入，`soft-awgn-python-serial` 保存正式串行成本及旧函数等价检查，
+`soft-awgn-rust-serial` 对同一哈希输入验证加速实现；所有失败和每臂译码/LLR在各目录 evidence。
+首次串行驱动动态导入缺少sys.modules注册的工具错误保留在 `soft-awgn-python-final`，不计作算法结果。
+图 `coded-awgn.png/svg` 明确标注已知对齐的编码诊断。
+完整2958通过、6跳过，覆盖率90.65%；独立Rust+SM3完整2975通过，ruff通过。
+
+```sh
+PYTHONPATH=src UV_CACHE_DIR=/tmp/rx-uv MPLCONFIGDIR=/tmp/rx-mpl uv run --frozen --no-sync python \
+  scripts/audit_psk_soft.py --output /tmp/coded-awgn-new
+# 第二环境通过 --inputs 重用第一目录的冻结NPZ，不能重新抽样后混作后端对照
+PYTHONPATH=src /tmp/rx-rust-env/bin/python scripts/audit_psk_soft.py \
+  --inputs /tmp/coded-awgn-new --output /tmp/coded-awgn-rust
+```
+
+CI提交 `1b015fa` 的 [push运行](https://github.com/OpenSparklink/sparklink_sim/actions/runs/43759734783)
+9个作业全部成功；精确SHA、作业状态与本地报告在 `ci-verification`。
+后续提交仍需分别核验，不能沿用此成功标记。

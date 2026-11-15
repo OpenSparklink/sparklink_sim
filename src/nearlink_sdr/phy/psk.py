@@ -218,6 +218,40 @@ class PSKDemodulator:
 
         return self.demap_symbols(symbols)
 
+    def soft_demap_symbols(self, symbols: np.ndarray, noise_variance: float,
+                           start_symbol_index: int = 0, *, method: str = "maxlog") -> np.ndarray:
+        """Return bit LLRs (positive for zero) using the actual §6.2.1.2 labels.
+
+        Variance is complex E[|n|²] after carrier/gain normalization, for a
+        unit-energy constellation. A 1e-12 variance floor and ±64 output bound
+        keep SC arithmetic finite. No expected bits or CRC select a mapping.
+        """
+        y = np.asarray(symbols, dtype=complex)
+        if (y.ndim != 1 or not np.isfinite(y).all()
+                or not np.isscalar(noise_variance) or not np.isfinite(noise_variance)
+                or noise_variance <= 0 or method not in ("maxlog", "logmap")
+                or not isinstance(start_symbol_index, int) or start_symbol_index < 0):
+            raise ValueError("Need finite symbols, positive complex variance, index and LLR method")
+        # Values this far outside the normalized constellation already saturate LLR.
+        y = np.clip(y.real, -1e6, 1e6) + 1j*np.clip(y.imag, -1e6, 1e6)
+        if self._rotation is not None:
+            y[(np.arange(len(y)) + start_symbol_index) % 2 == 1] *= np.conj(self._rotation)
+        reference = self._constellation_vals
+        # Drop the common -|y|² term; avoids overflow/cancellation at high amplitude.
+        metric = (2*np.real(y[:, None]*reference.conj()) - abs(reference)**2) / max(
+            float(noise_variance), 1e-12)
+        labels = np.array(self._constellation_keys)[:, None] >> np.arange(
+            self._bits_per_symbol-1, -1, -1) & 1
+        llr = np.empty((len(y), self._bits_per_symbol))
+        for bit in range(self._bits_per_symbol):
+            zero, one = metric[:, labels[:, bit] == 0], metric[:, labels[:, bit] == 1]
+            if method == "maxlog":
+                llr[:, bit] = np.max(zero, axis=1) - np.max(one, axis=1)
+            else:
+                from scipy.special import logsumexp
+                llr[:, bit] = logsumexp(zero, axis=1) - logsumexp(one, axis=1)
+        return np.clip(llr, -64., 64.).reshape(-1)
+
     def demap_symbols(self, symbols: np.ndarray, start_symbol_index: int = 0) -> np.ndarray:
         """判决已滤波符号；奇偶参考帧起点，不能在字段/导频处重新计数。"""
         # 反旋转 + 最近邻判决

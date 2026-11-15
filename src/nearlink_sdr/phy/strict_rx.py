@@ -9,7 +9,7 @@ import numpy as np
 
 from nearlink_sdr.phy.control_info import ControlInfoA2, ControlInfoA3, ControlInfoB1
 from nearlink_sdr.phy.psk import PSKModulator, refine_psk_carrier
-from nearlink_sdr.phy.psk_fields import demap_psk_field, psk_field_layout
+from nearlink_sdr.phy.psk_fields import demap_psk_field, psk_field_layout, soft_demap_psk_field
 from nearlink_sdr.phy.sync_sequence import sync_signal_2, sync_signal_3, sync_signal_4
 from nearlink_sdr.phy.tx_pipeline import TxConfig, head_crc_parameters
 
@@ -34,9 +34,17 @@ class PSKReceiveProfile:
     max_payload_bytes: int = 2047
     allowed_mcs: tuple[int, ...] = tuple(range(13))
     name: str = "ordinary"
+    soft_payload: bool = True
+    noise_variance: float | None = None
+    llr_method: str = "maxlog"
 
     def __post_init__(self):
         cfg = replace(self.config)
+        if (not isinstance(self.soft_payload, bool) or self.llr_method not in ("maxlog", "logmap")
+                or (self.noise_variance is not None and (
+                    not np.isscalar(self.noise_variance) or not np.isfinite(self.noise_variance)
+                    or self.noise_variance <= 0))):
+            raise ValueError("Need boolean soft_payload, positive noise_variance and LLR method")
         if cfg.frame_type not in (2, 3, 4):
             raise ValueError("Strict PSK profiles support FT2/3/4; GFSK requires another frontend")
         if self.control_format not in ("A2", "A3", "B1"):
@@ -171,7 +179,22 @@ def decode_psk_frame(symbols: np.ndarray, profile: PSKReceiveProfile, *,
     else:
         row["carrier"] = dict(method="sync estimate only; fewer than 32 payload wire symbols")
     bits = demap_psk_field(data, cfg.mod_str, start, cfg.pilot_interval)[:nbits]
-    payload, ok = decode_payload(bits, cfg, head.data_length * 8)
+    llr = None
+    if not cfg.is_uncoded:
+        if profile.soft_payload:
+            variance = profile.noise_variance
+            source = "explicit normalized complex variance"
+            if variance is None:
+                # Known sync only. Includes residual ISI/timing/carrier error; not pure AWGN truth.
+                variance = max(float(np.mean(abs(y[:nsync]-profile.sync_symbols())**2)), 1e-12)
+                source = "known-sync residual estimate (includes model mismatch)"
+            llr = soft_demap_psk_field(data, cfg.mod_str, start, variance,
+                                       cfg.pilot_interval, method=profile.llr_method)[:nbits]
+            row["soft_information"] = dict(method=profile.llr_method, variance=variance,
+                                            variance_source=source, llr_bound=64.)
+        else:
+            row["soft_information"] = dict(method="legacy hard +/-10")
+    payload, ok = decode_payload(bits, cfg, head.data_length * 8, llr=llr)
     pilot_mask = np.ones(len(data), dtype=bool)
     pilot_mask[positions] = False
     pilots = np.flatnonzero(pilot_mask)

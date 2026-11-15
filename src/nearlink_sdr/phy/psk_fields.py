@@ -4,7 +4,18 @@ import numpy as np
 from nearlink_sdr.phy.pilot import pilot_symbol
 from nearlink_sdr.phy.psk import PSKDemodulator, PSKModulator
 
-__all__ = ["demap_psk_field", "map_psk_field", "psk_field_layout"]
+__all__ = ["demap_psk_field", "map_psk_field", "psk_field_layout", "soft_demap_psk_field"]
+
+
+def soft_demap_psk_field(wire: np.ndarray, kind: str, start: int, noise_variance: float,
+                         interval: int = 0, *, method: str = "maxlog") -> np.ndarray:
+    """Preserve absolute rotation through pilots before dropping their LLRs."""
+    demod = PSKDemodulator(kind, sps=1)
+    llr = demod.soft_demap_symbols(wire, noise_variance, start, method=method).reshape(
+        -1, demod._bits_per_symbol)
+    if interval:
+        llr = llr[(np.arange(len(wire)) + 1) % (interval + 1) != 0]
+    return llr.reshape(-1)
 
 
 def psk_field_layout(n_bits: int, bits_per_symbol: int, pilot_interval: int,
