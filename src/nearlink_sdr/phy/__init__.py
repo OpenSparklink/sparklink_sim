@@ -20,6 +20,7 @@ __all__ = [
     "rx_pipeline",
     "sdr_backend",
     "sync_sequence",
+    "timing",
     "tx_pipeline",
     "uhd_backend",
     "usrp",

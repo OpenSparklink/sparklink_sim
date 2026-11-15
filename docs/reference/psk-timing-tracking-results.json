@@ -1,0 +1,1587 @@
+{
+  "core_commit": "b1e664a",
+  "experiment": "fixed vs NDA Gardner/PI; no CRC/payload selection",
+  "config": {
+    "bandwidth": 0.003,
+    "max_rate_ppm": 500.0
+  },
+  "driver": {
+    "bytes": 13970,
+    "sha256": "5ebf85682d541ede1e1339601c51df26ab0369710c75f498b3da61d9a6ca1801"
+  },
+  "sender": {
+    "bytes": 29538,
+    "sha256": "a74c1b480b942f2ca4c38cb667fcc91d3cc639616d6af2c6d643a60a3392db3e"
+  },
+  "source_hashes": {
+    "src/nearlink_sdr/__init__.py": {
+      "bytes": 50,
+      "sha256": "0b1868d399a7b92c8af269fde9ecacf3cfec0754871526b0b492e2157a3bac4f"
+    },
+    "src/nearlink_sdr/common/__init__.py": {
+      "bytes": 129,
+      "sha256": "da6ab9a19e7029e664048fcd957541db52984918984f78fc94b1838ce2500790"
+    },
+    "src/nearlink_sdr/common/bch.py": {
+      "bytes": 2199,
+      "sha256": "12778d56b2456f6837bf7d67aa725a37d57537a2f1680e39796cacc1b8191894"
+    },
+    "src/nearlink_sdr/common/code_block_seg.py": {
+      "bytes": 6581,
+      "sha256": "6f22fd9122b7108cf804057b4c59cf181a29ccc16e8af5f28ab15fd1b1f6d282"
+    },
+    "src/nearlink_sdr/common/crc.py": {
+      "bytes": 2904,
+      "sha256": "226bf519495a4220cd1b0b30d64dfa488b830ac67ac4351b59073c73968d9007"
+    },
+    "src/nearlink_sdr/common/m_sequence.py": {
+      "bytes": 2794,
+      "sha256": "3a70b253ff8119d1430886686ff8ee0ae43f1854d4b417e82ea2103b0038ccab"
+    },
+    "src/nearlink_sdr/common/mcs.py": {
+      "bytes": 4613,
+      "sha256": "648bb7143e43b03946c6ad09306d66348899ea25c9786a9bd604762686015d22"
+    },
+    "src/nearlink_sdr/common/polar.py": {
+      "bytes": 19528,
+      "sha256": "fba399b67f8e12c891733f1d38e427effa7fbab564d6b8fef93340d9d1c62836"
+    },
+    "src/nearlink_sdr/common/prbs.py": {
+      "bytes": 3538,
+      "sha256": "d1dfc1db301cf5ad8415ce49dcec9942dce4fd6aee7037f9b3461d61624e53df"
+    },
+    "src/nearlink_sdr/common/scrambler.py": {
+      "bytes": 3517,
+      "sha256": "97dee32d074ecf33833dc593777b94ceab4af78124769e8ad574d4e10f8d7b6b"
+    },
+    "src/nearlink_sdr/mac/__init__.py": {
+      "bytes": 250,
+      "sha256": "d8ccebc3dc14e4410c23e7e6cf76fbcc1e68c9ee5c9c796e67fabe01d4baf92f"
+    },
+    "src/nearlink_sdr/mac/access.py": {
+      "bytes": 34912,
+      "sha256": "5889c7417e6c48a1ebed024f5a57a872fffb10aee085c0cb71d04aa5c5116605"
+    },
+    "src/nearlink_sdr/mac/broadcast.py": {
+      "bytes": 61030,
+      "sha256": "7d689478a1652f12b59b13a9c2b288627617295c27654ef44d596849ab5183ca"
+    },
+    "src/nearlink_sdr/mac/crypto.py": {
+      "bytes": 14412,
+      "sha256": "0f32c70cc86d80d264e68c06ac175735a225a1ccc20d9dc419b91f4311bbc4ed"
+    },
+    "src/nearlink_sdr/mac/frame.py": {
+      "bytes": 7311,
+      "sha256": "89e5ea4fea0e9e17fb3724a5b5c5654efc692fffe01ff169755223a475c8e2f7"
+    },
+    "src/nearlink_sdr/mac/link_control.py": {
+      "bytes": 113672,
+      "sha256": "f42862bf8fc02be42297b7a72dddb38b72377ab4f43dae46f3916987eb74a262"
+    },
+    "src/nearlink_sdr/mac/link_manager.py": {
+      "bytes": 65387,
+      "sha256": "0e12cb9f236c48dc5e5f36984a1e1b7ff794d45cb2361271d896a37e4c89058e"
+    },
+    "src/nearlink_sdr/mac/power_control.py": {
+      "bytes": 11920,
+      "sha256": "7bb0c5050672705b773ec1957ffabde41422ddd9f6b1a4709fcdc61f1c9a6601"
+    },
+    "src/nearlink_sdr/mac/qos.py": {
+      "bytes": 16246,
+      "sha256": "56d8a901b845db8f253a30da090cb30dd487ce93ace5c3e31982deeb6e5e80f1"
+    },
+    "src/nearlink_sdr/mac/scheduler.py": {
+      "bytes": 21136,
+      "sha256": "63e960854124858104cea1363b8ae0f75ba003b1510f2930d5393a6cda9a9151"
+    },
+    "src/nearlink_sdr/mac/security.py": {
+      "bytes": 20770,
+      "sha256": "fb11e851b4997b1b49f26bae29d52fa7b8bff412c21ca04bf5b46ead31bbf9f9"
+    },
+    "src/nearlink_sdr/mac/security_manager.py": {
+      "bytes": 19270,
+      "sha256": "57da09c9b9eeab85b4dd1c01effd2b407f2b6908dbf8855a62cc1082f08889f4"
+    },
+    "src/nearlink_sdr/mac/signaling.py": {
+      "bytes": 14061,
+      "sha256": "e232374959fa2254051892ac692ff12cfef5c55d91a0d166ed77e347cb24edbb"
+    },
+    "src/nearlink_sdr/mac/smf.py": {
+      "bytes": 14566,
+      "sha256": "ec461985ac9d7cec9bbf2518b7d7df5081c39dd033c18317873c900b4c5bcc2e"
+    },
+    "src/nearlink_sdr/mac/smf_scheduler.py": {
+      "bytes": 11963,
+      "sha256": "46351469b9a634d3a2c63d47e268f17c6c71aa36acc2bb4258bc08435b3c166d"
+    },
+    "src/nearlink_sdr/node.py": {
+      "bytes": 30260,
+      "sha256": "225e631c8901609b7e6352444caebda8b8871109f06f0f5b1979e61824ddd2d5"
+    },
+    "src/nearlink_sdr/phy/__init__.py": {
+      "bytes": 506,
+      "sha256": "f35c5dd1fb9421d633284f763f0b408ee2d75b0e81f58f23d11aaa1edb8b0df0"
+    },
+    "src/nearlink_sdr/phy/channel.py": {
+      "bytes": 13894,
+      "sha256": "2669f1b8ee4dd5002c191bae450a2faf4eddd7c8153b6be1e4c69f7f0cf9936b"
+    },
+    "src/nearlink_sdr/phy/control_info.py": {
+      "bytes": 24832,
+      "sha256": "a38a4b98de27e3644e2fa1b9c7bd1c8edcf1bf2a44f9c126fce42a1d86ae314e"
+    },
+    "src/nearlink_sdr/phy/data_link.py": {
+      "bytes": 15931,
+      "sha256": "a836b8b17dc6a859b6dfe23b4430dcd857de0f9144683889676eabdb55c10eed"
+    },
+    "src/nearlink_sdr/phy/equalizer.py": {
+      "bytes": 4531,
+      "sha256": "e292d53e5a691b70cb1cde15c342256b07e6a00c691d01bd5254d6481a76b792"
+    },
+    "src/nearlink_sdr/phy/frame.py": {
+      "bytes": 18675,
+      "sha256": "5ab25f365995bd00999cd68a96f6eff2dcdf96c33f93a90163424a2265f17f3f"
+    },
+    "src/nearlink_sdr/phy/freq_hopping.py": {
+      "bytes": 13543,
+      "sha256": "d7a9aacde6dc38ce9dfebeb19ceb95fca083a6cf2b290e1fe9d79d21751d78b3"
+    },
+    "src/nearlink_sdr/phy/gfsk.py": {
+      "bytes": 10341,
+      "sha256": "86d3c663632c20ea94a9693649b4e57dad3806d61a2577b27b518fe6233a389e"
+    },
+    "src/nearlink_sdr/phy/mac_interface.py": {
+      "bytes": 9915,
+      "sha256": "5af3bf1fa9596aabf93db894f252a9437dd64e540a8dafa325a649198747bb77"
+    },
+    "src/nearlink_sdr/phy/measurement.py": {
+      "bytes": 9193,
+      "sha256": "8f901aa0bfa9fed457ae5cc0e3f5a7ec43d58d29832742539c588af7786162bb"
+    },
+    "src/nearlink_sdr/phy/measurement_frame.py": {
+      "bytes": 11014,
+      "sha256": "deb893ad96a3a0c946b62a29c8b6ea5cf7967fcd723a7aad370e3de74c71834f"
+    },
+    "src/nearlink_sdr/phy/measurement_tx.py": {
+      "bytes": 15974,
+      "sha256": "f81f72ec8b0999013770422ec4cee383c6ed973c760f9cd7ad98532e8f21923c"
+    },
+    "src/nearlink_sdr/phy/mock_backend.py": {
+      "bytes": 4774,
+      "sha256": "35682610866eaf6d577918f52b290df51dbf29d9a413f7f0e0da79f3f7eb55a8"
+    },
+    "src/nearlink_sdr/phy/multitone.py": {
+      "bytes": 3435,
+      "sha256": "440c59c4bb2a6bfacc2d2fa2b7edc3a8c8f6fe5c6739c944967cb9b2bb1c197d"
+    },
+    "src/nearlink_sdr/phy/pilot.py": {
+      "bytes": 4482,
+      "sha256": "57f7e70e9a06d0dd53152a8fef047641acdb8d317f5316066e80885f1d74c3c1"
+    },
+    "src/nearlink_sdr/phy/pluto_backend.py": {
+      "bytes": 5367,
+      "sha256": "fd264d282441e0c744a34bc2f8642a58107f7e0ce455871ce295dd08a79a3ea3"
+    },
+    "src/nearlink_sdr/phy/preamble.py": {
+      "bytes": 2666,
+      "sha256": "f3f4d997edf3cbb64c30b1576420fb79eb35396adc571667130536ad3ec85e80"
+    },
+    "src/nearlink_sdr/phy/psk.py": {
+      "bytes": 15417,
+      "sha256": "8c90174a7f6e470060bf66325d80b63717f1947885a485f64be029a0aa2a46b0"
+    },
+    "src/nearlink_sdr/phy/rf_compliance.py": {
+      "bytes": 22738,
+      "sha256": "df00362e31f670e7499b2e8e5b770488d4a812e63d3138aa321f86c166e50514"
+    },
+    "src/nearlink_sdr/phy/rx_pipeline.py": {
+      "bytes": 9553,
+      "sha256": "b3533d93b387627c7aa3cb509fc321e0bb0f5915142b493f61358255bf11d098"
+    },
+    "src/nearlink_sdr/phy/sdr_backend.py": {
+      "bytes": 5416,
+      "sha256": "56de3245b75fd1221315aadb2dec57df8e29725230cc247db5530530cf14b5d2"
+    },
+    "src/nearlink_sdr/phy/sync_sequence.py": {
+      "bytes": 9382,
+      "sha256": "bacd144be6b2249ed18a48d09aa21615bc35a59e315b8f735eb3789ebd69ea71"
+    },
+    "src/nearlink_sdr/phy/timing.py": {
+      "bytes": 5508,
+      "sha256": "5996e77773a3cf21226127bdf934d9d0dea3a241b0d3473b55b4cd6fef95259f"
+    },
+    "src/nearlink_sdr/phy/tx_pipeline.py": {
+      "bytes": 6519,
+      "sha256": "c1361f15b43a6012f6693f125c163597b2d88e77d11541e3b2ab4751fe49a6c7"
+    },
+    "src/nearlink_sdr/phy/uhd_backend.py": {
+      "bytes": 5689,
+      "sha256": "1aa3ae56a481ebce373e17a3dcc7b8f9de622c93bec0ff75e0ca87a056799f46"
+    },
+    "src/nearlink_sdr/phy/usrp.py": {
+      "bytes": 29700,
+      "sha256": "f5a9229b50f10c601c4b379420039bda84aa7724e945fb285250a91cd4f3e7c0"
+    },
+    "src/nearlink_sdr/phy/uwb_measurement_security.py": {
+      "bytes": 11449,
+      "sha256": "8757e7d449fbba83af514b96933c06082f552667d86cf7c5b7f8dd3f213cb17d"
+    },
+    "src/nearlink_sdr/phy/uwb_pulse.py": {
+      "bytes": 6270,
+      "sha256": "b5ad2f691b3ae79c9c01e8defce8e7b9cecaf72152dec1d9f658f3fbcc8d16f2"
+    },
+    "src/nearlink_sdr/sim/__init__.py": {
+      "bytes": 35,
+      "sha256": "44b4ed103fb1686ef5f43f996ee31e660439b6051a9cb6ff566f79e839751bc4"
+    },
+    "src/nearlink_sdr/sim/link_sim.py": {
+      "bytes": 167620,
+      "sha256": "4441668561b1f17b3a3391018d65b72960eaa111303582e3ae5ca63a8abbaa11"
+    },
+    "src/nearlink_sdr/sim/usrp_sim.py": {
+      "bytes": 7911,
+      "sha256": "466450f4320c4ae11c8ca383a09be2418c001dc584eca43b957e7ae4b5a62b9e"
+    }
+  },
+  "input_hashes": {
+    "raw/series-02/mode-057/rx-00.iq16": {
+      "bytes": 4194304,
+      "sha256": "ed28370a4d8d1f069e049c6d54da5c6de0818b29cb2a3140eeea595c4fbde0ab"
+    },
+    "raw/series-02/mode-057/rx-01.iq16": {
+      "bytes": 4194304,
+      "sha256": "3bf194590d7bafa971a18bff442f27c0c61aa3f4ec36f37463fec6c7d8fc7d4e"
+    },
+    "raw/series-02/mode-057/rx-02.iq16": {
+      "bytes": 4194304,
+      "sha256": "332d73bf901908cc4d9a6cb1ed11815cedaf312c4bc57687268ab35dec392472"
+    },
+    "raw/series-02/mode-065/rx-00.iq16": {
+      "bytes": 4194304,
+      "sha256": "2568df0cdb33716b3545992599291a44eb3784ec4912dcc6ce01b8bd4bb1042a"
+    },
+    "raw/series-02/mode-065/rx-01.iq16": {
+      "bytes": 4194304,
+      "sha256": "e1aa1cdfab7b9cbf01d8cc4aa975049910245d32644f08b03f217e0a29090e2a"
+    },
+    "raw/series-02/mode-065/rx-02.iq16": {
+      "bytes": 4194304,
+      "sha256": "c55e2d117c39d1b9787c36b88490b256c920e83ac53fe17b01eab83836663017"
+    },
+    "raw/series-02/mode-057/off-before.iq16": {
+      "bytes": 4194304,
+      "sha256": "167a54b1c7c74f707f5670baf2addb023ba82a8b88eb94b8a8c5f9577086f42d"
+    },
+    "raw/series-02/mode-057/off-after.iq16": {
+      "bytes": 4194304,
+      "sha256": "a9a6dac04744017be2179aacbf0719a091aefd6e154204d4b7f517ed9b88d8ad"
+    },
+    "raw/series-02/mode-065/off-before.iq16": {
+      "bytes": 4194304,
+      "sha256": "f86f0d93a9bc440106e75fbb0b5ff1cd7abd8a698be0461f1e0c609e820bb59a"
+    },
+    "raw/series-02/mode-065/off-after.iq16": {
+      "bytes": 4194304,
+      "sha256": "a67e3830f987d8726ba38fac86d77a364b800048b3d646e610975f1d35e6e88f"
+    }
+  },
+  "dependencies": {
+    "numpy": "2.4.3",
+    "scipy": "1.17.1",
+    "matplotlib": "3.10.8",
+    "ruff": "0.15.6",
+    "pytest": "9.0.2"
+  },
+  "pairs": 208,
+  "recoveries": 33,
+  "regressions": 0,
+  "artifact_manifest_sha256": "2055ab32cb564d33b220466669ef1887063bb37afd37dd3a32f2f40409b7fd28",
+  "artifacts": "rx-timing-tracking/final (local delivery); regenerate with scripts/rx_timing_tracking_compare.py",
+  "groups": [
+    {
+      "source": "simulation",
+      "split": "development",
+      "kind": "8PSK",
+      "family": "static",
+      "arm": "fixed",
+      "inputs": 9,
+      "known_tx_packets": 9,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 9,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9
+      },
+      "seconds": 0.233939740981441,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "development",
+      "kind": "8PSK",
+      "family": "static",
+      "arm": "tracked",
+      "inputs": 9,
+      "known_tx_packets": 9,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 9,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9
+      },
+      "seconds": 0.09261369303567335,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "development",
+      "kind": "8PSK",
+      "family": "sro",
+      "arm": "fixed",
+      "inputs": 9,
+      "known_tx_packets": 9,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 9,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9
+      },
+      "seconds": 0.07478376396466047,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "development",
+      "kind": "8PSK",
+      "family": "sro",
+      "arm": "tracked",
+      "inputs": 9,
+      "known_tx_packets": 9,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 9,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9
+      },
+      "seconds": 0.09221164596965536,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "development",
+      "kind": "8PSK",
+      "family": "length",
+      "arm": "fixed",
+      "inputs": 15,
+      "known_tx_packets": 15,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 15,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9,
+        "bad_data_crc": 6
+      },
+      "seconds": 0.471604481106624,
+      "recoveries": 6,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "development",
+      "kind": "8PSK",
+      "family": "length",
+      "arm": "tracked",
+      "inputs": 15,
+      "known_tx_packets": 15,
+      "any_packet_correct": 15,
+      "complete_energy_segments": 15,
+      "complete_packets_correct": 15,
+      "all_packets_correct": 15,
+      "statuses": {
+        "valid": 15
+      },
+      "seconds": 0.5872781181242317,
+      "recoveries": 6,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "development",
+      "kind": "8PSK",
+      "family": "impairment",
+      "arm": "fixed",
+      "inputs": 12,
+      "known_tx_packets": 12,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 12,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9,
+        "truncated_data": 1,
+        "no_sync": 1,
+        "bad_data_crc": 1
+      },
+      "seconds": 0.08801462699193507,
+      "recoveries": 1,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "development",
+      "kind": "8PSK",
+      "family": "impairment",
+      "arm": "tracked",
+      "inputs": 12,
+      "known_tx_packets": 12,
+      "any_packet_correct": 10,
+      "complete_energy_segments": 12,
+      "complete_packets_correct": 10,
+      "all_packets_correct": 10,
+      "statuses": {
+        "valid": 10,
+        "truncated_data": 1,
+        "no_sync": 1
+      },
+      "seconds": 0.10775568499229848,
+      "recoveries": 1,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "development",
+      "kind": "QPSK",
+      "family": "static",
+      "arm": "fixed",
+      "inputs": 9,
+      "known_tx_packets": 9,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 9,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9
+      },
+      "seconds": 0.09918848291272298,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "development",
+      "kind": "QPSK",
+      "family": "static",
+      "arm": "tracked",
+      "inputs": 9,
+      "known_tx_packets": 9,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 9,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9
+      },
+      "seconds": 0.1245226749451831,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "development",
+      "kind": "QPSK",
+      "family": "sro",
+      "arm": "fixed",
+      "inputs": 9,
+      "known_tx_packets": 9,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 9,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9
+      },
+      "seconds": 0.0991539970273152,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "development",
+      "kind": "QPSK",
+      "family": "sro",
+      "arm": "tracked",
+      "inputs": 9,
+      "known_tx_packets": 9,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 9,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9
+      },
+      "seconds": 0.12399088498204947,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "development",
+      "kind": "QPSK",
+      "family": "length",
+      "arm": "fixed",
+      "inputs": 15,
+      "known_tx_packets": 15,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 15,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9,
+        "bad_data_crc": 6
+      },
+      "seconds": 0.6919941459200345,
+      "recoveries": 6,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "development",
+      "kind": "QPSK",
+      "family": "length",
+      "arm": "tracked",
+      "inputs": 15,
+      "known_tx_packets": 15,
+      "any_packet_correct": 15,
+      "complete_energy_segments": 15,
+      "complete_packets_correct": 15,
+      "all_packets_correct": 15,
+      "statuses": {
+        "valid": 15
+      },
+      "seconds": 0.8765914080431685,
+      "recoveries": 6,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "development",
+      "kind": "QPSK",
+      "family": "impairment",
+      "arm": "fixed",
+      "inputs": 12,
+      "known_tx_packets": 12,
+      "any_packet_correct": 10,
+      "complete_energy_segments": 14,
+      "complete_packets_correct": 10,
+      "all_packets_correct": 10,
+      "statuses": {
+        "valid": 10,
+        "truncated_data": 1,
+        "no_sync": 3
+      },
+      "seconds": 0.11813266802346334,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "development",
+      "kind": "QPSK",
+      "family": "impairment",
+      "arm": "tracked",
+      "inputs": 12,
+      "known_tx_packets": 12,
+      "any_packet_correct": 10,
+      "complete_energy_segments": 14,
+      "complete_packets_correct": 10,
+      "all_packets_correct": 10,
+      "statuses": {
+        "valid": 10,
+        "truncated_data": 1,
+        "no_sync": 3
+      },
+      "seconds": 0.14822972501860932,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "real",
+      "split": "development",
+      "kind": "QPSK",
+      "family": "original",
+      "arm": "fixed",
+      "inputs": 1,
+      "known_tx_packets": null,
+      "any_packet_correct": 1,
+      "complete_energy_segments": 10,
+      "complete_packets_correct": 10,
+      "all_packets_correct": 10,
+      "statuses": {
+        "valid": 10
+      },
+      "seconds": 0.13634158403147012,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "real",
+      "split": "development",
+      "kind": "QPSK",
+      "family": "original",
+      "arm": "tracked",
+      "inputs": 1,
+      "known_tx_packets": null,
+      "any_packet_correct": 1,
+      "complete_energy_segments": 10,
+      "complete_packets_correct": 10,
+      "all_packets_correct": 10,
+      "statuses": {
+        "valid": 10
+      },
+      "seconds": 0.16492102504707873,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "real-derived",
+      "split": "development",
+      "kind": "QPSK",
+      "family": "injected-sro",
+      "arm": "fixed",
+      "inputs": 2,
+      "known_tx_packets": null,
+      "any_packet_correct": 2,
+      "complete_energy_segments": 20,
+      "complete_packets_correct": 20,
+      "all_packets_correct": 20,
+      "statuses": {
+        "valid": 20
+      },
+      "seconds": 0.26332856999943033,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "real-derived",
+      "split": "development",
+      "kind": "QPSK",
+      "family": "injected-sro",
+      "arm": "tracked",
+      "inputs": 2,
+      "known_tx_packets": null,
+      "any_packet_correct": 2,
+      "complete_energy_segments": 20,
+      "complete_packets_correct": 20,
+      "all_packets_correct": 20,
+      "statuses": {
+        "valid": 20
+      },
+      "seconds": 0.32085489900782704,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "real",
+      "split": "development",
+      "kind": "8PSK",
+      "family": "original",
+      "arm": "fixed",
+      "inputs": 1,
+      "known_tx_packets": null,
+      "any_packet_correct": 1,
+      "complete_energy_segments": 11,
+      "complete_packets_correct": 11,
+      "all_packets_correct": 11,
+      "statuses": {
+        "valid": 11
+      },
+      "seconds": 0.11194482399150729,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "real",
+      "split": "development",
+      "kind": "8PSK",
+      "family": "original",
+      "arm": "tracked",
+      "inputs": 1,
+      "known_tx_packets": null,
+      "any_packet_correct": 1,
+      "complete_energy_segments": 11,
+      "complete_packets_correct": 11,
+      "all_packets_correct": 11,
+      "statuses": {
+        "valid": 11
+      },
+      "seconds": 0.13376304903067648,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "real-derived",
+      "split": "development",
+      "kind": "8PSK",
+      "family": "injected-sro",
+      "arm": "fixed",
+      "inputs": 2,
+      "known_tx_packets": null,
+      "any_packet_correct": 2,
+      "complete_energy_segments": 22,
+      "complete_packets_correct": 22,
+      "all_packets_correct": 22,
+      "statuses": {
+        "valid": 22
+      },
+      "seconds": 0.23081437300425023,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "real-derived",
+      "split": "development",
+      "kind": "8PSK",
+      "family": "injected-sro",
+      "arm": "tracked",
+      "inputs": 2,
+      "known_tx_packets": null,
+      "any_packet_correct": 2,
+      "complete_energy_segments": 22,
+      "complete_packets_correct": 22,
+      "all_packets_correct": 22,
+      "statuses": {
+        "valid": 22
+      },
+      "seconds": 0.2744258859893307,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "held-out",
+      "kind": "8PSK",
+      "family": "static",
+      "arm": "fixed",
+      "inputs": 5,
+      "known_tx_packets": 5,
+      "any_packet_correct": 5,
+      "complete_energy_segments": 5,
+      "complete_packets_correct": 5,
+      "all_packets_correct": 5,
+      "statuses": {
+        "valid": 5
+      },
+      "seconds": 0.041596165974624455,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "held-out",
+      "kind": "8PSK",
+      "family": "static",
+      "arm": "tracked",
+      "inputs": 5,
+      "known_tx_packets": 5,
+      "any_packet_correct": 5,
+      "complete_energy_segments": 5,
+      "complete_packets_correct": 5,
+      "all_packets_correct": 5,
+      "statuses": {
+        "valid": 5
+      },
+      "seconds": 0.05123876401921734,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "held-out",
+      "kind": "8PSK",
+      "family": "sro",
+      "arm": "fixed",
+      "inputs": 9,
+      "known_tx_packets": 9,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 9,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9
+      },
+      "seconds": 0.07474664505571127,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "held-out",
+      "kind": "8PSK",
+      "family": "sro",
+      "arm": "tracked",
+      "inputs": 9,
+      "known_tx_packets": 9,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 9,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9
+      },
+      "seconds": 0.09280676685739309,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "held-out",
+      "kind": "8PSK",
+      "family": "length",
+      "arm": "fixed",
+      "inputs": 15,
+      "known_tx_packets": 15,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 15,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9,
+        "bad_data_crc": 6
+      },
+      "seconds": 0.45828474109293893,
+      "recoveries": 6,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "held-out",
+      "kind": "8PSK",
+      "family": "length",
+      "arm": "tracked",
+      "inputs": 15,
+      "known_tx_packets": 15,
+      "any_packet_correct": 15,
+      "complete_energy_segments": 15,
+      "complete_packets_correct": 15,
+      "all_packets_correct": 15,
+      "statuses": {
+        "valid": 15
+      },
+      "seconds": 0.5709120450774208,
+      "recoveries": 6,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "held-out",
+      "kind": "8PSK",
+      "family": "impairment",
+      "arm": "fixed",
+      "inputs": 12,
+      "known_tx_packets": 12,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 14,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9,
+        "truncated_data": 2,
+        "no_sync": 3
+      },
+      "seconds": 0.08625035494333133,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "held-out",
+      "kind": "8PSK",
+      "family": "impairment",
+      "arm": "tracked",
+      "inputs": 12,
+      "known_tx_packets": 12,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 14,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9,
+        "truncated_data": 2,
+        "no_sync": 3
+      },
+      "seconds": 0.10625237005297095,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "held-out",
+      "kind": "QPSK",
+      "family": "static",
+      "arm": "fixed",
+      "inputs": 5,
+      "known_tx_packets": 5,
+      "any_packet_correct": 5,
+      "complete_energy_segments": 5,
+      "complete_packets_correct": 5,
+      "all_packets_correct": 5,
+      "statuses": {
+        "valid": 5
+      },
+      "seconds": 0.05486067594029009,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "held-out",
+      "kind": "QPSK",
+      "family": "static",
+      "arm": "tracked",
+      "inputs": 5,
+      "known_tx_packets": 5,
+      "any_packet_correct": 5,
+      "complete_energy_segments": 5,
+      "complete_packets_correct": 5,
+      "all_packets_correct": 5,
+      "statuses": {
+        "valid": 5
+      },
+      "seconds": 0.06891245499718934,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "held-out",
+      "kind": "QPSK",
+      "family": "sro",
+      "arm": "fixed",
+      "inputs": 9,
+      "known_tx_packets": 9,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 9,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9
+      },
+      "seconds": 0.09921882796334103,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "held-out",
+      "kind": "QPSK",
+      "family": "sro",
+      "arm": "tracked",
+      "inputs": 9,
+      "known_tx_packets": 9,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 9,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9
+      },
+      "seconds": 0.12489365396322682,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "held-out",
+      "kind": "QPSK",
+      "family": "length",
+      "arm": "fixed",
+      "inputs": 15,
+      "known_tx_packets": 15,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 15,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9,
+        "bad_data_crc": 6
+      },
+      "seconds": 0.6946011669351719,
+      "recoveries": 6,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "held-out",
+      "kind": "QPSK",
+      "family": "length",
+      "arm": "tracked",
+      "inputs": 15,
+      "known_tx_packets": 15,
+      "any_packet_correct": 15,
+      "complete_energy_segments": 15,
+      "complete_packets_correct": 15,
+      "all_packets_correct": 15,
+      "statuses": {
+        "valid": 15
+      },
+      "seconds": 0.8255526261054911,
+      "recoveries": 6,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "held-out",
+      "kind": "QPSK",
+      "family": "impairment",
+      "arm": "fixed",
+      "inputs": 12,
+      "known_tx_packets": 12,
+      "any_packet_correct": 10,
+      "complete_energy_segments": 13,
+      "complete_packets_correct": 10,
+      "all_packets_correct": 10,
+      "statuses": {
+        "valid": 10,
+        "truncated_data": 1,
+        "no_sync": 2
+      },
+      "seconds": 0.11741311912192032,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "held-out",
+      "kind": "QPSK",
+      "family": "impairment",
+      "arm": "tracked",
+      "inputs": 12,
+      "known_tx_packets": 12,
+      "any_packet_correct": 10,
+      "complete_energy_segments": 13,
+      "complete_packets_correct": 10,
+      "all_packets_correct": 10,
+      "statuses": {
+        "valid": 10,
+        "truncated_data": 1,
+        "no_sync": 2
+      },
+      "seconds": 0.14619704597862437,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "real",
+      "split": "held-out",
+      "kind": "QPSK",
+      "family": "original",
+      "arm": "fixed",
+      "inputs": 2,
+      "known_tx_packets": null,
+      "any_packet_correct": 2,
+      "complete_energy_segments": 20,
+      "complete_packets_correct": 20,
+      "all_packets_correct": 20,
+      "statuses": {
+        "valid": 20,
+        "truncated_data": 1
+      },
+      "seconds": 0.26410339400172234,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "real",
+      "split": "held-out",
+      "kind": "QPSK",
+      "family": "original",
+      "arm": "tracked",
+      "inputs": 2,
+      "known_tx_packets": null,
+      "any_packet_correct": 2,
+      "complete_energy_segments": 20,
+      "complete_packets_correct": 20,
+      "all_packets_correct": 20,
+      "statuses": {
+        "valid": 20,
+        "truncated_data": 1
+      },
+      "seconds": 0.3227726679760963,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "real-derived",
+      "split": "held-out",
+      "kind": "QPSK",
+      "family": "injected-sro",
+      "arm": "fixed",
+      "inputs": 2,
+      "known_tx_packets": null,
+      "any_packet_correct": 2,
+      "complete_energy_segments": 20,
+      "complete_packets_correct": 20,
+      "all_packets_correct": 20,
+      "statuses": {
+        "valid": 20
+      },
+      "seconds": 0.26210531301330775,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "real-derived",
+      "split": "held-out",
+      "kind": "QPSK",
+      "family": "injected-sro",
+      "arm": "tracked",
+      "inputs": 2,
+      "known_tx_packets": null,
+      "any_packet_correct": 2,
+      "complete_energy_segments": 20,
+      "complete_packets_correct": 20,
+      "all_packets_correct": 20,
+      "statuses": {
+        "valid": 20
+      },
+      "seconds": 0.3182517240056768,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "real",
+      "split": "held-out",
+      "kind": "8PSK",
+      "family": "original",
+      "arm": "fixed",
+      "inputs": 2,
+      "known_tx_packets": null,
+      "any_packet_correct": 2,
+      "complete_energy_segments": 22,
+      "complete_packets_correct": 22,
+      "all_packets_correct": 22,
+      "statuses": {
+        "valid": 22
+      },
+      "seconds": 0.22875232994556427,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "real",
+      "split": "held-out",
+      "kind": "8PSK",
+      "family": "original",
+      "arm": "tracked",
+      "inputs": 2,
+      "known_tx_packets": null,
+      "any_packet_correct": 2,
+      "complete_energy_segments": 22,
+      "complete_packets_correct": 22,
+      "all_packets_correct": 22,
+      "statuses": {
+        "valid": 22
+      },
+      "seconds": 0.27356541802873835,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "real-derived",
+      "split": "held-out",
+      "kind": "8PSK",
+      "family": "injected-sro",
+      "arm": "fixed",
+      "inputs": 2,
+      "known_tx_packets": null,
+      "any_packet_correct": 2,
+      "complete_energy_segments": 22,
+      "complete_packets_correct": 22,
+      "all_packets_correct": 22,
+      "statuses": {
+        "valid": 22
+      },
+      "seconds": 0.23101798200514168,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "real-derived",
+      "split": "held-out",
+      "kind": "8PSK",
+      "family": "injected-sro",
+      "arm": "tracked",
+      "inputs": 2,
+      "known_tx_packets": null,
+      "any_packet_correct": 2,
+      "complete_energy_segments": 22,
+      "complete_packets_correct": 22,
+      "all_packets_correct": 22,
+      "statuses": {
+        "valid": 22
+      },
+      "seconds": 0.2745091629913077,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "fresh-held-out",
+      "kind": "8PSK",
+      "family": "fresh",
+      "arm": "fixed",
+      "inputs": 9,
+      "known_tx_packets": 9,
+      "any_packet_correct": 5,
+      "complete_energy_segments": 9,
+      "complete_packets_correct": 5,
+      "all_packets_correct": 5,
+      "statuses": {
+        "valid": 5,
+        "bad_data_crc": 4
+      },
+      "seconds": 0.2547249880153686,
+      "recoveries": 4,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "fresh-held-out",
+      "kind": "8PSK",
+      "family": "fresh",
+      "arm": "tracked",
+      "inputs": 9,
+      "known_tx_packets": 9,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 9,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9
+      },
+      "seconds": 0.31690808810526505,
+      "recoveries": 4,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "fresh-held-out",
+      "kind": "QPSK",
+      "family": "fresh",
+      "arm": "fixed",
+      "inputs": 9,
+      "known_tx_packets": 9,
+      "any_packet_correct": 5,
+      "complete_energy_segments": 9,
+      "complete_packets_correct": 5,
+      "all_packets_correct": 5,
+      "statuses": {
+        "valid": 5,
+        "bad_data_crc": 4
+      },
+      "seconds": 0.38386370812077075,
+      "recoveries": 4,
+      "regressions": 0
+    },
+    {
+      "source": "simulation",
+      "split": "fresh-held-out",
+      "kind": "QPSK",
+      "family": "fresh",
+      "arm": "tracked",
+      "inputs": 9,
+      "known_tx_packets": 9,
+      "any_packet_correct": 9,
+      "complete_energy_segments": 9,
+      "complete_packets_correct": 9,
+      "all_packets_correct": 9,
+      "statuses": {
+        "valid": 9
+      },
+      "seconds": 0.48098615993512794,
+      "recoveries": 4,
+      "regressions": 0
+    },
+    {
+      "source": "quiet",
+      "split": "held-out",
+      "kind": "none",
+      "family": "negative-control",
+      "arm": "fixed",
+      "inputs": 4,
+      "known_tx_packets": null,
+      "any_packet_correct": 0,
+      "complete_energy_segments": 0,
+      "complete_packets_correct": 0,
+      "all_packets_correct": 0,
+      "statuses": {},
+      "seconds": 0.05507001397199929,
+      "recoveries": 0,
+      "regressions": 0
+    },
+    {
+      "source": "quiet",
+      "split": "held-out",
+      "kind": "none",
+      "family": "negative-control",
+      "arm": "tracked",
+      "inputs": 4,
+      "known_tx_packets": null,
+      "any_packet_correct": 0,
+      "complete_energy_segments": 0,
+      "complete_packets_correct": 0,
+      "all_packets_correct": 0,
+      "statuses": {},
+      "seconds": 0.055208417936228216,
+      "recoveries": 0,
+      "regressions": 0
+    }
+  ],
+  "remaining_failures": [
+    {
+      "id": "sim-0039",
+      "case": {
+        "split": "development",
+        "seed": 11015,
+        "family": "impairment",
+        "kind": "8PSK",
+        "length": 255,
+        "offset": 0.419,
+        "ppm": 0,
+        "snr_db": 15,
+        "source": "simulation",
+        "id": "sim-0039",
+        "truth": {
+          "sync_start": 672.419,
+          "step": 4.0
+        },
+        "input_iq": "sim-0039.npz"
+      },
+      "statuses": [
+        "truncated_data",
+        "no_sync"
+      ]
+    },
+    {
+      "id": "sim-0040",
+      "case": {
+        "split": "development",
+        "seed": 11015,
+        "family": "impairment",
+        "kind": "8PSK",
+        "length": 255,
+        "offset": 0.419,
+        "ppm": 0,
+        "snr_db": 10,
+        "source": "simulation",
+        "id": "sim-0040",
+        "truth": {
+          "sync_start": 672.419,
+          "step": 4.0
+        },
+        "input_iq": "sim-0040.npz"
+      },
+      "statuses": []
+    },
+    {
+      "id": "sim-0084",
+      "case": {
+        "split": "development",
+        "seed": 11015,
+        "family": "impairment",
+        "kind": "QPSK",
+        "length": 255,
+        "offset": 0.419,
+        "ppm": 0,
+        "snr_db": 15,
+        "source": "simulation",
+        "id": "sim-0084",
+        "truth": {
+          "sync_start": 672.419,
+          "step": 4.0
+        },
+        "input_iq": "sim-0084.npz"
+      },
+      "statuses": [
+        "truncated_data",
+        "no_sync",
+        "no_sync",
+        "no_sync"
+      ]
+    },
+    {
+      "id": "sim-0085",
+      "case": {
+        "split": "development",
+        "seed": 11015,
+        "family": "impairment",
+        "kind": "QPSK",
+        "length": 255,
+        "offset": 0.419,
+        "ppm": 0,
+        "snr_db": 10,
+        "source": "simulation",
+        "id": "sim-0085",
+        "truth": {
+          "sync_start": 672.419,
+          "step": 4.0
+        },
+        "input_iq": "sim-0085.npz"
+      },
+      "statuses": []
+    },
+    {
+      "id": "sim-0125",
+      "case": {
+        "split": "held-out",
+        "seed": 22015,
+        "family": "impairment",
+        "kind": "8PSK",
+        "length": 255,
+        "offset": 0.419,
+        "ppm": 0,
+        "snr_db": 15,
+        "source": "simulation",
+        "id": "sim-0125",
+        "truth": {
+          "sync_start": 672.419,
+          "step": 4.0
+        },
+        "input_iq": "sim-0125.npz"
+      },
+      "statuses": [
+        "truncated_data",
+        "no_sync",
+        "no_sync"
+      ]
+    },
+    {
+      "id": "sim-0126",
+      "case": {
+        "split": "held-out",
+        "seed": 22015,
+        "family": "impairment",
+        "kind": "8PSK",
+        "length": 255,
+        "offset": 0.419,
+        "ppm": 0,
+        "snr_db": 10,
+        "source": "simulation",
+        "id": "sim-0126",
+        "truth": {
+          "sync_start": 672.419,
+          "step": 4.0
+        },
+        "input_iq": "sim-0126.npz"
+      },
+      "statuses": []
+    },
+    {
+      "id": "sim-0130",
+      "case": {
+        "split": "held-out",
+        "seed": 22015,
+        "family": "impairment",
+        "kind": "8PSK",
+        "length": 255,
+        "offset": 0.419,
+        "ppm": 100,
+        "cfo_hz": 50000,
+        "snr_db": 20,
+        "fade_end": 0.5,
+        "source": "simulation",
+        "id": "sim-0130",
+        "truth": {
+          "sync_start": 672.435,
+          "step": 4.0004
+        },
+        "input_iq": "sim-0130.npz"
+      },
+      "statuses": [
+        "truncated_data",
+        "no_sync"
+      ]
+    },
+    {
+      "id": "sim-0166",
+      "case": {
+        "split": "held-out",
+        "seed": 22015,
+        "family": "impairment",
+        "kind": "QPSK",
+        "length": 255,
+        "offset": 0.419,
+        "ppm": 0,
+        "snr_db": 15,
+        "source": "simulation",
+        "id": "sim-0166",
+        "truth": {
+          "sync_start": 672.419,
+          "step": 4.0
+        },
+        "input_iq": "sim-0166.npz"
+      },
+      "statuses": [
+        "truncated_data",
+        "no_sync",
+        "no_sync"
+      ]
+    },
+    {
+      "id": "sim-0167",
+      "case": {
+        "split": "held-out",
+        "seed": 22015,
+        "family": "impairment",
+        "kind": "QPSK",
+        "length": 255,
+        "offset": 0.419,
+        "ppm": 0,
+        "snr_db": 10,
+        "source": "simulation",
+        "id": "sim-0167",
+        "truth": {
+          "sync_start": 672.419,
+          "step": 4.0
+        },
+        "input_iq": "sim-0167.npz"
+      },
+      "statuses": []
+    }
+  ],
+  "performance": [
+    {
+      "kind": "8PSK",
+      "arm": "fixed",
+      "mean_capture_ms": 113.56571797902386,
+      "iq_Msamples_per_second": 9.23320891779751
+    },
+    {
+      "kind": "8PSK",
+      "arm": "tracked",
+      "mean_capture_ms": 135.7761556864716,
+      "iq_Msamples_per_second": 7.722828759574885
+    },
+    {
+      "kind": "QPSK",
+      "arm": "fixed",
+      "mean_capture_ms": 133.48165934439749,
+      "iq_Msamples_per_second": 7.855581097434199
+    },
+    {
+      "kind": "QPSK",
+      "arm": "tracked",
+      "mean_capture_ms": 162.56456434105834,
+      "iq_Msamples_per_second": 6.450212592457119
+    }
+  ]
+}

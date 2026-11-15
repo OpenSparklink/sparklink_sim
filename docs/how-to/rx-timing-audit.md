@@ -55,3 +55,32 @@ CubicSpline；以已知坐标采样。CRC/头编码复用模型，独立性限�
 吞吐包含 IQ Msamples/s 和单包名义载荷 Mbit/s，后者不适合含多包的真实整文件。
 `process_peak_rss_KiB` 是 Linux 进程累计 RSS 高水位（含生成、存档等），不是每臂增量。
 图表与 JSON 为同一批数据；`manifest.json` 覆盖输出字节身份。
+
+## 比较持续定时跟踪
+
+在同一 worktree 中使用新输出目录：
+
+```sh
+UV_CACHE_DIR=/tmp/rx-uv MPLCONFIGDIR=/tmp/rx-mpl PYTHONPATH="$PWD/src" \
+ uv run --frozen --no-sync python scripts/rx_timing_tracking_compare.py \
+ --dataset /home/sanchuanhehe/Documents/opensparklink/sparklink-hw/datasets/sle-rf/ws63/20261115-rx2 \
+ --output output/psk-tracking-new
+```
+
+此命令使用当前环境；新检出先用 `uv sync --frozen` 安装锁定依赖。
+两臂均固定1/8初始相位搜索，只改变持续跟踪开关，不重选同步或CRC候选。
+原开发/保留集之外，预先固定 seed33016、偏移0.317采样、50kHz CFO、30dB SNR，
+以255/1023/2047字节与0/±100 ppm构成18个新增保留输入。
+开发参数在这些复核之前冻结。
+
+`results.jsonl` 每行保留同一输入的 fixed/tracked 两臂及同段恢复/退化索引。
+`regressions.json` 记录原成功段退化，`recoveries.json` 记录恢复，
+`failures.json` 同时保留两臂所有失败。全部生成IQ、附加SRO派生IQ、
+实际符号采样坐标、积分器速率和TED误差轨迹均单独保存。
+
+真值误差使用实际采样坐标减发送参考坐标，不以固定SPS外推代替跟踪轨迹。
+`settling_symbol_0p05_samples` 表示误差从该符号起一直处于±0.05采样内，
+且剩余完整包至少128符号；它不是接收机锁定声明，也不表示速率估计已经收敛。
+真实IQ没有这个真值诊断。截断帧仅评价实际存在的符号，并标记误差轨迹未覆盖整包。
+
+算法及API见 [PSK包内采样时钟恢复](../explanation/psk-timing-recovery.md)。

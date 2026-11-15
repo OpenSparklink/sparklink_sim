@@ -45,7 +45,8 @@ def write(path, value):
 
 
 def git(*args):
-    return subprocess.check_output(['git', *args], text=True).strip()
+    return subprocess.check_output(['git', *args], text=True,
+                                   cwd=Path(__file__).resolve().parents[1]).strip()
 
 
 def packet(kind, length):
@@ -131,13 +132,21 @@ def score_symbols(y, frame, kind, expected_length):
                 recovered_length=None if payload is None else len(payload))
 
 
-def analyze(x, q, kind, length, grid, truth=None):
+def analyze(x, q, kind, length, grid, truth=None, *, timing_tracking=False):
     t0 = time.perf_counter()
-    acquisition = acquire_psk_capture(x, q, FS, RS, SYNC, timing_subdivisions=grid)
+    acquisition = acquire_psk_capture(x, q, FS, RS, SYNC, timing_subdivisions=grid,
+                                      timing_tracking=timing_tracking)
     ta = time.perf_counter()
     rows, arrays = [], {}
     for i, burst in enumerate(acquisition['bursts']):
         y = burst.pop('symbols', None)
+        centers = burst.pop('symbol_centers_raw', None)
+        for field in ('timing_rate_ppm', 'timing_detector_error'):
+            values = burst.pop(field, None)
+            if values is not None:
+                arrays[f'{field}_{i}'] = values
+        if centers is not None:
+            arrays[f'centers_{i}'] = centers
         row = dict(burst_index=i, timing_loop_loss_of_lock=None, cycle_slips=None, **burst)
         if y is not None:
             frame = decode_ft2_a3_capture(y, sync_word=WORD, data_crc_seed=0x555555,
@@ -152,8 +161,17 @@ def analyze(x, q, kind, length, grid, truth=None):
                                           and row['mcs_ok'] and row['content_ok'])
             if truth:
                 count = 65 + -(-(length*8+24)//(3 if kind == '8PSK' else 2))
+                target = count
+                count = min(count, len(y))
                 j = np.arange(count)
-                error = row['sync_start_raw']+4*j-(truth['sync_start']+truth['step']*j)
+                actual = row['sync_start_raw']+4*j if centers is None else centers[:count]
+                error = actual-(truth['sync_start']+truth['step']*j)
+                row['timing_error_observed_symbols'] = count
+                row['timing_error_covers_packet'] = count == target
+                bad = np.flatnonzero(abs(error) > .05)
+                settled = int(bad[-1]+1) if len(bad) else 0
+                row['settling_symbol_0p05_samples'] = (settled if count-settled >= 128
+                                                       and count == target else None)
                 row['timing_error_samples_head_mid_tail'] = error[[0, count//2, -1]].tolist()
                 row['timing_error_rms_samples'] = float(np.sqrt(np.mean(error**2)))
                 row['timing_error_max_abs_samples'] = float(abs(error).max())

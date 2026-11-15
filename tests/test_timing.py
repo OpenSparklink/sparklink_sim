@@ -114,3 +114,45 @@ def test_default_is_unchanged_and_quiet_is_not_tracked():
     for options in (dict(timing_tracking=1), dict(timing_config='bad')):
         with pytest.raises(ValueError):
             acquire_psk_capture(x, q, audit.FS, audit.RS, audit.SYNC, **options)
+
+
+def test_unknown_random_data_and_clock_rate_change_inside_packet():
+    rng = np.random.default_rng(260116)
+    symbols = audit.PSKModulator('8PSK', sps=1).map_symbols(rng.integers(0,2,3*6500))
+    k = np.arange(len(symbols))
+    # Continuous-time reference: clock changes 0 -> +100 ppm after symbol2000.
+    truth = 512.193 + 4*k + .0004*np.maximum(0,k-2000)
+    n = np.arange(int(truth[-1])+100)
+    t = np.interp(n, truth, k, left=-100, right=len(k)+100)
+    nearest = np.floor(t).astype(int)
+    x = np.zeros(len(n),complex)
+    for lag in range(-16,17):
+        pos = nearest+lag
+        valid = (pos>=0) & (pos<len(k)) & (abs(t-pos)<=16)
+        x[valid] += 50*symbols[pos[valid]]*audit.pulse(t[valid]-pos[valid])
+    x *= np.exp(1j*(1.3+2*np.pi*50000*n/audit.FS))
+    z = fftconvolve(x,rrc_filter(.4,4),'same')
+    tracked = track_psk_timing(z,4,truth[40],truth[-20])
+    count = min(len(tracked['centers']), len(truth)-40)
+    error = tracked['centers'][:count]-truth[40:40+count]
+    assert np.sqrt(np.mean(error[1000:]**2)) < .035
+    assert np.median(tracked['rate_ppm'][1300:1800]) == pytest.approx(0,abs=12)
+    assert np.median(tracked['rate_ppm'][4500:5500]) == pytest.approx(100,abs=12)
+
+
+@pytest.mark.parametrize('sps', [8,16])
+@pytest.mark.parametrize('kind', ['QPSK','8PSK'])
+@pytest.mark.parametrize('ppm', [-100,100])
+def test_tracking_at_other_integer_sample_rates(sps, kind, ppm):
+    from scipy.signal import resample_poly
+
+    x,q,_,bits = audit.simulate(dict(kind=kind,length=1023,offset=.317,ppm=ppm,seed=11015))
+    factor = sps//4
+    # Independent polyphase resampling, not the receiver cubic interpolator.
+    result = acquire_psk_capture(resample_poly(x,factor,1),resample_poly(q,factor,1),
+                                 audit.FS*factor,audit.RS,audit.SYNC,
+                                 timing_subdivisions=8,timing_tracking=True)
+    b = next(b for b in result['bursts'] if 'symbols' in b)
+    frame = audit.decode_ft2_a3_capture(b['symbols'],sync_word=audit.WORD,
+                                      data_crc_seed=0x555555,pilot_interval=0)
+    assert frame['data_crc'] and frame['payload']==np.packbits(bits,bitorder='little').tobytes()

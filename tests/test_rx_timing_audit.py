@@ -44,3 +44,19 @@ def test_crc_content_are_independent_and_bad_payload_never_accepted():
     assert scored['ber'] == 0 and not scored['content_ok']
     with pytest.raises(ValueError):
         audit.packet('8PSK', 2048)
+
+
+def test_tracking_audit_measures_actual_centers_and_preserves_failed_baseline():
+    case = dict(kind='8PSK', length=2047, offset=.419, ppm=100, seed=11015)
+    x, q, truth, _ = audit.simulate(case)
+    old, _ = audit.analyze(x, q, '8PSK', 2047, 8, truth)
+    new, arrays = audit.analyze(x, q, '8PSK', 2047, 8, truth, timing_tracking=True)
+    a = next(b for b in old['rows'] if 'frame' in b)
+    b = next(b for b in new['rows'] if 'frame' in b)
+    assert a['frame']['status'] == 'bad_data_crc' and b['whole_packet_ok']
+    centers = arrays[f'centers_{b["burst_index"]}']
+    error = arrays[f'error_{b["burst_index"]}']
+    expected = centers[:len(error)] - (truth['sync_start'] + np.arange(len(error))*truth['step'])
+    np.testing.assert_array_equal(error, expected)
+    assert abs(error[-1]) < .02 and abs(a['timing_error_samples_head_mid_tail'][-1]) > 2
+    assert b['timing_error_covers_packet']
