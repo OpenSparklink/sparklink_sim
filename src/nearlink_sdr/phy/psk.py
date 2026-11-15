@@ -18,6 +18,8 @@ from functools import lru_cache
 
 import numpy as np
 
+from nearlink_sdr.phy.timing import PSKTimingConfig, track_psk_timing
+
 # TXS-10002-2025 6.2.1.2 PSK调制
 # 滚降系数 beta = 0.4
 
@@ -238,16 +240,22 @@ class PSKDemodulator:
 
 def acquire_psk_capture(signal: np.ndarray, quiet: np.ndarray, sample_hz: float,
                         symbol_hz: float, sync_symbols: np.ndarray, *,
-                        timing_subdivisions: int = 1) -> dict:
+                        timing_subdivisions: int = 1, timing_tracking: bool = False,
+                        timing_config: PSKTimingConfig | None = None) -> dict:
     """从完整IQ能量段按已知同步获取符号；不使用期待载荷或CRC选择同步。
 
     beta=.4/10-symbol RRC复用原滤波器；居中离线滤波使用未来样本，非硬件时间。
     每SPS相位的差分归一相关消除常量相位/CFO；选最大相关，固定门限.85。
     由同步估计CFO/相位/增益，保留短段、边界段及未同步段；返回的symbols未通过CRC。
+    timing_tracking=True时同步之后启用NDA Gardner/PI持续跟踪；实际采样坐标单独返回。
     """
     from scipy.interpolate import CubicSpline
     from scipy.signal import correlate, fftconvolve
 
+    if timing_config is None:
+        timing_config = PSKTimingConfig()
+    if not isinstance(timing_tracking, bool) or not isinstance(timing_config, PSKTimingConfig):
+        raise ValueError("Need boolean timing_tracking and PSKTimingConfig")
     x, q, ref = np.asarray(signal), np.asarray(quiet), np.asarray(sync_symbols)
     if (any(a.ndim != 1 or not np.isfinite(a).all() for a in (x, q, ref))
             or min(len(x), len(q)) < 65 or len(ref) < 16
@@ -302,9 +310,19 @@ def acquire_psk_capture(signal: np.ndarray, quiet: np.ndarray, sample_hz: float,
             continue
         raw_start = lo + phase + offset * sps
         # Return only symbols whose center is present in the original recording.
-        y = sample(phase)[offset:]
-        centers = raw_start + np.arange(len(y)) * sps
-        y = y[centers < min(int(b) + 4 * sps, len(x))]
+        stop = min(int(b) + 4 * sps, len(x))
+        if timing_tracking:
+            tracked = track_psk_timing(z, sps, raw_start - lo, min(stop - lo, len(z) - 1),
+                                      hold_symbols=len(ref), config=timing_config)
+            y = tracked["symbols"]
+            row.update(symbol_centers_raw=tracked["centers"] + lo,
+                       timing_rate_ppm=tracked["rate_ppm"],
+                       timing_detector_error=tracked["detector_error"],
+                       timing_loop=tracked["diagnostics"])
+        else:
+            y = sample(phase)[offset:]
+            centers = raw_start + np.arange(len(y)) * sps
+            y = y[centers < stop]
         t = np.arange(len(y))
         v = y * np.exp(-1j * delta * t)
         slope, intercept = np.polyfit(np.arange(len(ref)),
@@ -316,12 +334,12 @@ def acquire_psk_capture(signal: np.ndarray, quiet: np.ndarray, sample_hz: float,
                    cfo_hz=(delta + slope) * symbol_hz / (2 * np.pi),
                    gain_codes=gain, timing_phase=phase, sync_start_raw=raw_start,
                    sync_end_raw_exclusive=raw_start + len(ref) * sps,
-                   symbol_sample_step=sps,
+                   symbol_sample_step=None if timing_tracking else sps,
                    sync_evm=float(np.sqrt(np.mean(abs(v[:len(ref)] - ref) ** 2))))
     return dict(sample_hz=sample_hz, requested_symbol_hz=symbol_hz, sps=sps,
                 threshold_codes2=threshold, sync_threshold=.85, beta=.4, rrc_span=10,
                 timing_method="maximum normalized differential known-sync correlation; no payload",
-                timing_subdivisions=timing_subdivisions,
+                timing_subdivisions=timing_subdivisions, timing_tracking=timing_tracking,
                 interpolation="none" if timing_subdivisions == 1 else "cubic after RRC; same ADC samples/rate",
                 index_semantics="original file symbol-center sample; centered offline RRC; no hardware timestamp",
                 bursts=bursts)
