@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 
-from nearlink_sdr.common.prbs import prbs9
+from nearlink_sdr.common.prbs import prbs9, prbs15
 from nearlink_sdr.phy.gfsk import GFSKModulator, analyze_gfsk_capture
 
 
@@ -70,3 +70,16 @@ def test_prbs9_convention_period_and_polynomial():
     for seed in (0, 512, -1):
         with pytest.raises(ValueError):
             prbs9(1, seed)
+
+
+def test_prbs15_sdk_convention_period_and_independent_recurrence():
+    bits = prbs15(65534)
+    np.testing.assert_array_equal(bits[:32767], bits[32767:])
+    np.testing.assert_array_equal(bits[:-15] ^ bits[1:-14] ^ bits[15:], 0)
+    assert np.packbits(bits[:64], bitorder="little").tobytes().hex() == "ff7f00200018000a"
+    assert len(prbs15(0)) == 0
+    with pytest.raises(ValueError):
+        prbs15(-1)
+    for seed in (0, 32768, -1):
+        with pytest.raises(ValueError):
+            prbs15(1, seed)

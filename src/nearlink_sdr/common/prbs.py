@@ -9,6 +9,7 @@ from __future__ import annotations
 __all__ = [
     "prbs9",
     "prbs11",
+    "prbs15",
     "prbs17",
 ]
 
@@ -91,3 +92,15 @@ def prbs17(length: int, seed: int = 0x1FFFF) -> NDArray[np.uint8]:
     """
     state = [(seed >> i) & 1 for i in range(17)]
     return _lfsr_generate(state, 16, 2, length)
+
+
+def prbs15(length: int, seed: int = 0x7FFF) -> NDArray[np.uint8]:
+    """PRBS15 x^15+x^14+1, output stage14, feedback stage14 XOR13.
+
+    :param length: Nonnegative bit count.
+    :param seed: Nonzero fifteen-bit initial state, default all ones.
+    :returns: Mathematical bits; byte order is an explicit caller decision.
+    """
+    if length < 0 or not 0 < seed < 32768:
+        raise ValueError("PRBS15 needs nonnegative length and nonzero fifteen-bit seed")
+    return _lfsr_generate([(seed >> i) & 1 for i in range(15)], 14, 13, length)
