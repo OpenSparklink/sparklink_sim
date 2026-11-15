@@ -20,6 +20,9 @@ node_modules/
 # Simulation output
 output/
 *.png
+!docs/_static/rx-hardening-performance.png
+!docs/_static/rx-hardening-boundary.png
+!docs/_static/rx-hardening-coded-awgn.png
 
 # Rust build artifacts
 rust/target/

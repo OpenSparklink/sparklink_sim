@@ -60,6 +60,7 @@ def run(args):
         mcs=[6, 10],
         inputs=[],
     )
+    plan["reference_sources"] = {f: sha(ROOT / f) for f in ["tests/test_psk_field_layout.py"]}
     prepared = []
     if args.inputs:
         prior = json.loads((args.inputs / "frozen-plan.json").read_text())

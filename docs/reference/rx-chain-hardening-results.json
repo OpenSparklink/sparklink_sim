@@ -1,0 +1,1546 @@
+{
+  "algorithm_commit": "a2ad44dbd8213d4f74c673d5d97cf627aab479b3",
+  "baseline_commit": "e2f7b54",
+  "current_commit": "a2ad44dbd8213d4f74c673d5d97cf627aab479b3",
+  "source_sha256": {
+    "src/nearlink_sdr/__init__.py": {
+      "bytes": 50,
+      "sha256": "0b1868d399a7b92c8af269fde9ecacf3cfec0754871526b0b492e2157a3bac4f"
+    },
+    "src/nearlink_sdr/node.py": {
+      "bytes": 30731,
+      "sha256": "680202d9ddee1b353dfa45c1fc1f2d7dfe89f09aea118964764cde1db130745c"
+    },
+    "src/nearlink_sdr/common/__init__.py": {
+      "bytes": 129,
+      "sha256": "da6ab9a19e7029e664048fcd957541db52984918984f78fc94b1838ce2500790"
+    },
+    "src/nearlink_sdr/common/bch.py": {
+      "bytes": 2199,
+      "sha256": "12778d56b2456f6837bf7d67aa725a37d57537a2f1680e39796cacc1b8191894"
+    },
+    "src/nearlink_sdr/common/code_block_seg.py": {
+      "bytes": 6581,
+      "sha256": "6f22fd9122b7108cf804057b4c59cf181a29ccc16e8af5f28ab15fd1b1f6d282"
+    },
+    "src/nearlink_sdr/common/crc.py": {
+      "bytes": 2904,
+      "sha256": "226bf519495a4220cd1b0b30d64dfa488b830ac67ac4351b59073c73968d9007"
+    },
+    "src/nearlink_sdr/common/m_sequence.py": {
+      "bytes": 2794,
+      "sha256": "3a70b253ff8119d1430886686ff8ee0ae43f1854d4b417e82ea2103b0038ccab"
+    },
+    "src/nearlink_sdr/common/mcs.py": {
+      "bytes": 4613,
+      "sha256": "648bb7143e43b03946c6ad09306d66348899ea25c9786a9bd604762686015d22"
+    },
+    "src/nearlink_sdr/common/polar.py": {
+      "bytes": 19914,
+      "sha256": "4e0e909b716c1b9940264291c99730ae859f717038d01a9615471ba7fc119d59"
+    },
+    "src/nearlink_sdr/common/scrambler.py": {
+      "bytes": 3517,
+      "sha256": "97dee32d074ecf33833dc593777b94ceab4af78124769e8ad574d4e10f8d7b6b"
+    },
+    "src/nearlink_sdr/common/prbs.py": {
+      "bytes": 3538,
+      "sha256": "d1dfc1db301cf5ad8415ce49dcec9942dce4fd6aee7037f9b3461d61624e53df"
+    },
+    "src/nearlink_sdr/mac/__init__.py": {
+      "bytes": 250,
+      "sha256": "d8ccebc3dc14e4410c23e7e6cf76fbcc1e68c9ee5c9c796e67fabe01d4baf92f"
+    },
+    "src/nearlink_sdr/mac/access.py": {
+      "bytes": 34912,
+      "sha256": "5889c7417e6c48a1ebed024f5a57a872fffb10aee085c0cb71d04aa5c5116605"
+    },
+    "src/nearlink_sdr/mac/broadcast.py": {
+      "bytes": 61030,
+      "sha256": "7d689478a1652f12b59b13a9c2b288627617295c27654ef44d596849ab5183ca"
+    },
+    "src/nearlink_sdr/mac/crypto.py": {
+      "bytes": 14412,
+      "sha256": "0f32c70cc86d80d264e68c06ac175735a225a1ccc20d9dc419b91f4311bbc4ed"
+    },
+    "src/nearlink_sdr/mac/frame.py": {
+      "bytes": 7311,
+      "sha256": "89e5ea4fea0e9e17fb3724a5b5c5654efc692fffe01ff169755223a475c8e2f7"
+    },
+    "src/nearlink_sdr/mac/link_control.py": {
+      "bytes": 113672,
+      "sha256": "f42862bf8fc02be42297b7a72dddb38b72377ab4f43dae46f3916987eb74a262"
+    },
+    "src/nearlink_sdr/mac/link_manager.py": {
+      "bytes": 65387,
+      "sha256": "0e12cb9f236c48dc5e5f36984a1e1b7ff794d45cb2361271d896a37e4c89058e"
+    },
+    "src/nearlink_sdr/mac/power_control.py": {
+      "bytes": 11920,
+      "sha256": "7bb0c5050672705b773ec1957ffabde41422ddd9f6b1a4709fcdc61f1c9a6601"
+    },
+    "src/nearlink_sdr/mac/qos.py": {
+      "bytes": 16246,
+      "sha256": "56d8a901b845db8f253a30da090cb30dd487ce93ace5c3e31982deeb6e5e80f1"
+    },
+    "src/nearlink_sdr/mac/scheduler.py": {
+      "bytes": 21136,
+      "sha256": "63e960854124858104cea1363b8ae0f75ba003b1510f2930d5393a6cda9a9151"
+    },
+    "src/nearlink_sdr/mac/security.py": {
+      "bytes": 20770,
+      "sha256": "fb11e851b4997b1b49f26bae29d52fa7b8bff412c21ca04bf5b46ead31bbf9f9"
+    },
+    "src/nearlink_sdr/mac/security_manager.py": {
+      "bytes": 19270,
+      "sha256": "57da09c9b9eeab85b4dd1c01effd2b407f2b6908dbf8855a62cc1082f08889f4"
+    },
+    "src/nearlink_sdr/mac/signaling.py": {
+      "bytes": 14061,
+      "sha256": "e232374959fa2254051892ac692ff12cfef5c55d91a0d166ed77e347cb24edbb"
+    },
+    "src/nearlink_sdr/mac/smf.py": {
+      "bytes": 14566,
+      "sha256": "ec461985ac9d7cec9bbf2518b7d7df5081c39dd033c18317873c900b4c5bcc2e"
+    },
+    "src/nearlink_sdr/mac/smf_scheduler.py": {
+      "bytes": 11963,
+      "sha256": "46351469b9a634d3a2c63d47e268f17c6c71aa36acc2bb4258bc08435b3c166d"
+    },
+    "src/nearlink_sdr/phy/channel.py": {
+      "bytes": 13894,
+      "sha256": "2669f1b8ee4dd5002c191bae450a2faf4eddd7c8153b6be1e4c69f7f0cf9936b"
+    },
+    "src/nearlink_sdr/phy/control_info.py": {
+      "bytes": 24832,
+      "sha256": "a38a4b98de27e3644e2fa1b9c7bd1c8edcf1bf2a44f9c126fce42a1d86ae314e"
+    },
+    "src/nearlink_sdr/phy/data_link.py": {
+      "bytes": 15931,
+      "sha256": "a836b8b17dc6a859b6dfe23b4430dcd857de0f9144683889676eabdb55c10eed"
+    },
+    "src/nearlink_sdr/phy/equalizer.py": {
+      "bytes": 4531,
+      "sha256": "e292d53e5a691b70cb1cde15c342256b07e6a00c691d01bd5254d6481a76b792"
+    },
+    "src/nearlink_sdr/phy/freq_hopping.py": {
+      "bytes": 13543,
+      "sha256": "d7a9aacde6dc38ce9dfebeb19ceb95fca083a6cf2b290e1fe9d79d21751d78b3"
+    },
+    "src/nearlink_sdr/phy/mac_interface.py": {
+      "bytes": 13452,
+      "sha256": "15c1bd8e274b6c9bf245ff6546c4b33a5f93cc0640969b8eb3acf9221fe2ecb3"
+    },
+    "src/nearlink_sdr/phy/measurement.py": {
+      "bytes": 9193,
+      "sha256": "8f901aa0bfa9fed457ae5cc0e3f5a7ec43d58d29832742539c588af7786162bb"
+    },
+    "src/nearlink_sdr/phy/measurement_frame.py": {
+      "bytes": 11014,
+      "sha256": "deb893ad96a3a0c946b62a29c8b6ea5cf7967fcd723a7aad370e3de74c71834f"
+    },
+    "src/nearlink_sdr/phy/measurement_tx.py": {
+      "bytes": 15974,
+      "sha256": "f81f72ec8b0999013770422ec4cee383c6ed973c760f9cd7ad98532e8f21923c"
+    },
+    "src/nearlink_sdr/phy/mock_backend.py": {
+      "bytes": 4774,
+      "sha256": "35682610866eaf6d577918f52b290df51dbf29d9a413f7f0e0da79f3f7eb55a8"
+    },
+    "src/nearlink_sdr/phy/multitone.py": {
+      "bytes": 3435,
+      "sha256": "440c59c4bb2a6bfacc2d2fa2b7edc3a8c8f6fe5c6739c944967cb9b2bb1c197d"
+    },
+    "src/nearlink_sdr/phy/pilot.py": {
+      "bytes": 4482,
+      "sha256": "57f7e70e9a06d0dd53152a8fef047641acdb8d317f5316066e80885f1d74c3c1"
+    },
+    "src/nearlink_sdr/phy/pluto_backend.py": {
+      "bytes": 5367,
+      "sha256": "fd264d282441e0c744a34bc2f8642a58107f7e0ce455871ce295dd08a79a3ea3"
+    },
+    "src/nearlink_sdr/phy/preamble.py": {
+      "bytes": 2666,
+      "sha256": "f3f4d997edf3cbb64c30b1576420fb79eb35396adc571667130536ad3ec85e80"
+    },
+    "src/nearlink_sdr/phy/rf_compliance.py": {
+      "bytes": 22738,
+      "sha256": "df00362e31f670e7499b2e8e5b770488d4a812e63d3138aa321f86c166e50514"
+    },
+    "src/nearlink_sdr/phy/rx_pipeline.py": {
+      "bytes": 14230,
+      "sha256": "8aa4926d4995284ccec962c30fd6bb9f7c6829931fafc01e4ec977017fbc9d93"
+    },
+    "src/nearlink_sdr/phy/sdr_backend.py": {
+      "bytes": 5416,
+      "sha256": "56de3245b75fd1221315aadb2dec57df8e29725230cc247db5530530cf14b5d2"
+    },
+    "src/nearlink_sdr/phy/sync_sequence.py": {
+      "bytes": 9382,
+      "sha256": "bacd144be6b2249ed18a48d09aa21615bc35a59e315b8f735eb3789ebd69ea71"
+    },
+    "src/nearlink_sdr/phy/tx_pipeline.py": {
+      "bytes": 8598,
+      "sha256": "8355af4de3ac6a7ebb3a71ea52f3836876dc925348d9365529329bcd19748253"
+    },
+    "src/nearlink_sdr/phy/uhd_backend.py": {
+      "bytes": 5689,
+      "sha256": "1aa3ae56a481ebce373e17a3dcc7b8f9de622c93bec0ff75e0ca87a056799f46"
+    },
+    "src/nearlink_sdr/phy/usrp.py": {
+      "bytes": 29700,
+      "sha256": "f5a9229b50f10c601c4b379420039bda84aa7724e945fb285250a91cd4f3e7c0"
+    },
+    "src/nearlink_sdr/phy/uwb_measurement_security.py": {
+      "bytes": 11449,
+      "sha256": "8757e7d449fbba83af514b96933c06082f552667d86cf7c5b7f8dd3f213cb17d"
+    },
+    "src/nearlink_sdr/phy/uwb_pulse.py": {
+      "bytes": 6270,
+      "sha256": "b5ad2f691b3ae79c9c01e8defce8e7b9cecaf72152dec1d9f658f3fbcc8d16f2"
+    },
+    "src/nearlink_sdr/phy/__init__.py": {
+      "bytes": 574,
+      "sha256": "2b9d36a96adf10400bdc17f3791d42b4b760e898ef5799b7bf3bd0b27c98d93e"
+    },
+    "src/nearlink_sdr/phy/frame.py": {
+      "bytes": 14815,
+      "sha256": "fac55cf811c2a9932495970d34f3d5be859022e021b620c876e7d8bd7f9107cf"
+    },
+    "src/nearlink_sdr/phy/gfsk.py": {
+      "bytes": 10341,
+      "sha256": "86d3c663632c20ea94a9693649b4e57dad3806d61a2577b27b518fe6233a389e"
+    },
+    "src/nearlink_sdr/phy/psk.py": {
+      "bytes": 19411,
+      "sha256": "b807753e29dfd25a085d6b7c003af6de4041fe40e5aed5b246c7df589da80a35"
+    },
+    "src/nearlink_sdr/phy/timing.py": {
+      "bytes": 6447,
+      "sha256": "e8ed220731f736384959d89e5053dbe2c16fcb8b97a33227cbc70785ba215e2f"
+    },
+    "src/nearlink_sdr/phy/psk_fields.py": {
+      "bytes": 2990,
+      "sha256": "284dbaa3e35dc1653defdf800a869529d56cb0f16bf6d9c9ecc9452d0c33d2d5"
+    },
+    "src/nearlink_sdr/phy/strict_rx.py": {
+      "bytes": 11172,
+      "sha256": "f3177f38af44ef1c249f3bb1c97da8c60d7006edc3d73134de9a27526041f794"
+    },
+    "src/nearlink_sdr/phy/psk_sync.py": {
+      "bytes": 2180,
+      "sha256": "75731c718889608a525dc254c1a6dee173a52a577c2b35a643a4029bdefed016"
+    },
+    "src/nearlink_sdr/phy/stream_rx.py": {
+      "bytes": 16225,
+      "sha256": "ecc34a890188c5200580f40c970fe9adefc47544ef4328478c37335dbd4bb807"
+    },
+    "src/nearlink_sdr/sim/__init__.py": {
+      "bytes": 35,
+      "sha256": "44b4ed103fb1686ef5f43f996ee31e660439b6051a9cb6ff566f79e839751bc4"
+    },
+    "src/nearlink_sdr/sim/link_sim.py": {
+      "bytes": 168196,
+      "sha256": "911212283d401c4be61e5ed4578469dcb963c7b584ea5770dde13b01023269c6"
+    },
+    "src/nearlink_sdr/sim/usrp_sim.py": {
+      "bytes": 8016,
+      "sha256": "8b55a7fa4bb406756dc8d3e2dab6c88138c856a0f0b1e1de9b775d10b6776a3d"
+    }
+  },
+  "stream": {
+    "groups": [
+      {
+        "source": "simulation",
+        "inputs": 206,
+        "correct_packets": 203,
+        "statuses": {
+          "valid": 203,
+          "bad_data_crc": 3
+        },
+        "whole_stream_seconds": 10.451731458830182,
+        "max_state_array_bytes": 452776
+      },
+      {
+        "source": "real",
+        "inputs": 6,
+        "correct_packets": 63,
+        "statuses": {
+          "valid": 63,
+          "truncated_data": 1
+        },
+        "whole_stream_seconds": 3.260277713125106,
+        "max_state_array_bytes": 452776
+      },
+      {
+        "source": "real-derived",
+        "inputs": 8,
+        "correct_packets": 84,
+        "statuses": {
+          "valid": 84
+        },
+        "whole_stream_seconds": 4.321695141901728,
+        "max_state_array_bytes": 452776
+      },
+      {
+        "source": "quiet",
+        "inputs": 144,
+        "correct_packets": 0,
+        "statuses": {},
+        "whole_stream_seconds": 22.54288843687391,
+        "max_state_array_bytes": 452776
+      }
+    ],
+    "regressions": 0,
+    "recoveries": 2,
+    "chunk_mismatches": 0,
+    "sources_unchanged": true,
+    "peak_rss_KiB": 293004
+  },
+  "coded_awgn_held_out": [
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 2,
+      "method": "hard",
+      "packets": 12,
+      "correct": 0,
+      "ber": 0.46343954248366015,
+      "seconds": 0.06443483399925753,
+      "decode_latency_p50_p95_ms": [
+        5.367708508856595,
+        5.421892323647626
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 2,
+      "method": "maxlog",
+      "packets": 12,
+      "correct": 0,
+      "ber": 0.4389297385620915,
+      "seconds": 0.06597010605037212,
+      "decode_latency_p50_p95_ms": [
+        5.496142985066399,
+        5.544666852802038
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 2,
+      "method": "logmap",
+      "packets": 12,
+      "correct": 0,
+      "ber": 0.4389297385620915,
+      "seconds": 0.07110487500904128,
+      "decode_latency_p50_p95_ms": [
+        5.913322005653754,
+        5.973497923696414
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 4,
+      "method": "hard",
+      "packets": 12,
+      "correct": 0,
+      "ber": 0.37483660130718954,
+      "seconds": 0.06443896191194654,
+      "decode_latency_p50_p95_ms": [
+        5.379210488172248,
+        5.400901165558025
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 4,
+      "method": "maxlog",
+      "packets": 12,
+      "correct": 0,
+      "ber": 0.14836601307189543,
+      "seconds": 0.06624452502001077,
+      "decode_latency_p50_p95_ms": [
+        5.5079004960134625,
+        5.598759459098801
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 4,
+      "method": "logmap",
+      "packets": 12,
+      "correct": 0,
+      "ber": 0.14836601307189543,
+      "seconds": 0.07119003793923184,
+      "decode_latency_p50_p95_ms": [
+        5.933479988016188,
+        5.962305516004562
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 6,
+      "method": "hard",
+      "packets": 12,
+      "correct": 1,
+      "ber": 0.07888071895424836,
+      "seconds": 0.06442793103633448,
+      "decode_latency_p50_p95_ms": [
+        5.3781480237375945,
+        5.394145307946019
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 6,
+      "method": "maxlog",
+      "packets": 12,
+      "correct": 12,
+      "ber": 0.0,
+      "seconds": 0.06617319310316816,
+      "decode_latency_p50_p95_ms": [
+        5.509794020326808,
+        5.547700755414553
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 6,
+      "method": "logmap",
+      "packets": 12,
+      "correct": 12,
+      "ber": 0.0,
+      "seconds": 0.07113152596866712,
+      "decode_latency_p50_p95_ms": [
+        5.927618505666032,
+        5.944387396448292
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 8,
+      "method": "hard",
+      "packets": 12,
+      "correct": 12,
+      "ber": 0.0,
+      "seconds": 0.06517144496319816,
+      "decode_latency_p50_p95_ms": [
+        5.372863495722413,
+        5.747738000354729
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 8,
+      "method": "maxlog",
+      "packets": 12,
+      "correct": 12,
+      "ber": 0.0,
+      "seconds": 0.06642181193456054,
+      "decode_latency_p50_p95_ms": [
+        5.511491996003315,
+        5.651410057907924
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 8,
+      "method": "logmap",
+      "packets": 12,
+      "correct": 12,
+      "ber": 0.0,
+      "seconds": 0.07120326178846881,
+      "decode_latency_p50_p95_ms": [
+        5.92943248921074,
+        5.965414745151065
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 10,
+      "method": "hard",
+      "packets": 12,
+      "correct": 12,
+      "ber": 0.0,
+      "seconds": 0.0644190710154362,
+      "decode_latency_p50_p95_ms": [
+        5.361601477488875,
+        5.426730998442508
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 10,
+      "method": "maxlog",
+      "packets": 12,
+      "correct": 12,
+      "ber": 0.0,
+      "seconds": 0.06614620296750218,
+      "decode_latency_p50_p95_ms": [
+        5.508400994585827,
+        5.550912828766741
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 10,
+      "method": "logmap",
+      "packets": 12,
+      "correct": 12,
+      "ber": 0.0,
+      "seconds": 0.07112254906678572,
+      "decode_latency_p50_p95_ms": [
+        5.932147498242557,
+        5.948889162391424
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 2,
+      "method": "hard",
+      "packets": 12,
+      "correct": 0,
+      "ber": 0.48594771241830065,
+      "seconds": 0.06452268298016861,
+      "decode_latency_p50_p95_ms": [
+        5.371550971176475,
+        5.406374455196783
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 2,
+      "method": "maxlog",
+      "packets": 12,
+      "correct": 0,
+      "ber": 0.4840686274509804,
+      "seconds": 0.06630711595062166,
+      "decode_latency_p50_p95_ms": [
+        5.524100997718051,
+        5.550275678979233
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 2,
+      "method": "logmap",
+      "packets": 12,
+      "correct": 0,
+      "ber": 0.4875408496732026,
+      "seconds": 0.07348699803696945,
+      "decode_latency_p50_p95_ms": [
+        6.113903480581939,
+        6.1586776544572785
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 4,
+      "method": "hard",
+      "packets": 12,
+      "correct": 0,
+      "ber": 0.48656045751633986,
+      "seconds": 0.06455180700868368,
+      "decode_latency_p50_p95_ms": [
+        5.379826528951526,
+        5.4095167317427695
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 4,
+      "method": "maxlog",
+      "packets": 12,
+      "correct": 0,
+      "ber": 0.4866421568627451,
+      "seconds": 0.0663032479933463,
+      "decode_latency_p50_p95_ms": [
+        5.525379005121067,
+        5.551878429832868
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 4,
+      "method": "logmap",
+      "packets": 12,
+      "correct": 0,
+      "ber": 0.4812908496732026,
+      "seconds": 0.07338877988513559,
+      "decode_latency_p50_p95_ms": [
+        6.115321011748165,
+        6.1441094148904085
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 6,
+      "method": "hard",
+      "packets": 12,
+      "correct": 0,
+      "ber": 0.47267156862745097,
+      "seconds": 0.06453631509793922,
+      "decode_latency_p50_p95_ms": [
+        5.377772497013211,
+        5.415171658387408
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 6,
+      "method": "maxlog",
+      "packets": 12,
+      "correct": 0,
+      "ber": 0.4404411764705882,
+      "seconds": 0.0663948020664975,
+      "decode_latency_p50_p95_ms": [
+        5.528989975573495,
+        5.570153909502551
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 6,
+      "method": "logmap",
+      "packets": 12,
+      "correct": 0,
+      "ber": 0.45584150326797385,
+      "seconds": 0.07337350095622241,
+      "decode_latency_p50_p95_ms": [
+        6.111478462116793,
+        6.1401269398629665
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 8,
+      "method": "hard",
+      "packets": 12,
+      "correct": 0,
+      "ber": 0.3891748366013072,
+      "seconds": 0.06437401979928836,
+      "decode_latency_p50_p95_ms": [
+        5.363735486753285,
+        5.384466392570175
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 8,
+      "method": "maxlog",
+      "packets": 12,
+      "correct": 0,
+      "ber": 0.23762254901960783,
+      "seconds": 0.0662097810418345,
+      "decode_latency_p50_p95_ms": [
+        5.516231001820415,
+        5.54526571650058
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 8,
+      "method": "logmap",
+      "packets": 12,
+      "correct": 0,
+      "ber": 0.23276143790849674,
+      "seconds": 0.07316438300767913,
+      "decode_latency_p50_p95_ms": [
+        6.0917715018149465,
+        6.111764293746091
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 10,
+      "method": "hard",
+      "packets": 12,
+      "correct": 0,
+      "ber": 0.1329656862745098,
+      "seconds": 0.06454213696997613,
+      "decode_latency_p50_p95_ms": [
+        5.371079983888194,
+        5.427124505513348
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 10,
+      "method": "maxlog",
+      "packets": 12,
+      "correct": 11,
+      "ber": 0.00261437908496732,
+      "seconds": 0.06634550797753036,
+      "decode_latency_p50_p95_ms": [
+        5.526260007172823,
+        5.563234837609343
+      ]
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 10,
+      "method": "logmap",
+      "packets": 12,
+      "correct": 11,
+      "ber": 0.00261437908496732,
+      "seconds": 0.07351157593075186,
+      "decode_latency_p50_p95_ms": [
+        6.130339985247701,
+        6.149188577546738
+      ]
+    }
+  ],
+  "coded_raw_iq_held_out": [
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 4,
+      "arm": "hard",
+      "inputs": 8,
+      "correct": 0,
+      "misses": 8,
+      "header_failures": 0,
+      "conditional_ber": null,
+      "comparable_packets": 0
+    },
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 4,
+      "arm": "maxlog",
+      "inputs": 8,
+      "correct": 0,
+      "misses": 8,
+      "header_failures": 0,
+      "conditional_ber": null,
+      "comparable_packets": 0
+    },
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 6,
+      "arm": "hard",
+      "inputs": 8,
+      "correct": 3,
+      "misses": 5,
+      "header_failures": 0,
+      "conditional_ber": 0.0,
+      "comparable_packets": 3
+    },
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 6,
+      "arm": "maxlog",
+      "inputs": 8,
+      "correct": 3,
+      "misses": 5,
+      "header_failures": 0,
+      "conditional_ber": 0.0,
+      "comparable_packets": 3
+    },
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 8,
+      "arm": "hard",
+      "inputs": 8,
+      "correct": 8,
+      "misses": 0,
+      "header_failures": 0,
+      "conditional_ber": 0.0,
+      "comparable_packets": 8
+    },
+    {
+      "split": "held-out",
+      "mcs": 6,
+      "snr_db": 8,
+      "arm": "maxlog",
+      "inputs": 8,
+      "correct": 8,
+      "misses": 0,
+      "header_failures": 0,
+      "conditional_ber": 0.0,
+      "comparable_packets": 8
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 4,
+      "arm": "hard",
+      "inputs": 8,
+      "correct": 0,
+      "misses": 8,
+      "header_failures": 0,
+      "conditional_ber": null,
+      "comparable_packets": 0
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 4,
+      "arm": "maxlog",
+      "inputs": 8,
+      "correct": 0,
+      "misses": 8,
+      "header_failures": 0,
+      "conditional_ber": null,
+      "comparable_packets": 0
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 6,
+      "arm": "hard",
+      "inputs": 8,
+      "correct": 3,
+      "misses": 5,
+      "header_failures": 0,
+      "conditional_ber": 0.0,
+      "comparable_packets": 3
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 6,
+      "arm": "maxlog",
+      "inputs": 8,
+      "correct": 3,
+      "misses": 5,
+      "header_failures": 0,
+      "conditional_ber": 0.0,
+      "comparable_packets": 3
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 8,
+      "arm": "hard",
+      "inputs": 8,
+      "correct": 8,
+      "misses": 0,
+      "header_failures": 0,
+      "conditional_ber": 0.0,
+      "comparable_packets": 8
+    },
+    {
+      "split": "held-out",
+      "mcs": 10,
+      "snr_db": 8,
+      "arm": "maxlog",
+      "inputs": 8,
+      "correct": 8,
+      "misses": 0,
+      "header_failures": 0,
+      "conditional_ber": 0.0,
+      "comparable_packets": 8
+    }
+  ],
+  "independent_noise": [
+    {
+      "kind": "QPSK",
+      "family": "combined-boundary",
+      "snr_db": 8,
+      "inputs": 24,
+      "correct": 24,
+      "success_wilson95": [
+        0.8620237953250198,
+        1.0
+      ],
+      "misses": 0,
+      "statuses": {
+        "valid": 24
+      },
+      "conditional_ber": 0.0,
+      "comparable_packets": 24,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    },
+    {
+      "kind": "QPSK",
+      "family": "combined-boundary",
+      "snr_db": 10,
+      "inputs": 24,
+      "correct": 24,
+      "success_wilson95": [
+        0.8620237953250198,
+        1.0
+      ],
+      "misses": 0,
+      "statuses": {
+        "valid": 24
+      },
+      "conditional_ber": 0.0,
+      "comparable_packets": 24,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    },
+    {
+      "kind": "QPSK",
+      "family": "combined-boundary",
+      "snr_db": 12,
+      "inputs": 24,
+      "correct": 24,
+      "success_wilson95": [
+        0.8620237953250198,
+        1.0
+      ],
+      "misses": 0,
+      "statuses": {
+        "valid": 24
+      },
+      "conditional_ber": 0.0,
+      "comparable_packets": 24,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    },
+    {
+      "kind": "QPSK",
+      "family": "clean",
+      "snr_db": 80,
+      "inputs": 2,
+      "correct": 2,
+      "success_wilson95": [
+        0.34238022750665303,
+        1.0
+      ],
+      "misses": 0,
+      "statuses": {
+        "valid": 2
+      },
+      "conditional_ber": 0.0,
+      "comparable_packets": 2,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    },
+    {
+      "kind": "QPSK",
+      "family": "sro-only",
+      "snr_db": 80,
+      "inputs": 2,
+      "correct": 2,
+      "success_wilson95": [
+        0.34238022750665303,
+        1.0
+      ],
+      "misses": 0,
+      "statuses": {
+        "valid": 2
+      },
+      "conditional_ber": 0.0,
+      "comparable_packets": 2,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    },
+    {
+      "kind": "QPSK",
+      "family": "cfo-only",
+      "snr_db": 80,
+      "inputs": 2,
+      "correct": 2,
+      "success_wilson95": [
+        0.34238022750665303,
+        1.0
+      ],
+      "misses": 0,
+      "statuses": {
+        "valid": 2
+      },
+      "conditional_ber": 0.0,
+      "comparable_packets": 2,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    },
+    {
+      "kind": "QPSK",
+      "family": "noise-only",
+      "snr_db": 8,
+      "inputs": 8,
+      "correct": 8,
+      "success_wilson95": [
+        0.6755924351161198,
+        1.0
+      ],
+      "misses": 0,
+      "statuses": {
+        "valid": 8
+      },
+      "conditional_ber": 0.0,
+      "comparable_packets": 8,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    },
+    {
+      "kind": "QPSK",
+      "family": "noise-cfo",
+      "snr_db": 8,
+      "inputs": 8,
+      "correct": 8,
+      "success_wilson95": [
+        0.6755924351161198,
+        1.0
+      ],
+      "misses": 0,
+      "statuses": {
+        "valid": 8
+      },
+      "conditional_ber": 0.0,
+      "comparable_packets": 8,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    },
+    {
+      "kind": "QPSK",
+      "family": "noise-sro",
+      "snr_db": 8,
+      "inputs": 8,
+      "correct": 8,
+      "success_wilson95": [
+        0.6755924351161198,
+        1.0
+      ],
+      "misses": 0,
+      "statuses": {
+        "valid": 8
+      },
+      "conditional_ber": 0.0,
+      "comparable_packets": 8,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    },
+    {
+      "kind": "QPSK",
+      "family": "noise-cfo-sro-amplitude",
+      "snr_db": 10,
+      "inputs": 8,
+      "correct": 0,
+      "success_wilson95": [
+        0.0,
+        0.32440756488388023
+      ],
+      "misses": 8,
+      "statuses": {},
+      "conditional_ber": null,
+      "comparable_packets": 0,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    },
+    {
+      "kind": "8PSK",
+      "family": "combined-boundary",
+      "snr_db": 8,
+      "inputs": 24,
+      "correct": 0,
+      "success_wilson95": [
+        1.3877787807814457e-17,
+        0.13797620467498017
+      ],
+      "misses": 0,
+      "statuses": {
+        "bad_data_crc": 24
+      },
+      "conditional_ber": 0.002736928104575163,
+      "comparable_packets": 24,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    },
+    {
+      "kind": "8PSK",
+      "family": "combined-boundary",
+      "snr_db": 10,
+      "inputs": 24,
+      "correct": 15,
+      "success_wilson95": [
+        0.42709962442674276,
+        0.7884063244045122
+      ],
+      "misses": 0,
+      "statuses": {
+        "valid": 15,
+        "bad_data_crc": 9
+      },
+      "conditional_ber": 0.0002042483660130719,
+      "comparable_packets": 24,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    },
+    {
+      "kind": "8PSK",
+      "family": "combined-boundary",
+      "snr_db": 12,
+      "inputs": 24,
+      "correct": 24,
+      "success_wilson95": [
+        0.8620237953250198,
+        1.0
+      ],
+      "misses": 0,
+      "statuses": {
+        "valid": 24
+      },
+      "conditional_ber": 0.0,
+      "comparable_packets": 24,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    },
+    {
+      "kind": "8PSK",
+      "family": "clean",
+      "snr_db": 80,
+      "inputs": 2,
+      "correct": 2,
+      "success_wilson95": [
+        0.34238022750665303,
+        1.0
+      ],
+      "misses": 0,
+      "statuses": {
+        "valid": 2
+      },
+      "conditional_ber": 0.0,
+      "comparable_packets": 2,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    },
+    {
+      "kind": "8PSK",
+      "family": "sro-only",
+      "snr_db": 80,
+      "inputs": 2,
+      "correct": 2,
+      "success_wilson95": [
+        0.34238022750665303,
+        1.0
+      ],
+      "misses": 0,
+      "statuses": {
+        "valid": 2
+      },
+      "conditional_ber": 0.0,
+      "comparable_packets": 2,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    },
+    {
+      "kind": "8PSK",
+      "family": "cfo-only",
+      "snr_db": 80,
+      "inputs": 2,
+      "correct": 2,
+      "success_wilson95": [
+        0.34238022750665303,
+        1.0
+      ],
+      "misses": 0,
+      "statuses": {
+        "valid": 2
+      },
+      "conditional_ber": 0.0,
+      "comparable_packets": 2,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    },
+    {
+      "kind": "8PSK",
+      "family": "noise-only",
+      "snr_db": 8,
+      "inputs": 8,
+      "correct": 0,
+      "success_wilson95": [
+        0.0,
+        0.32440756488388023
+      ],
+      "misses": 0,
+      "statuses": {
+        "bad_data_crc": 8
+      },
+      "conditional_ber": 0.002879901960784314,
+      "comparable_packets": 8,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    },
+    {
+      "kind": "8PSK",
+      "family": "noise-cfo",
+      "snr_db": 8,
+      "inputs": 8,
+      "correct": 0,
+      "success_wilson95": [
+        0.0,
+        0.32440756488388023
+      ],
+      "misses": 0,
+      "statuses": {
+        "bad_data_crc": 8
+      },
+      "conditional_ber": 0.0022058823529411764,
+      "comparable_packets": 8,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    },
+    {
+      "kind": "8PSK",
+      "family": "noise-sro",
+      "snr_db": 8,
+      "inputs": 8,
+      "correct": 0,
+      "success_wilson95": [
+        0.0,
+        0.32440756488388023
+      ],
+      "misses": 0,
+      "statuses": {
+        "bad_data_crc": 8
+      },
+      "conditional_ber": 0.002696078431372549,
+      "comparable_packets": 8,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    },
+    {
+      "kind": "8PSK",
+      "family": "noise-cfo-sro-amplitude",
+      "snr_db": 10,
+      "inputs": 8,
+      "correct": 0,
+      "success_wilson95": [
+        0.0,
+        0.32440756488388023
+      ],
+      "misses": 8,
+      "statuses": {},
+      "conditional_ber": null,
+      "comparable_packets": 0,
+      "quiet_candidates": 0,
+      "quiet_deliveries": 0,
+      "true_timing_cycle_changes": 0
+    }
+  ],
+  "performance": [
+    {
+      "backend": "python",
+      "sample_id": "series-02/mode-057/rx-00",
+      "input_sha256": "ed28370a4d8d1f069e049c6d54da5c6de0818b29cb2a3140eeea595c4fbde0ab",
+      "samples": 1048576,
+      "baseline_seconds": 1.4372018839931116,
+      "optimized_seconds": 0.5323793179704808,
+      "speedup": 2.69958248842567,
+      "Msample_s": 1.9696031844312576,
+      "state_array_bytes": 452776,
+      "delay_samples": {
+        "min": 43.132640215335414,
+        "p50": 56.96297911388683,
+        "p95": 70.1093016539813,
+        "max": 72.0622502004262
+      },
+      "cumulative_process_peak_rss_KiB": 262608
+    },
+    {
+      "backend": "python",
+      "sample_id": "series-02/mode-065/rx-00",
+      "input_sha256": "2568df0cdb33716b3545992599291a44eb3784ec4912dcc6ce01b8bd4bb1042a",
+      "samples": 1048576,
+      "baseline_seconds": 1.4370281539740972,
+      "optimized_seconds": 0.5233834210084751,
+      "speedup": 2.745650886696366,
+      "Msample_s": 2.0034566589433878,
+      "state_array_bytes": 452776,
+      "delay_samples": {
+        "min": 43.49358263483737,
+        "p50": 57.06129562668502,
+        "p95": 70.89086658327142,
+        "max": 72.42120815184899
+      },
+      "cumulative_process_peak_rss_KiB": 262608
+    },
+    {
+      "backend": "rust",
+      "sample_id": "series-02/mode-057/rx-00",
+      "input_sha256": "ed28370a4d8d1f069e049c6d54da5c6de0818b29cb2a3140eeea595c4fbde0ab",
+      "samples": 1048576,
+      "baseline_seconds": 1.4266162210260518,
+      "optimized_seconds": 0.5254737570066936,
+      "speedup": 2.7149143073340563,
+      "Msample_s": 1.9954869030436526,
+      "state_array_bytes": 452776,
+      "delay_samples": {
+        "min": 43.132640215335414,
+        "p50": 56.96297911388683,
+        "p95": 70.1093016539813,
+        "max": 72.0622502004262
+      },
+      "cumulative_process_peak_rss_KiB": 263796
+    },
+    {
+      "backend": "rust",
+      "sample_id": "series-02/mode-065/rx-00",
+      "input_sha256": "2568df0cdb33716b3545992599291a44eb3784ec4912dcc6ce01b8bd4bb1042a",
+      "samples": 1048576,
+      "baseline_seconds": 1.4262609659926966,
+      "optimized_seconds": 0.5145919629721902,
+      "speedup": 2.771634748733484,
+      "Msample_s": 2.037684370240869,
+      "state_array_bytes": 452776,
+      "delay_samples": {
+        "min": 43.49358263483737,
+        "p50": 57.06129562668502,
+        "p95": 70.89086658327142,
+        "max": 72.42120815184899
+      },
+      "cumulative_process_peak_rss_KiB": 263796
+    }
+  ],
+  "remaining_frozen_failures": [
+    {
+      "id": "series-02-mode-057-rx-01",
+      "source": "real",
+      "input": {
+        "sample_id": "series-02/mode-057/rx-01",
+        "path": "raw/series-02/mode-057/rx-01.iq16",
+        "bytes": 4194304,
+        "sha256": "3bf194590d7bafa971a18bff442f27c0c61aa3f4ec36f37463fec6c7d8fc7d4e",
+        "classification": "formal_on",
+        "session": "series-02",
+        "source_phase": "TX_requested",
+        "requested": {
+          "channel": 39,
+          "phy": 4,
+          "length": 255,
+          "payload": 0,
+          "format": 2,
+          "rate": 2,
+          "pilot": 0,
+          "polar": 0,
+          "id": "mode-057",
+          "frequency_hz": 2441000000,
+          "power": 0,
+          "interval": 50
+        },
+        "source": {
+          "device": "WS63, firmware version unknown",
+          "serial": "/dev/ttyUSB3",
+          "usb_topology": "1-2.1.4.3",
+          "baud": 115200,
+          "intended_tx_command": "AT+SLETX=39,0,255,0,4,2,2,0,0,50",
+          "tx_reply": "AT+SLETX=39,0,255,0,4,2,2,0,0,50\r\nOK\r\n",
+          "stop_reply": "AT+SLETRXEND\r\nOK\r\n",
+          "serial_log": "metadata/series-02/serial.jsonl"
+        },
+        "observed": {
+          "samples": 1048576,
+          "bytes": 4194304,
+          "sha256": "3bf194590d7bafa971a18bff442f27c0c61aa3f4ec36f37463fec6c7d8fc7d4e",
+          "iq_format": "little-endian signed16 I,Q; native sign-extended12bit; no rescale",
+          "sample_hz": 16000000,
+          "duration_s": 0.065536,
+          "rms_codes": 11.716652847831757,
+          "peak_code": 81,
+          "clipping_fraction": 0.0,
+          "dc_i": 0.06565093994140625,
+          "dc_q": 0.0641164779663086,
+          "block_samples": 512,
+          "sample_loss": "unknown: OEM IIO stream has no sample sequence/drop counter",
+          "packet_decode": "not performed; TX command acceptance is not CRC verification",
+          "burst_above_control_db": 22.17616095307337
+        },
+        "actual_rf": {
+          "in_voltage_sampling_frequency": "16000000",
+          "in_voltage_rf_bandwidth": "10000000",
+          "out_altvoltage0_RX_LO_frequency": "2441000000",
+          "in_voltage1_gain_control_mode": "manual",
+          "in_voltage1_hardwaregain": "15.000000 dB",
+          "out_altvoltage1_TX_LO_powerdown": "1",
+          "ensm_mode": "fdd"
+        },
+        "verified": {
+          "raw_integrity": "matched original manifest",
+          "modulation": "unverified",
+          "frame": "unknown",
+          "crc": "unknown",
+          "payload": "unknown",
+          "production_rx_reference_eligible": false
+        },
+        "wiring": "WS63 RF -> 30 dB attenuator -> E310 RX2; E310 TX LO powered down",
+        "iq_format": {
+          "order": "I,Q interleaved",
+          "byte_order": "little",
+          "container_bits": 16,
+          "signed": true,
+          "effective_bits": 12,
+          "sign_extension": true,
+          "scaling": "native ADC codes, unchanged"
+        },
+        "sample_count": 1048576,
+        "sample_hz": 16000000,
+        "duration_s": 0.065536,
+        "planned_samples": 1048576,
+        "sample_index": "unknown",
+        "sample_loss": "unknown: no OEM sequence/drop counter",
+        "capture_command": "test ! -e /tmp/ws63-iq-series-02-rx-01.iq16 && iio_readdev -T 5000 -b 65536 -s 1048576 cf-ad9361-lpc voltage2 voltage3 > /tmp/ws63-iq-series-02-rx-01.iq16",
+        "capture_exit_status": 0,
+        "time": {
+          "begin_unix_ns": 1794731807406930292,
+          "end_unix_ns": 1794731807562533938,
+          "reference": "host SSH command bracket, not hardware/air time; null=unrecorded"
+        },
+        "quiet_control_ids": [
+          "series-02/mode-057/off-before",
+          "series-02/mode-057/off-after"
+        ],
+        "failure": null,
+        "capture_source_sha256": "e5cf3265cf289db9ccf7da777ec906b2e2cdea580417a8a01b39a774b40f1d38",
+        "capture_source_bytes_retained": true,
+        "capture_identity_ref": "metadata/acquisition.json"
+      },
+      "statuses": [
+        [
+          "valid",
+          0
+        ],
+        [
+          "valid",
+          0
+        ],
+        [
+          "valid",
+          0
+        ],
+        [
+          "valid",
+          0
+        ],
+        [
+          "valid",
+          0
+        ],
+        [
+          "valid",
+          0
+        ],
+        [
+          "valid",
+          0
+        ],
+        [
+          "valid",
+          0
+        ],
+        [
+          "valid",
+          0
+        ],
+        [
+          "valid",
+          0
+        ],
+        [
+          "truncated_data",
+          null
+        ]
+      ],
+      "evidence": "/home/sanchuanhehe/.codex/visualizations/2026/11/15/01a1dfe8-f1ae-7233-a63e-c31ffad2d428/rx-chain-hardening/final-stream-python/evidence/series-02-mode-057-rx-01.npz"
+    },
+    {
+      "id": "new-noise-00",
+      "source": "simulation",
+      "input": {
+        "bytes": 191812,
+        "sha256": "67891d75b036d86bee4e26f3f0abdef5c295fc727e002791f39ff592b83f080f"
+      },
+      "statuses": [
+        [
+          "bad_data_crc",
+          4
+        ]
+      ],
+      "evidence": "/home/sanchuanhehe/.codex/visualizations/2026/11/15/01a1dfe8-f1ae-7233-a63e-c31ffad2d428/rx-chain-hardening/final-stream-python/evidence/new-noise-00.npz"
+    },
+    {
+      "id": "new-noise-01",
+      "source": "simulation",
+      "input": {
+        "bytes": 192071,
+        "sha256": "b67d2a69df92ead5d9252f9df1b477908df7b2c853a5350ba4d0d7dca54e4bc7"
+      },
+      "statuses": [
+        [
+          "bad_data_crc",
+          1
+        ]
+      ],
+      "evidence": "/home/sanchuanhehe/.codex/visualizations/2026/11/15/01a1dfe8-f1ae-7233-a63e-c31ffad2d428/rx-chain-hardening/final-stream-python/evidence/new-noise-01.npz"
+    },
+    {
+      "id": "new-noise-08",
+      "source": "simulation",
+      "input": {
+        "bytes": 191892,
+        "sha256": "e1f18ab9c1bbd19e64feeff75585f74d92e2ed4d746edaf2095f07e13374f58f"
+      },
+      "statuses": [
+        [
+          "bad_data_crc",
+          2
+        ]
+      ],
+      "evidence": "/home/sanchuanhehe/.codex/visualizations/2026/11/15/01a1dfe8-f1ae-7233-a63e-c31ffad2d428/rx-chain-hardening/final-stream-python/evidence/new-noise-08.npz"
+    }
+  ],
+  "limitations": [
+    "16 MS/s target unmet",
+    "new strict stream entry supports PSK FT2/3/4, not GFSK FT1",
+    "header remains hard decision",
+    "WS63 encoded prefix remains unknown",
+    "real IQ has no absolute timing/SRO truth",
+    "decoded conditional BER excludes erasures",
+    "no device, firmware, production RTL, release or FPGA real-time validation"
+  ]
+}
