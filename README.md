@@ -34,7 +34,8 @@ uv run ruff check src/ tests/ examples/
 
 [sle IQ数据集](https://github.com/OpenSparklink/sparklink_sim/releases/tag/sle-iq-20261116-r2)
 提供 WS63 发射、E310 实测的 GFSK、QPSK 和 8PSK 波形，共 72 组配置、360 份 IQ 文件。
-可用于离线解调、接收算法开发和 FPGA 回放测试；下载约 450 MB，不需要 Git LFS。
+可用于离线解调、接收算法开发和 FPGA 回放测试；下载约 450 MB。
+数据集可脱离本项目独立使用，无需克隆仓库、安装本项目或 Git LFS。
 [下载、格式和使用说明](docs/how-to/real-iq.md)介绍了如何校验文件及选择样本。
 
 ## 项目结构
