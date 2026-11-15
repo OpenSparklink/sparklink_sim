@@ -60,5 +60,5 @@ CFO30kHz、SRO100ppm、偏移0.277采样、255字节无编码PRBS9，两种调�
 源码/输入哈希、三臂参数、逐项结果及新失败见
 [机器可读结果](psk-noise-recovery-results.json)。
 完整符号、时间轨迹、失败关联、manifest及新保留IQ在本轮交付目录中；
-可按[复现方法](../how-to/rx-timing-audit.md#复核噪声分段与载波修复)重建。
+可按{ref}`复现方法 <rx-noise-carrier-recovery>`重建。
 这仍是离线算法验证，未证明实时FPGA或完整SLE能力。
