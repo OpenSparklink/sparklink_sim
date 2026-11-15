@@ -8,6 +8,7 @@ __all__ = [
     "FrameConfig",
     "FrameFields",
     "assemble_frame_bits",
+    "decode_ft1_a3_candidates",
     "frame_to_symbols",
     "symbols_to_data_bits",
 ]
@@ -17,6 +18,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from nearlink_sdr.common.crc import CRC24A_POLY, crc_check
+from nearlink_sdr.common.scrambler import descramble
+from nearlink_sdr.phy.control_info import ControlInfoA3
 from nearlink_sdr.phy.pilot import insert_pilots, remove_pilots
 from nearlink_sdr.phy.preamble import generate_preamble
 from nearlink_sdr.phy.sync_sequence import (
@@ -47,6 +51,58 @@ class FrameConfig:
 def _default_mod_type(frame_type: int) -> str:
     """各帧类型的默认调制方式。"""
     return {1: "GFSK", 2: "QPSK", 3: "QPSK", 4: "BPSK"}[frame_type]
+
+
+def decode_ft1_a3_candidates(
+    bits: np.ndarray, *, sync_word: int, data_crc_seed: int,
+    whitening_seed: int | None,
+) -> list[dict]:
+    """解析已判决比特中的 FT1/A3 候选（6.3.2、6.4.1.4、6.10.1/4）。
+
+    同步字、CRC种子及是否加扰必须由调用者显式给出，不从期待载荷挑选。
+    ``None`` 明确表示不加扰（例如经实测确认的厂测配置），不是普通链路默认值。
+    头CRC通过后才读取11位长度；数据CRC通过后才返回payload。
+    错候选和截断候选保留诊断，继续搜索其后的同步，不消耗整个窗口。
+    返回坐标均为输入比特偏移，end为exclusive；不声称完成RF或硬件时间同步。
+    """
+    bits = np.asarray(bits)
+    if bits.ndim != 1 or np.any((bits != 0) & (bits != 1)):
+        raise ValueError("bits must be a one-dimensional binary array")
+    if not 0 <= sync_word <= 0xFFFFFFFF or not 0 <= data_crc_seed <= 0xFFFFFF:
+        raise ValueError("sync/CRC seed outside wire width")
+    if whitening_seed is not None and not 0 <= whitening_seed <= 127:
+        raise ValueError("whitening seed outside 7-bit width")
+    sync = np.array([(sync_word >> i) & 1 for i in range(32)])
+    found = []
+    for offset in range(len(bits) - 31):
+        if not np.array_equal(bits[offset:offset + 32], sync):
+            continue
+        start = offset + 32
+        row = dict(sync_start=offset, sync_end=start, status="truncated_header",
+                   header_crc=None, data_crc=None, payload=None)
+        found.append(row)
+        if len(bits) - start < 40:
+            continue
+        tail = bits[start:].astype(np.uint8, copy=True)
+        if whitening_seed is not None:
+            tail = descramble(tail, whitening_seed)
+        try:
+            _, head = ControlInfoA3.unpack(tail[:40], sync_word & 0xFFF)
+        except ValueError:
+            row.update(status="bad_header_crc", header_crc=False)
+            continue
+        row.update(header_crc=True, header=vars(head), header_end=start + 40)
+        size = head.data_length * 8
+        row.update(payload_start=start + 40, payload_end=start + 40 + size,
+                   frame_end=start + 40 + size + 24)
+        if len(tail) < 40 + size + 24:
+            row["status"] = "truncated_data"
+            continue
+        valid = crc_check(tail[40:40 + size + 24], CRC24A_POLY, 24, data_crc_seed)
+        row.update(status="valid" if valid else "bad_data_crc", data_crc=bool(valid))
+        if valid:
+            row["payload"] = np.packbits(tail[40:40 + size], bitorder="little").tobytes()
+    return found
 
 
 # ── 各帧类型参数 ──
