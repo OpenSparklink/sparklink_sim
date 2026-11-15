@@ -198,6 +198,46 @@ PYTHONPATH=src UV_CACHE_DIR=/tmp/rx-uv uv run --frozen --no-sync python \
 合法几何扫描验证上限、最近项保留及淘汰后输出不变；记录 `decoder-cache-baseline.json`。
 完整2907通过、2跳过，覆盖率91%，ruff通过。
 
+## 阶段 3d：保留并修复流式同步准备边界退化
+
+首次364输入流式冻结结果在 `stream-frozen`，源码基线 `d29d447`：
+仿真203/206（新增两个8dB QPSK恢复），真实63包、派生83包、144份静默无候选；
+整段/4096块及选定随机分块无任何判定或轨迹不一致。
+但 `series-02-mode-065-rx-02-injected100` 有一个原成功包退化，不能算该阶段全通过。
+完整失败、恢复、退化、逐块轨迹与来源/哈希均保留，不覆盖此目录。
+
+固定原轨迹和原载波参数的诊断表：
+
+| 轨迹 | 局部4点插值 | 整段CubicSpline |
+|---|---|---|
+| 旧流式轨迹 | CRC失败，载荷6位错 | CRC失败，同样6位错 |
+| 原整段轨迹 | CRC正确，0位错 | CRC正确，0位错 |
+
+因而没有通过更换插值器或调整环参数迎合该包。
+原同步搜索先按等待保护区筛除较晚候选，再选最大值：在该时刻真正已观测最大峰为
+419404.125、相关0.998796，却被替换成419403.0、相关0.856341（恰好超过0.85门限）。
+错误相位提前1.125采样，后续定时积分51次触及限幅，载荷前段6位错误。
+这些是真实输入上两接收器的采样差异，不是已知的绝对硬件定时误差；
+原始SRO未知，+100ppm只是独立派生的附加注入量。
+
+现在先按已观测的完整同步选最大峰，只有该峰满足准备条件才接受；否则等待下一处理量子。
+不再为满足等待条件换成更弱的较早峰。不改变0.85门限、相位网格、插值器、Gardner/PI或CRC策略。
+独立连续时间发送参考的新反例先失败后修复，并覆盖8种内部量子对齐位置。
+目标派生文件恢复11个完整包；全量2916通过、2跳过、覆盖率91%，ruff通过。
+完整矩阵将在该修复后再次冻结复核，之前的83包结果仍作为基线保留。
+
+可复现诊断与图表保存在 `guard-diagnosis-final`（含逐位错误位置、固定载波/轨迹对照、
+同步相关曲线、轨迹差异及manifest），驱动为 `scripts/diagnose_stream_guard.py`。
+对照图明确相对原接收器选点，不将判决残差或两接收器差值冒充真值。
+
+```sh
+PYTHONPATH=src UV_CACHE_DIR=/tmp/rx-uv MPLCONFIGDIR=/tmp/rx-mpl uv run --frozen --no-sync python \
+  scripts/diagnose_stream_guard.py --stream-baseline "$B/rx-chain-hardening/stream-frozen" \
+  --reference "$B/rx-chain-hardening/parser-replay" --original "$B/rx-timing-tracking/final" \
+  --dataset /home/sanchuanhehe/Documents/opensparklink/sparklink-hw/datasets/sle-rf/ws63/20261115-rx2 \
+  --sample-id series-02-mode-065-rx-02-injected100 --output /tmp/guard-diagnosis-new
+```
+
 ## 复现与证据
 
 ```sh

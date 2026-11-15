@@ -214,3 +214,31 @@ def test_profiled_quiet_batching_preserves_canonical_filter_and_packet_trajector
                   np.random.default_rng(67016).integers(1, 8193, 100)]:
         other, _, _ = consume(p, q, joined, sizes)
         equal_events(reference, other)
+
+
+def test_unready_true_sync_peak_is_deferred_without_substituting_an_earlier_phase():
+    from scipy.signal import fftconvolve
+
+    from nearlink_sdr.phy.psk import rrc_filter
+    from nearlink_sdr.phy.psk_sync import search_psk_sync
+    p = PSKReceiveProfile.ordinary(TxConfig(mcs_index=12, symbol_rate_mhz=4))
+    wire, _ = transmitted(p)
+    x, _, _, _ = iq_record(wire, offset=12.277, ppm=100, cfo=30000)
+    filtered = fftconvolve(x, rrc_filter(.4,4), mode='same')
+    window = filtered[824-256:824]
+    maximum = search_psk_sync(window,4,p.sync_symbols(),8)
+    assert maximum['score'] > .99
+    # The full known-sync maximum exists, but its 16-sample readiness guard does not.
+    start = maximum['phase']+4*maximum['offset']
+    assert start+31*4+16 > len(window)-1
+    assert search_psk_sync(window,4,p.sync_symbols(),8,lookahead=16) is None
+
+
+@pytest.mark.parametrize('offset', [.277,4.277,8.277,12.277,16.277,20.277,24.277,28.277])
+def test_sync_readiness_is_not_biased_by_internal_quantum_alignment(offset):
+    p = PSKReceiveProfile.ordinary(TxConfig(mcs_index=12, symbol_rate_mhz=4))
+    wire, expected = transmitted(p)
+    x,q,truth,_ = iq_record(wire,offset=offset,ppm=100,cfo=30000)
+    events,_,_ = consume(p,q,x,[37])
+    assert [e['frame']['payload'] for e in events] == [expected]
+    assert abs(events[0]['sync_start_raw']-truth) < .125

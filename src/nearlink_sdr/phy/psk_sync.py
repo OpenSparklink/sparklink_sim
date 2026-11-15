@@ -32,8 +32,6 @@ def search_psk_sync(filtered: np.ndarray, sps: int, reference: np.ndarray,
         scores = abs(corr) / np.maximum(norm, 1e-30)
         starts = phase + np.arange(len(scores)) * sps
         legal = starts >= min_start
-        if lookahead:
-            legal &= starts + (len(ref) - 1) * sps + lookahead <= len(z) - 1
         if not legal.any():
             continue
         scores[~legal] = -np.inf
@@ -42,4 +40,10 @@ def search_psk_sync(filtered: np.ndarray, sps: int, reference: np.ndarray,
         if best is None or score > best['score']:
             best = dict(score=score, phase=phase, offset=offset,
                         delta=float(np.angle(corr[offset])), phase_symbols=y)
+    if best is not None and lookahead:
+        # Readiness is a gate on the observed correlation maximum, not a reason
+        # to replace it with an earlier, weaker phase that happens to fit now.
+        start = best["phase"] + best["offset"] * sps
+        if start + (len(ref) - 1) * sps + lookahead > len(z) - 1:
+            return None
     return best
