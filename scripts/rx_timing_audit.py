@@ -132,10 +132,12 @@ def score_symbols(y, frame, kind, expected_length):
                 recovered_length=None if payload is None else len(payload))
 
 
-def analyze(x, q, kind, length, grid, truth=None, *, timing_tracking=False):
+def analyze(x, q, kind, length, grid, truth=None, *, timing_tracking=False,
+            energy_window_symbols=1):
     t0 = time.perf_counter()
     acquisition = acquire_psk_capture(x, q, FS, RS, SYNC, timing_subdivisions=grid,
-                                      timing_tracking=timing_tracking)
+                                      timing_tracking=timing_tracking,
+                                      energy_window_symbols=energy_window_symbols)
     ta = time.perf_counter()
     rows, arrays = [], {}
     for i, burst in enumerate(acquisition['bursts']):

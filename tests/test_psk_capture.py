@@ -117,3 +117,16 @@ def test_fractional_timing_uses_same_adc_samples_and_known_sync_only():
     np.testing.assert_array_equal(x, original)
     assert acquire_psk_capture(q, q, 4000000, 1000000, sync,
                                timing_subdivisions=8)["bursts"] == []
+
+
+@pytest.mark.parametrize('window', [0,65,True,1.5])
+def test_invalid_energy_window_rejected(window):
+    with pytest.raises(ValueError):
+        acquire_psk_capture(np.ones(1000),np.ones(1000),16000000,4000000,
+                            np.ones(32),energy_window_symbols=window)
+
+
+def test_energy_window_must_fit_both_recordings():
+    with pytest.raises(ValueError):
+        acquire_psk_capture(np.ones(1000),np.ones(65),16000000,4000000,
+                            np.ones(32),energy_window_symbols=32)

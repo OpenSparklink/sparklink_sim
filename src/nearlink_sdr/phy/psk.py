@@ -241,13 +241,15 @@ class PSKDemodulator:
 def acquire_psk_capture(signal: np.ndarray, quiet: np.ndarray, sample_hz: float,
                         symbol_hz: float, sync_symbols: np.ndarray, *,
                         timing_subdivisions: int = 1, timing_tracking: bool = False,
-                        timing_config: PSKTimingConfig | None = None) -> dict:
+                        timing_config: PSKTimingConfig | None = None,
+                        energy_window_symbols: int = 1) -> dict:
     """从完整IQ能量段按已知同步获取符号；不使用期待载荷或CRC选择同步。
 
     beta=.4/10-symbol RRC复用原滤波器；居中离线滤波使用未来样本，非硬件时间。
     每SPS相位的差分归一相关消除常量相位/CFO；选最大相关，固定门限.85。
     由同步估计CFO/相位/增益，保留短段、边界段及未同步段；返回的symbols未通过CRC。
     timing_tracking=True时同步之后启用NDA Gardner/PI持续跟踪；实际采样坐标单独返回。
+    energy_window_symbols可扩大能量平均窗抑制低SNR下包内切碎；默认1保留旧路径。
     """
     from scipy.interpolate import CubicSpline
     from scipy.signal import correlate, fftconvolve
@@ -269,7 +271,12 @@ def acquire_psk_capture(signal: np.ndarray, quiet: np.ndarray, sample_hz: float,
     if (not isinstance(timing_subdivisions, int) or isinstance(timing_subdivisions, bool)
             or not 1 <= timing_subdivisions <= 32):
         raise ValueError("timing_subdivisions must be an integer in1..32")
-    box = np.ones(sps) / sps
+    if (not isinstance(energy_window_symbols, int) or isinstance(energy_window_symbols, bool)
+            or not 1 <= energy_window_symbols <= 64
+            or sps * energy_window_symbols > min(len(x), len(q))):
+        raise ValueError("Need integer energy_window_symbols in1..64 fitting both IQ arrays")
+    window = sps * energy_window_symbols
+    box = np.ones(window) / window
     threshold = 4 * float(np.quantile(np.convolve(abs(q) ** 2, box, "same"), .999))
     energy = np.convolve(abs(x) ** 2, box, "same") > threshold
     starts = np.flatnonzero(np.diff(energy.astype(int), prepend=0) == 1)
@@ -337,7 +344,8 @@ def acquire_psk_capture(signal: np.ndarray, quiet: np.ndarray, sample_hz: float,
                    symbol_sample_step=None if timing_tracking else sps,
                    sync_evm=float(np.sqrt(np.mean(abs(v[:len(ref)] - ref) ** 2))))
     return dict(sample_hz=sample_hz, requested_symbol_hz=symbol_hz, sps=sps,
-                threshold_codes2=threshold, sync_threshold=.85, beta=.4, rrc_span=10,
+                threshold_codes2=threshold, energy_window_symbols=energy_window_symbols,
+                energy_window_samples=window, sync_threshold=.85, beta=.4, rrc_span=10,
                 timing_method="maximum normalized differential known-sync correlation; no payload",
                 timing_subdivisions=timing_subdivisions, timing_tracking=timing_tracking,
                 interpolation="none" if timing_subdivisions == 1 else "cubic after RRC; same ADC samples/rate",

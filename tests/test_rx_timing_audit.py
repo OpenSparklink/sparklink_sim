@@ -60,3 +60,15 @@ def test_tracking_audit_measures_actual_centers_and_preserves_failed_baseline():
     np.testing.assert_array_equal(error, expected)
     assert abs(error[-1]) < .02 and abs(a['timing_error_samples_head_mid_tail'][-1]) > 2
     assert b['timing_error_covers_packet']
+
+
+@pytest.mark.parametrize('kind,snr', [('QPSK',10),('QPSK',15),('8PSK',15)])
+def test_longer_energy_average_recovers_development_noise_fragmentation(kind, snr):
+    x,q,truth,_=audit.simulate(dict(kind=kind,length=255,offset=.419,ppm=0,
+                                   snr_db=snr,seed=11015))
+    original=x.copy()
+    old,_=audit.analyze(x,q,kind,255,8,truth,timing_tracking=True,energy_window_symbols=1)
+    new,_=audit.analyze(x,q,kind,255,8,truth,timing_tracking=True,energy_window_symbols=8)
+    assert not any(b['whole_packet_ok'] for b in old['rows'])
+    assert sum(b['whole_packet_ok'] for b in new['rows'])==1
+    np.testing.assert_array_equal(x,original)

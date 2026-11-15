@@ -61,3 +61,15 @@ result = acquire_psk_capture(
 
 参考算法结构见 [MathWorks Symbol Synchronizer](https://www.mathworks.com/help/comm/ref/symbolsynchronizer.html)。
 独立发送波形与验证约束见 [离线边界实验](../how-to/rx-timing-audit.md)。
+
+## 噪声下的能量分段
+
+对于已验证的4Msymbol/s厂测profile，可额外指定 `energy_window_symbols=8`，
+先按8个符号长度平均功率，再从同样处理的静默估计0.999分位数并乘4作门限。
+同步门限0.85、CRC、长度和内容规则保持不变。
+这可以抑制PSK包络凹陷和噪声导致的短暂门限穿越，不通过期待长度补齐输入。
+
+默认值1保留旧分段。8符号窗口会降低时间分辨率，可能合并间隔很短的能量段；
+不能未经验证推广到任意帧间隔、突发时序或接近检测门限的弱信号。
+返回 `energy_window_symbols` 与 `energy_window_samples` 说明实际窗口。
+原始IQ和文件边界保持不变，仍会保留真实录制截断。
