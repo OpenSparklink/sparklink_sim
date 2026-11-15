@@ -207,6 +207,8 @@
 <li class="toctree-l2"><a class="reference internal" href="../../how-to/rust-acceleration.html">Rust Acceleration Module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../how-to/sdr-deployment.html">SDR E310 Deployment Planning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../how-to/build-docs.html">Building Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../how-to/real-iq.html">使用真实 SLE IQ 数据</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../how-to/rx-timing-audit.html">离线接收定时边界验证</a></li>
 </ul>
 </li>
 <li class="toctree-l1 current has-children"><a class="reference internal" href="../../reference/index.html">API Reference</a><input aria-label="Toggle navigation of API Reference" checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
@@ -266,6 +268,7 @@
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.rx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.rx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.sdr_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sdr_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.sync_sequence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sync_sequence</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.timing.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.timing</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.tx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.tx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.uhd_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.uhd_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.usrp.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.usrp</span></code></a></li>
@@ -276,6 +279,8 @@
 <li class="toctree-l3"><a class="reference internal" href="nearlink_sdr.node.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.node</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../../reference/psk-noise-recovery-results.html">原九个PSK噪声失败的修复与边界</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../reference/psk-timing-tracking-results.html">PSK持续定时跟踪：离线验证结果</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../explanation/index.html">Explanation</a><input aria-label="Toggle navigation of Explanation" class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -287,6 +292,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../explanation/data-flow.html">End-to-End Data Flow</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../explanation/architecture.html">System Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../explanation/standard-mapping.html">Standard Clause Mapping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../explanation/psk-timing-recovery.html">PSK 包内采样时钟恢复</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../changelog.html">Changelog</a></li>
@@ -347,6 +353,7 @@
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.rx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.rx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.sdr_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sdr_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.sync_sequence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sync_sequence</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.timing.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.timing</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.tx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.tx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.uhd_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.uhd_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.usrp.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.usrp</span></code></a></li>
@@ -421,6 +428,12 @@
 <div class="table-wrapper autosummary longtable docutils container">
 <table class="autosummary longtable docutils align-left">
 <tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#nearlink_sdr.phy.psk.acquire_psk_capture" title="nearlink_sdr.phy.psk.acquire_psk_capture"><code class="xref py py-obj docutils literal notranslate"><span class="pre">acquire_psk_capture</span></code></a></p></td>
+<td><p>从完整IQ能量段按已知同步获取符号；不使用期待载荷或CRC选择同步。</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#nearlink_sdr.phy.psk.refine_psk_carrier" title="nearlink_sdr.phy.psk.refine_psk_carrier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">refine_psk_carrier</span></code></a></p></td>
+<td><p>按星座M次方盲细化残余载波；不使用期待载荷、CRC或导频内容。</p></td>
+</tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#nearlink_sdr.phy.psk.rrc_filter" title="nearlink_sdr.phy.psk.rrc_filter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">rrc_filter</span></code></a></p></td>
 <td><p>Generate root raised-cosine pulse shaping filter.</p></td>
 </tr>
@@ -512,6 +525,12 @@
 </dl>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="nearlink_sdr.phy.psk.PSKDemodulator.demap_symbols">
+<span class="sig-name descname"><span class="pre">demap_symbols</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">symbols</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">numpy.ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_symbol_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">numpy.ndarray</span></a></span></span><a class="reference internal" href="../../_modules/nearlink_sdr/phy/psk.html#PSKDemodulator.demap_symbols"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nearlink_sdr.phy.psk.PSKDemodulator.demap_symbols" title="Link to this definition">¶</a></dt>
+<dd><p>判决已滤波符号；奇偶参考帧起点，不能在字段/导频处重新计数。</p>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="py class">
@@ -527,7 +546,7 @@
 
 <dl class="py method">
 <dt class="sig sig-object py" id="nearlink_sdr.phy.psk.PSKModulator.map_symbols">
-<span class="sig-name descname"><span class="pre">map_symbols</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bits</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">numpy.ndarray</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">numpy.ndarray</span></a></span></span><a class="reference internal" href="../../_modules/nearlink_sdr/phy/psk.html#PSKModulator.map_symbols"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nearlink_sdr.phy.psk.PSKModulator.map_symbols" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">map_symbols</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bits</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">numpy.ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_symbol_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">numpy.ndarray</span></a></span></span><a class="reference internal" href="../../_modules/nearlink_sdr/phy/psk.html#PSKModulator.map_symbols"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nearlink_sdr.phy.psk.PSKModulator.map_symbols" title="Link to this definition">¶</a></dt>
 <dd><p>Bit-to-constellation symbol mapping (with phase rotation).</p>
 </dd></dl>
 
@@ -542,6 +561,26 @@
 </dl>
 </dd></dl>
 
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="nearlink_sdr.phy.psk.acquire_psk_capture">
+<span class="sig-prename descclassname"><span class="pre">nearlink_sdr.phy.psk.</span></span><span class="sig-name descname"><span class="pre">acquire_psk_capture</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">signal</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">numpy.ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">quiet</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">numpy.ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_hz</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">symbol_hz</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">sync_symbols</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">numpy.ndarray</span></a></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">timing_subdivisions</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timing_tracking</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timing_config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="nearlink_sdr.phy.timing.html#nearlink_sdr.phy.timing.PSKTimingConfig" title="nearlink_sdr.phy.timing.PSKTimingConfig"><span class="pre">nearlink_sdr.phy.timing.PSKTimingConfig</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">energy_window_symbols</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><span class="pre">dict</span></a></span></span><a class="reference internal" href="../../_modules/nearlink_sdr/phy/psk.html#acquire_psk_capture"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nearlink_sdr.phy.psk.acquire_psk_capture" title="Link to this definition">¶</a></dt>
+<dd><p>从完整IQ能量段按已知同步获取符号；不使用期待载荷或CRC选择同步。</p>
+<p>beta=.4/10-symbol RRC复用原滤波器；居中离线滤波使用未来样本，非硬件时间。
+每SPS相位的差分归一相关消除常量相位/CFO；选最大相关，固定门限.85。
+由同步估计CFO/相位/增益，保留短段、边界段及未同步段；返回的symbols未通过CRC。
+timing_tracking=True时同步之后启用NDA Gardner/PI持续跟踪；实际采样坐标单独返回。
+energy_window_symbols可扩大能量平均窗抑制低SNR下包内切碎；默认1保留旧路径。</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="nearlink_sdr.phy.psk.refine_psk_carrier">
+<span class="sig-prename descclassname"><span class="pre">nearlink_sdr.phy.psk.</span></span><span class="sig-name descname"><span class="pre">refine_psk_carrier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">symbols</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">numpy.ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">mod_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_symbol_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'coherent'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/nearlink_sdr/phy/psk.html#refine_psk_carrier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nearlink_sdr.phy.psk.refine_psk_carrier" title="Link to this definition">¶</a></dt>
+<dd><p>按星座M次方盲细化残余载波；不使用期待载荷、CRC或导频内容。</p>
+<p>去帧参考奇偶旋转，以M次方FFT选频，再作有界相干峰值细化和圆周相位平均。
+phase_regression保留旧unwrap回归供离线单因素对照，不按CRC在两种方法间重试。
+需要前置已知同步消除星座相位歧义；不搜索π/M旋转以迎合CRC。</p>
 </dd></dl>
 
 <dl class="py function">
@@ -638,6 +677,7 @@
 <li><a class="reference internal" href="#nearlink_sdr.phy.psk.SLE_RRC_BETA"><code class="docutils literal notranslate"><span class="pre">SLE_RRC_BETA</span></code></a></li>
 <li><a class="reference internal" href="#nearlink_sdr.phy.psk.PSKDemodulator"><code class="docutils literal notranslate"><span class="pre">PSKDemodulator</span></code></a><ul>
 <li><a class="reference internal" href="#nearlink_sdr.phy.psk.PSKDemodulator.demodulate"><code class="docutils literal notranslate"><span class="pre">PSKDemodulator.demodulate()</span></code></a></li>
+<li><a class="reference internal" href="#nearlink_sdr.phy.psk.PSKDemodulator.demap_symbols"><code class="docutils literal notranslate"><span class="pre">PSKDemodulator.demap_symbols()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#nearlink_sdr.phy.psk.PSKModulator"><code class="docutils literal notranslate"><span class="pre">PSKModulator</span></code></a><ul>
@@ -646,6 +686,8 @@
 <li><a class="reference internal" href="#nearlink_sdr.phy.psk.PSKModulator.modulate"><code class="docutils literal notranslate"><span class="pre">PSKModulator.modulate()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#nearlink_sdr.phy.psk.acquire_psk_capture"><code class="docutils literal notranslate"><span class="pre">acquire_psk_capture()</span></code></a></li>
+<li><a class="reference internal" href="#nearlink_sdr.phy.psk.refine_psk_carrier"><code class="docutils literal notranslate"><span class="pre">refine_psk_carrier()</span></code></a></li>
 <li><a class="reference internal" href="#nearlink_sdr.phy.psk.rrc_filter"><code class="docutils literal notranslate"><span class="pre">rrc_filter()</span></code></a></li>
 </ul>
 </li>

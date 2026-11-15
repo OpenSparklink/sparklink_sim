@@ -1,0 +1,73 @@
+# {py:mod}`nearlink_sdr.phy.timing`
+
+```{py:module} nearlink_sdr.phy.timing
+```
+
+```{autodoc2-docstring} nearlink_sdr.phy.timing
+:allowtitles:
+```
+
+## Module Contents
+
+### Classes
+
+````{list-table}
+:class: autosummary longtable
+:align: left
+
+* - {py:obj}`PSKTimingConfig <nearlink_sdr.phy.timing.PSKTimingConfig>`
+  - ```{autodoc2-docstring} nearlink_sdr.phy.timing.PSKTimingConfig
+    :summary:
+    ```
+````
+
+### Functions
+
+````{list-table}
+:class: autosummary longtable
+:align: left
+
+* - {py:obj}`track_psk_timing <nearlink_sdr.phy.timing.track_psk_timing>`
+  - ```{autodoc2-docstring} nearlink_sdr.phy.timing.track_psk_timing
+    :summary:
+    ```
+````
+
+### API
+
+`````{py:class} PSKTimingConfig
+:canonical: nearlink_sdr.phy.timing.PSKTimingConfig
+
+```{autodoc2-docstring} nearlink_sdr.phy.timing.PSKTimingConfig
+```
+
+````{py:attribute} bandwidth
+:canonical: nearlink_sdr.phy.timing.PSKTimingConfig.bandwidth
+:type: float
+:value: >
+   0.003
+
+```{autodoc2-docstring} nearlink_sdr.phy.timing.PSKTimingConfig.bandwidth
+```
+
+````
+
+````{py:attribute} max_rate_ppm
+:canonical: nearlink_sdr.phy.timing.PSKTimingConfig.max_rate_ppm
+:type: float
+:value: >
+   500.0
+
+```{autodoc2-docstring} nearlink_sdr.phy.timing.PSKTimingConfig.max_rate_ppm
+```
+
+````
+
+`````
+
+````{py:function} track_psk_timing(filtered: numpy.ndarray, sps: int, start: float, stop: float, *, hold_symbols: int = 32, config: nearlink_sdr.phy.timing.PSKTimingConfig | None = None) -> dict
+:canonical: nearlink_sdr.phy.timing.track_psk_timing
+
+```{autodoc2-docstring} nearlink_sdr.phy.timing.track_psk_timing
+```
+````

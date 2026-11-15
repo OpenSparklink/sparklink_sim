@@ -207,6 +207,8 @@
 <li class="toctree-l2"><a class="reference internal" href="../../how-to/rust-acceleration.html">Rust Acceleration Module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../how-to/sdr-deployment.html">SDR E310 Deployment Planning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../how-to/build-docs.html">Building Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../how-to/real-iq.html">使用真实 SLE IQ 数据</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../how-to/rx-timing-audit.html">离线接收定时边界验证</a></li>
 </ul>
 </li>
 <li class="toctree-l1 current has-children"><a class="reference internal" href="../../reference/index.html">API Reference</a><input aria-label="Toggle navigation of API Reference" checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
@@ -266,6 +268,7 @@
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.rx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.rx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.sdr_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sdr_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.sync_sequence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sync_sequence</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.timing.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.timing</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.tx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.tx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.uhd_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.uhd_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.usrp.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.usrp</span></code></a></li>
@@ -276,6 +279,8 @@
 <li class="toctree-l3"><a class="reference internal" href="nearlink_sdr.node.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.node</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../../reference/psk-noise-recovery-results.html">原九个PSK噪声失败的修复与边界</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../reference/psk-timing-tracking-results.html">PSK持续定时跟踪：离线验证结果</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../explanation/index.html">Explanation</a><input aria-label="Toggle navigation of Explanation" class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -287,6 +292,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../explanation/data-flow.html">End-to-End Data Flow</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../explanation/architecture.html">System Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../explanation/standard-mapping.html">Standard Clause Mapping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../explanation/psk-timing-recovery.html">PSK 包内采样时钟恢复</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../changelog.html">Changelog</a></li>
@@ -347,6 +353,7 @@
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.rx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.rx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.sdr_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sdr_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.sync_sequence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sync_sequence</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.timing.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.timing</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.tx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.tx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.uhd_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.uhd_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.usrp.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.usrp</span></code></a></li>
@@ -425,6 +432,12 @@
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="#nearlink_sdr.phy.frame.assemble_frame_bits" title="nearlink_sdr.phy.frame.assemble_frame_bits"><code class="xref py py-obj docutils literal notranslate"><span class="pre">assemble_frame_bits</span></code></a></p></td>
 <td><p>Assemble a complete frame at the bit level.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#nearlink_sdr.phy.frame.decode_ft1_a3_candidates" title="nearlink_sdr.phy.frame.decode_ft1_a3_candidates"><code class="xref py py-obj docutils literal notranslate"><span class="pre">decode_ft1_a3_candidates</span></code></a></p></td>
+<td><p>解析已判决比特中的 FT1/A3 候选（6.3.2、6.4.1.4、6.10.1/4）。</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#nearlink_sdr.phy.frame.decode_ft2_a3_capture" title="nearlink_sdr.phy.frame.decode_ft2_a3_capture"><code class="xref py py-obj docutils literal notranslate"><span class="pre">decode_ft2_a3_capture</span></code></a></p></td>
+<td><p>解析显式无加扰/CRC24A的FT2/A3采集，symbols从已知同步起点开始。</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#nearlink_sdr.phy.frame.frame_to_symbols" title="nearlink_sdr.phy.frame.frame_to_symbols"><code class="xref py py-obj docutils literal notranslate"><span class="pre">frame_to_symbols</span></code></a></p></td>
 <td><p>Convert frame fields to a modulated symbol stream with pilot insertion.</p></td>
@@ -532,6 +545,27 @@
 <dd class="field-even"><p>A FrameFields object containing all frame fields.</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="nearlink_sdr.phy.frame.decode_ft1_a3_candidates">
+<span class="sig-prename descclassname"><span class="pre">nearlink_sdr.phy.frame.</span></span><span class="sig-name descname"><span class="pre">decode_ft1_a3_candidates</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bits</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">numpy.ndarray</span></a></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">sync_word</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_crc_seed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">whitening_seed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/nearlink_sdr/phy/frame.html#decode_ft1_a3_candidates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nearlink_sdr.phy.frame.decode_ft1_a3_candidates" title="Link to this definition">¶</a></dt>
+<dd><p>解析已判决比特中的 FT1/A3 候选（6.3.2、6.4.1.4、6.10.1/4）。</p>
+<p>同步字、CRC种子及是否加扰必须由调用者显式给出，不从期待载荷挑选。
+<code class="docutils literal notranslate"><span class="pre">None</span></code> 明确表示不加扰（例如经实测确认的厂测配置），不是普通链路默认值。
+头CRC通过后才读取11位长度；数据CRC通过后才返回payload。
+错候选和截断候选保留诊断，继续搜索其后的同步，不消耗整个窗口。
+返回坐标均为输入比特偏移，end为exclusive；不声称完成RF或硬件时间同步。</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="nearlink_sdr.phy.frame.decode_ft2_a3_capture">
+<span class="sig-prename descclassname"><span class="pre">nearlink_sdr.phy.frame.</span></span><span class="sig-name descname"><span class="pre">decode_ft2_a3_capture</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">symbols</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">numpy.ndarray</span></a></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">sync_word</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_crc_seed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">pilot_interval</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">carrier_method</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'coherent'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><span class="pre">dict</span></a></span></span><a class="reference internal" href="../../_modules/nearlink_sdr/phy/frame.html#decode_ft2_a3_capture"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nearlink_sdr.phy.frame.decode_ft2_a3_capture" title="Link to this definition">¶</a></dt>
+<dd><p>解析显式无加扰/CRC24A的FT2/A3采集，symbols从已知同步起点开始。</p>
+<p>控制QPSK固定16:1导频，Polar(64,48)，实际A3头CRC后才读长度和MCS。
+数据复用现有码块分割、Polar和CRC；不使用decode_head的简化成功标志。
+1:1导频仅供显式厂测配置，不能推广为普通业务默认配置。
+返回payload仅表示CRC合格；是否符合外部源的已知数据仍须调用者另行核对。</p>
 </dd></dl>
 
 <dl class="py function">
@@ -657,6 +691,8 @@
 </ul>
 </li>
 <li><a class="reference internal" href="#nearlink_sdr.phy.frame.assemble_frame_bits"><code class="docutils literal notranslate"><span class="pre">assemble_frame_bits()</span></code></a></li>
+<li><a class="reference internal" href="#nearlink_sdr.phy.frame.decode_ft1_a3_candidates"><code class="docutils literal notranslate"><span class="pre">decode_ft1_a3_candidates()</span></code></a></li>
+<li><a class="reference internal" href="#nearlink_sdr.phy.frame.decode_ft2_a3_capture"><code class="docutils literal notranslate"><span class="pre">decode_ft2_a3_capture()</span></code></a></li>
 <li><a class="reference internal" href="#nearlink_sdr.phy.frame.frame_to_symbols"><code class="docutils literal notranslate"><span class="pre">frame_to_symbols()</span></code></a></li>
 <li><a class="reference internal" href="#nearlink_sdr.phy.frame.symbols_to_data_bits"><code class="docutils literal notranslate"><span class="pre">symbols_to_data_bits()</span></code></a></li>
 </ul>

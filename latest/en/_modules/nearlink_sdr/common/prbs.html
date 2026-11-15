@@ -206,6 +206,8 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../how-to/rust-acceleration.html">Rust Acceleration Module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../how-to/sdr-deployment.html">SDR E310 Deployment Planning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../how-to/build-docs.html">Building Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../how-to/real-iq.html">使用真实 SLE IQ 数据</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../how-to/rx-timing-audit.html">离线接收定时边界验证</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../reference/index.html">API Reference</a><input aria-label="Toggle navigation of API Reference" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -265,6 +267,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../apidocs/nearlink_sdr/nearlink_sdr.phy.rx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.rx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../apidocs/nearlink_sdr/nearlink_sdr.phy.sdr_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sdr_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../apidocs/nearlink_sdr/nearlink_sdr.phy.sync_sequence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sync_sequence</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.timing</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../apidocs/nearlink_sdr/nearlink_sdr.phy.tx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.tx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../apidocs/nearlink_sdr/nearlink_sdr.phy.uhd_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.uhd_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../apidocs/nearlink_sdr/nearlink_sdr.phy.usrp.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.usrp</span></code></a></li>
@@ -275,6 +278,8 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../apidocs/nearlink_sdr/nearlink_sdr.node.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.node</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../../../reference/psk-noise-recovery-results.html">原九个PSK噪声失败的修复与边界</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../reference/psk-timing-tracking-results.html">PSK持续定时跟踪：离线验证结果</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../explanation/index.html">Explanation</a><input aria-label="Toggle navigation of Explanation" class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -286,6 +291,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../explanation/data-flow.html">End-to-End Data Flow</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../explanation/architecture.html">System Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../explanation/standard-mapping.html">Standard Clause Mapping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../explanation/psk-timing-recovery.html">PSK 包内采样时钟恢复</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Changelog</a></li>
@@ -346,6 +352,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../apidocs/nearlink_sdr/nearlink_sdr.phy.rx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.rx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../apidocs/nearlink_sdr/nearlink_sdr.phy.sdr_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sdr_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../apidocs/nearlink_sdr/nearlink_sdr.phy.sync_sequence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sync_sequence</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.timing</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../apidocs/nearlink_sdr/nearlink_sdr.phy.tx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.tx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../apidocs/nearlink_sdr/nearlink_sdr.phy.uhd_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.uhd_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../apidocs/nearlink_sdr/nearlink_sdr.phy.usrp.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.usrp</span></code></a></li>
@@ -400,7 +407,9 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;prbs9&quot;</span><span class="p">,</span>
     <span class="s2">&quot;prbs11&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;prbs15&quot;</span><span class="p">,</span>
     <span class="s2">&quot;prbs17&quot;</span><span class="p">,</span>
 <span class="p">]</span>
 
@@ -457,6 +466,24 @@
 
 
 
+<div class="viewcode-block" id="prbs9">
+<a class="viewcode-back" href="../../../apidocs/nearlink_sdr/nearlink_sdr.common.prbs.html#nearlink_sdr.common.prbs.prbs9">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">prbs9</span><span class="p">(</span><span class="n">length</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mh">0x1FF</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Conventional PRBS9, x^9 + x^5 + 1, output stage 8 first.</span>
+
+<span class="sd">    This mathematical convention does not establish a particular vendor&#39;s factory</span>
+<span class="sd">    packet byte order, whitening or seed. Those must be verified independently.</span>
+
+<span class="sd">    :param length: Nonnegative output bit count.</span>
+<span class="sd">    :param seed: Nonzero nine-bit initial state, default all ones.</span>
+<span class="sd">    :returns: PRBS9 bits, never a factory frame/CRC verdict.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">length</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">seed</span> <span class="o">&lt;</span> <span class="mi">512</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;PRBS9 needs nonnegative length and nonzero nine-bit seed&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_lfsr_generate</span><span class="p">([(</span><span class="n">seed</span> <span class="o">&gt;&gt;</span> <span class="n">i</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">9</span><span class="p">)],</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span></div>
+
+
+
 <div class="viewcode-block" id="prbs17">
 <a class="viewcode-back" href="../../../apidocs/nearlink_sdr/nearlink_sdr.common.prbs.html#nearlink_sdr.common.prbs.prbs17">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">prbs17</span><span class="p">(</span><span class="n">length</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mh">0x1FFFF</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">]:</span>
@@ -473,6 +500,21 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">state</span> <span class="o">=</span> <span class="p">[(</span><span class="n">seed</span> <span class="o">&gt;&gt;</span> <span class="n">i</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">17</span><span class="p">)]</span>
     <span class="k">return</span> <span class="n">_lfsr_generate</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="prbs15">
+<a class="viewcode-back" href="../../../apidocs/nearlink_sdr/nearlink_sdr.common.prbs.html#nearlink_sdr.common.prbs.prbs15">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">prbs15</span><span class="p">(</span><span class="n">length</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mh">0x7FFF</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;PRBS15 x^15+x^14+1, output stage14, feedback stage14 XOR13.</span>
+
+<span class="sd">    :param length: Nonnegative bit count.</span>
+<span class="sd">    :param seed: Nonzero fifteen-bit initial state, default all ones.</span>
+<span class="sd">    :returns: Mathematical bits; byte order is an explicit caller decision.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">length</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">seed</span> <span class="o">&lt;</span> <span class="mi">32768</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;PRBS15 needs nonnegative length and nonzero fifteen-bit seed&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_lfsr_generate</span><span class="p">([(</span><span class="n">seed</span> <span class="o">&gt;&gt;</span> <span class="n">i</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">15</span><span class="p">)],</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span></div>
 
 </pre></div>
         </article>

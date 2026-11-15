@@ -3,7 +3,7 @@
   <head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="索引" href="../../genindex.html"><link rel="search" title="搜索" href="../../search.html"><link rel="next" title="设计说明" href="../../explanation/index.html"><link rel="prev" title="nearlink_sdr.phy.uwb_pulse" href="nearlink_sdr.phy.uwb_pulse.html">
+<link rel="index" title="索引" href="../../genindex.html"><link rel="search" title="搜索" href="../../search.html"><link rel="next" title="原九个PSK噪声失败的修复与边界" href="../../reference/psk-noise-recovery-results.html"><link rel="prev" title="nearlink_sdr.phy.uwb_pulse" href="nearlink_sdr.phy.uwb_pulse.html">
 
     <!-- Generated with Sphinx 8.2.3 and Furo 2025.12.19 -->
         <title>nearlink_sdr.node - nearlink-sdr 1.0.9 文档</title>
@@ -207,6 +207,8 @@
 <li class="toctree-l2"><a class="reference internal" href="../../how-to/rust-acceleration.html">Rust 加速模块</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../how-to/sdr-deployment.html">SDR E310 部署规划</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../how-to/build-docs.html">构建文档</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../how-to/real-iq.html">使用真实 SLE IQ 数据</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../how-to/rx-timing-audit.html">离线接收定时边界验证</a></li>
 </ul>
 </li>
 <li class="toctree-l1 current has-children"><a class="reference internal" href="../../reference/index.html">技术参考</a><input aria-label="Toggle navigation of 技术参考" checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
@@ -266,6 +268,7 @@
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.rx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.rx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.sdr_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sdr_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.sync_sequence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sync_sequence</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.timing.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.timing</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.tx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.tx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.uhd_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.uhd_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.usrp.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.usrp</span></code></a></li>
@@ -276,6 +279,8 @@
 <li class="toctree-l3 current"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.node</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../../reference/psk-noise-recovery-results.html">原九个PSK噪声失败的修复与边界</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../reference/psk-timing-tracking-results.html">PSK持续定时跟踪：离线验证结果</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../explanation/index.html">设计说明</a><input aria-label="Toggle navigation of 设计说明" class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -287,6 +292,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../explanation/data-flow.html">端到端数据流</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../explanation/architecture.html">系统架构</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../explanation/standard-mapping.html">标准条款映射</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../explanation/psk-timing-recovery.html">PSK 包内采样时钟恢复</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../changelog.html">更新日志</a></li>
@@ -347,6 +353,7 @@
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.rx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.rx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.sdr_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sdr_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.sync_sequence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sync_sequence</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.timing.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.timing</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.tx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.tx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.uhd_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.uhd_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="nearlink_sdr.phy.usrp.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.usrp</span></code></a></li>
@@ -1130,12 +1137,12 @@ rx_result = node.receive(rx_iq, n_bytes)
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="../../explanation/index.html">
+          <a class="next-page" href="../../reference/psk-noise-recovery-results.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">设计说明</div>
+                <div class="title">原九个PSK噪声失败的修复与边界</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>

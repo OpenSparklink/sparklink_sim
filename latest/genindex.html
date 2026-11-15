@@ -205,6 +205,8 @@
 <li class="toctree-l2"><a class="reference internal" href="how-to/rust-acceleration.html">Rust 加速模块</a></li>
 <li class="toctree-l2"><a class="reference internal" href="how-to/sdr-deployment.html">SDR E310 部署规划</a></li>
 <li class="toctree-l2"><a class="reference internal" href="how-to/build-docs.html">构建文档</a></li>
+<li class="toctree-l2"><a class="reference internal" href="how-to/real-iq.html">使用真实 SLE IQ 数据</a></li>
+<li class="toctree-l2"><a class="reference internal" href="how-to/rx-timing-audit.html">离线接收定时边界验证</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="reference/index.html">技术参考</a><input aria-label="Toggle navigation of 技术参考" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -264,6 +266,7 @@
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.rx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.rx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.sdr_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sdr_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.sync_sequence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sync_sequence</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.timing</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.tx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.tx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.uhd_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.uhd_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.usrp.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.usrp</span></code></a></li>
@@ -274,6 +277,8 @@
 <li class="toctree-l3"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.node.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.node</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="reference/psk-noise-recovery-results.html">原九个PSK噪声失败的修复与边界</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/psk-timing-tracking-results.html">PSK持续定时跟踪：离线验证结果</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="explanation/index.html">设计说明</a><input aria-label="Toggle navigation of 设计说明" class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -285,6 +290,7 @@
 <li class="toctree-l2"><a class="reference internal" href="explanation/data-flow.html">端到端数据流</a></li>
 <li class="toctree-l2"><a class="reference internal" href="explanation/architecture.html">系统架构</a></li>
 <li class="toctree-l2"><a class="reference internal" href="explanation/standard-mapping.html">标准条款映射</a></li>
+<li class="toctree-l2"><a class="reference internal" href="explanation/psk-timing-recovery.html">PSK 包内采样时钟恢复</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="changelog.html">更新日志</a></li>
@@ -345,6 +351,7 @@
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.rx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.rx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.sdr_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sdr_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.sync_sequence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sync_sequence</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.timing</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.tx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.tx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.uhd_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.uhd_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.usrp.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.usrp</span></code></a></li>
@@ -500,6 +507,8 @@
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.ClockAccuracyResponse.accuracy">accuracy（nearlink_sdr.mac.link_control.ClockAccuracyResponse 属性）</a>
 </li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.psk.html#nearlink_sdr.phy.psk.acquire_psk_capture">acquire_psk_capture()（在 nearlink_sdr.phy.psk 模块中）</a>
+</li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.NarrowbandMeasAction.action_config">action_config（nearlink_sdr.mac.link_control.NarrowbandMeasAction 属性）</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.NarrowbandSensingAction.action_config">action_config（nearlink_sdr.mac.link_control.NarrowbandSensingAction 属性）</a>
@@ -609,6 +618,8 @@
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.measurement_tx.html#nearlink_sdr.phy.measurement_tx.UWBMeasLinkParams.alternate_sender">alternate_sender（nearlink_sdr.phy.measurement_tx.UWBMeasLinkParams 属性）</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.multitone.html#nearlink_sdr.phy.multitone.MultitoneConfig.amplitude">amplitude（nearlink_sdr.phy.multitone.MultitoneConfig 属性）</a>
+</li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.gfsk.html#nearlink_sdr.phy.gfsk.analyze_gfsk_capture">analyze_gfsk_capture()（在 nearlink_sdr.phy.gfsk 模块中）</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.scheduler.html#nearlink_sdr.mac.scheduler.EventGroupScheduler.anchor_offset_us">anchor_offset_us（nearlink_sdr.mac.scheduler.EventGroupScheduler 属性）</a>
 </li>
@@ -804,6 +815,8 @@
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.measurement_tx.html#nearlink_sdr.phy.measurement_tx.MeasLinkParams.bandwidth">bandwidth（nearlink_sdr.phy.measurement_tx.MeasLinkParams 属性）</a>
 </li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html#nearlink_sdr.phy.timing.PSKTimingConfig.bandwidth">bandwidth（nearlink_sdr.phy.timing.PSKTimingConfig 属性）</a>
+</li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.node.html#nearlink_sdr.node.NodeConfig.band">band（nearlink_sdr.node.NodeConfig 属性）</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.freq_hopping.html#nearlink_sdr.phy.freq_hopping.FreqTable.band">band（nearlink_sdr.phy.freq_hopping.FreqTable 属性）</a>
@@ -982,10 +995,10 @@
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.AsyncMulticastParamUpdateIndication.BYTE_LENGTH">BYTE_LENGTH（nearlink_sdr.mac.link_control.AsyncMulticastParamUpdateIndication 属性）</a>
 </li>
-        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.AsyncMulticastParamUpdateRequest.BYTE_LENGTH">BYTE_LENGTH（nearlink_sdr.mac.link_control.AsyncMulticastParamUpdateRequest 属性）</a>
-</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.AsyncMulticastParamUpdateRequest.BYTE_LENGTH">BYTE_LENGTH（nearlink_sdr.mac.link_control.AsyncMulticastParamUpdateRequest 属性）</a>
+</li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.AsyncMulticastReconfig.BYTE_LENGTH">BYTE_LENGTH（nearlink_sdr.mac.link_control.AsyncMulticastReconfig 属性）</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.AsyncTTLinkSetup.BYTE_LENGTH">BYTE_LENGTH（nearlink_sdr.mac.link_control.AsyncTTLinkSetup 属性）</a>
@@ -1954,10 +1967,10 @@
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.UWBProxySensingFeedback.DATA_TYPE_INDEX">DATA_TYPE_INDEX（nearlink_sdr.mac.link_control.UWBProxySensingFeedback 属性）</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.UWBProxySensingRequest.DATA_TYPE_INDEX">DATA_TYPE_INDEX（nearlink_sdr.mac.link_control.UWBProxySensingRequest 属性）</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.UWBSensingAction.DATA_TYPE_INDEX">DATA_TYPE_INDEX（nearlink_sdr.mac.link_control.UWBSensingAction 属性）</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.UWBSensingCapRequest.DATA_TYPE_INDEX">DATA_TYPE_INDEX（nearlink_sdr.mac.link_control.UWBSensingCapRequest 属性）</a>
@@ -2052,6 +2065,10 @@
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.common.polar.html#nearlink_sdr.common.polar.PolarDecoder.decode">decode() （nearlink_sdr.common.polar.PolarDecoder 方法）</a>
 </li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.frame.html#nearlink_sdr.phy.frame.decode_ft1_a3_candidates">decode_ft1_a3_candidates()（在 nearlink_sdr.phy.frame 模块中）</a>
+</li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.frame.html#nearlink_sdr.phy.frame.decode_ft2_a3_capture">decode_ft2_a3_capture()（在 nearlink_sdr.phy.frame 模块中）</a>
+</li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.qos.html#nearlink_sdr.mac.qos.HarqController.decode_harq_feedback">decode_harq_feedback() （nearlink_sdr.mac.qos.HarqController 方法）</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.rx_pipeline.html#nearlink_sdr.phy.rx_pipeline.decode_head">decode_head()（在 nearlink_sdr.phy.rx_pipeline 模块中）</a>
@@ -2087,6 +2104,8 @@
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.scheduler.html#nearlink_sdr.mac.scheduler.EventTimingParams.delay_period">delay_period（nearlink_sdr.mac.scheduler.EventTimingParams 属性）</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.multitone.html#nearlink_sdr.phy.multitone.MultitoneConfig.delta_f_hz">delta_f_hz（nearlink_sdr.phy.multitone.MultitoneConfig 属性）</a>
+</li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.psk.html#nearlink_sdr.phy.psk.PSKDemodulator.demap_symbols">demap_symbols() （nearlink_sdr.phy.psk.PSKDemodulator 方法）</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.gfsk.html#nearlink_sdr.phy.gfsk.GFSKDemodulator.demodulate">demodulate() （nearlink_sdr.phy.gfsk.GFSKDemodulator 方法）</a>
 </li>
@@ -3596,6 +3615,8 @@
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.uwb_pulse.html#nearlink_sdr.phy.uwb_pulse.UWBPulseConfig.max_prf_mhz">max_prf_mhz（nearlink_sdr.phy.uwb_pulse.UWBPulseConfig 属性）</a>
 </li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html#nearlink_sdr.phy.timing.PSKTimingConfig.max_rate_ppm">max_rate_ppm（nearlink_sdr.phy.timing.PSKTimingConfig 属性）</a>
+</li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.qos.html#nearlink_sdr.mac.qos.ArqState.max_retransmit">max_retransmit（nearlink_sdr.mac.qos.ArqState 属性）</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.node.html#nearlink_sdr.node.NodeConfig.max_retransmit">max_retransmit（nearlink_sdr.node.NodeConfig 属性）</a>
@@ -3861,6 +3882,8 @@
           <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.sdr_backend.html#module-nearlink_sdr.phy.sdr_backend">nearlink_sdr.phy.sdr_backend</a>
 </li>
           <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.sync_sequence.html#module-nearlink_sdr.phy.sync_sequence">nearlink_sdr.phy.sync_sequence</a>
+</li>
+          <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html#module-nearlink_sdr.phy.timing">nearlink_sdr.phy.timing</a>
 </li>
           <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.tx_pipeline.html#module-nearlink_sdr.phy.tx_pipeline">nearlink_sdr.phy.tx_pipeline</a>
 </li>
@@ -4196,8 +4219,6 @@
           <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.control_info.html#module-nearlink_sdr.phy.control_info">module</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     nearlink_sdr.phy.data_link
 
@@ -4205,6 +4226,8 @@
           <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.data_link.html#module-nearlink_sdr.phy.data_link">module</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     nearlink_sdr.phy.equalizer
 
@@ -4329,6 +4352,13 @@
 
         <ul>
           <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.sync_sequence.html#module-nearlink_sdr.phy.sync_sequence">module</a>
+</li>
+        </ul></li>
+        <li>
+    nearlink_sdr.phy.timing
+
+        <ul>
+          <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html#module-nearlink_sdr.phy.timing">module</a>
 </li>
         </ul></li>
         <li>
@@ -4953,12 +4983,12 @@
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.security_manager.html#nearlink_sdr.mac.security_manager.PairingManager">PairingManager（nearlink_sdr.mac.security_manager 中的类）</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.security.html#nearlink_sdr.mac.security.PairingRequest">PairingRequest（nearlink_sdr.mac.security 中的类）</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.security.html#nearlink_sdr.mac.security.PairingResponse">PairingResponse（nearlink_sdr.mac.security 中的类）</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.security_manager.html#nearlink_sdr.mac.security_manager.PairingState">PairingState（nearlink_sdr.mac.security_manager 中的类）</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_manager.html#nearlink_sdr.mac.link_manager.LinkState.PAIRING">PAIRING（nearlink_sdr.mac.link_manager.LinkState 属性）</a>
@@ -5229,7 +5259,11 @@
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.common.prbs.html#nearlink_sdr.common.prbs.prbs11">prbs11()（在 nearlink_sdr.common.prbs 模块中）</a>
 </li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.common.prbs.html#nearlink_sdr.common.prbs.prbs15">prbs15()（在 nearlink_sdr.common.prbs 模块中）</a>
+</li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.common.prbs.html#nearlink_sdr.common.prbs.prbs17">prbs17()（在 nearlink_sdr.common.prbs 模块中）</a>
+</li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.common.prbs.html#nearlink_sdr.common.prbs.prbs9">prbs9()（在 nearlink_sdr.common.prbs 模块中）</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.frame.html#nearlink_sdr.phy.frame.FrameFields.preamble_bits">preamble_bits（nearlink_sdr.phy.frame.FrameFields 属性）</a>
 </li>
@@ -5288,6 +5322,8 @@
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.psk.html#nearlink_sdr.phy.psk.PSKModulator">PSKModulator（nearlink_sdr.phy.psk 中的类）</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.rf_compliance.html#nearlink_sdr.phy.rf_compliance.PSKSpectrumMask">PSKSpectrumMask（nearlink_sdr.phy.rf_compliance 中的类）</a>
+</li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html#nearlink_sdr.phy.timing.PSKTimingConfig">PSKTimingConfig（nearlink_sdr.phy.timing 中的类）</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.crypto.html#nearlink_sdr.mac.crypto.AuthMethod.PSK">PSK（nearlink_sdr.mac.crypto.AuthMethod 属性）</a>
 </li>
@@ -5432,6 +5468,8 @@
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.measurement_tx.html#nearlink_sdr.phy.measurement_tx.CSIFeedback.ref_power_dbm">ref_power_dbm（nearlink_sdr.phy.measurement_tx.CSIFeedback 属性）</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.rf_compliance.html#nearlink_sdr.phy.rf_compliance.reference_sensitivity">reference_sensitivity()（在 nearlink_sdr.phy.rf_compliance 模块中）</a>
+</li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.psk.html#nearlink_sdr.phy.psk.refine_psk_carrier">refine_psk_carrier()（在 nearlink_sdr.phy.psk 模块中）</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.scheduler.html#nearlink_sdr.mac.scheduler.ScheduleManager.register_link">register_link() （nearlink_sdr.mac.scheduler.ScheduleManager 方法）</a>
 </li>
@@ -6835,6 +6873,8 @@
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.uwb_pulse.html#nearlink_sdr.phy.uwb_pulse.UWBPulseConfig.tp_ns">tp_ns（nearlink_sdr.phy.uwb_pulse.UWBPulseConfig 属性）</a>
 </li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html#nearlink_sdr.phy.timing.track_psk_timing">track_psk_timing()（在 nearlink_sdr.phy.timing 模块中）</a>
+</li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.node.html#nearlink_sdr.node.SleNode.transceiver">transceiver（nearlink_sdr.node.SleNode 属性）</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.sim.usrp_sim.html#nearlink_sdr.sim.usrp_sim.USRPLoopbackSim.transceiver">transceiver（nearlink_sdr.sim.usrp_sim.USRPLoopbackSim 属性）</a>
@@ -6941,10 +6981,10 @@
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.IsochronousParamExchangeRequest.tx_crc_type">tx_crc_type（nearlink_sdr.mac.link_control.IsochronousParamExchangeRequest 属性）</a>
 </li>
-        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.IsochronousLinkSetup.tx_discard_period">tx_discard_period（nearlink_sdr.mac.link_control.IsochronousLinkSetup 属性）</a>
-</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.IsochronousLinkSetup.tx_discard_period">tx_discard_period（nearlink_sdr.mac.link_control.IsochronousLinkSetup 属性）</a>
+</li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.IsochronousParamExchangeRequest.tx_discard_period">tx_discard_period（nearlink_sdr.mac.link_control.IsochronousParamExchangeRequest 属性）</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.broadcast.html#nearlink_sdr.mac.broadcast.TransportIndicationInfo.tx_feedback_type">tx_feedback_type（nearlink_sdr.mac.broadcast.TransportIndicationInfo 属性）</a>

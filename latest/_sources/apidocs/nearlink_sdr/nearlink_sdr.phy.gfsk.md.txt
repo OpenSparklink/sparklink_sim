@@ -25,6 +25,18 @@
     ```
 ````
 
+### Functions
+
+````{list-table}
+:class: autosummary longtable
+:align: left
+
+* - {py:obj}`analyze_gfsk_capture <nearlink_sdr.phy.gfsk.analyze_gfsk_capture>`
+  - ```{autodoc2-docstring} nearlink_sdr.phy.gfsk.analyze_gfsk_capture
+    :summary:
+    ```
+````
+
 ### Data
 
 ````{list-table}
@@ -92,3 +104,10 @@
 ````
 
 `````
+
+````{py:function} analyze_gfsk_capture(signal: numpy.ndarray, quiet: numpy.ndarray, sample_hz: float, symbol_hz: float) -> dict
+:canonical: nearlink_sdr.phy.gfsk.analyze_gfsk_capture
+
+```{autodoc2-docstring} nearlink_sdr.phy.gfsk.analyze_gfsk_capture
+```
+````

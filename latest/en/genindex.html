@@ -205,6 +205,8 @@
 <li class="toctree-l2"><a class="reference internal" href="how-to/rust-acceleration.html">Rust Acceleration Module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="how-to/sdr-deployment.html">SDR E310 Deployment Planning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="how-to/build-docs.html">Building Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="how-to/real-iq.html">使用真实 SLE IQ 数据</a></li>
+<li class="toctree-l2"><a class="reference internal" href="how-to/rx-timing-audit.html">离线接收定时边界验证</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="reference/index.html">API Reference</a><input aria-label="Toggle navigation of API Reference" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -264,6 +266,7 @@
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.rx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.rx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.sdr_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sdr_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.sync_sequence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sync_sequence</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.timing</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.tx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.tx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.uhd_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.uhd_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.usrp.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.usrp</span></code></a></li>
@@ -274,6 +277,8 @@
 <li class="toctree-l3"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.node.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.node</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="reference/psk-noise-recovery-results.html">原九个PSK噪声失败的修复与边界</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/psk-timing-tracking-results.html">PSK持续定时跟踪：离线验证结果</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="explanation/index.html">Explanation</a><input aria-label="Toggle navigation of Explanation" class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -285,6 +290,7 @@
 <li class="toctree-l2"><a class="reference internal" href="explanation/data-flow.html">End-to-End Data Flow</a></li>
 <li class="toctree-l2"><a class="reference internal" href="explanation/architecture.html">System Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="explanation/standard-mapping.html">Standard Clause Mapping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="explanation/psk-timing-recovery.html">PSK 包内采样时钟恢复</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="changelog.html">Changelog</a></li>
@@ -345,6 +351,7 @@
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.rx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.rx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.sdr_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sdr_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.sync_sequence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sync_sequence</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.timing</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.tx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.tx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.uhd_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.uhd_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.usrp.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.usrp</span></code></a></li>
@@ -524,6 +531,8 @@
           <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.ClockAccuracyResponse.accuracy">(nearlink_sdr.mac.link_control.ClockAccuracyResponse attribute)</a>
 </li>
         </ul></li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.psk.html#nearlink_sdr.phy.psk.acquire_psk_capture">acquire_psk_capture() (in module nearlink_sdr.phy.psk)</a>
+</li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.NarrowbandMeasAction.action_config">action_config (nearlink_sdr.mac.link_control.NarrowbandMeasAction attribute)</a>
 
         <ul>
@@ -645,6 +654,8 @@
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.measurement_tx.html#nearlink_sdr.phy.measurement_tx.UWBMeasLinkParams.alternate_sender">alternate_sender (nearlink_sdr.phy.measurement_tx.UWBMeasLinkParams attribute)</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.multitone.html#nearlink_sdr.phy.multitone.MultitoneConfig.amplitude">amplitude (nearlink_sdr.phy.multitone.MultitoneConfig attribute)</a>
+</li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.gfsk.html#nearlink_sdr.phy.gfsk.analyze_gfsk_capture">analyze_gfsk_capture() (in module nearlink_sdr.phy.gfsk)</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.scheduler.html#nearlink_sdr.mac.scheduler.EventGroupScheduler.anchor_offset_us">anchor_offset_us (nearlink_sdr.mac.scheduler.EventGroupScheduler attribute)</a>
 </li>
@@ -842,6 +853,8 @@
           <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.smf_scheduler.html#nearlink_sdr.mac.smf_scheduler.SMFScheduleParams.bandwidth">(nearlink_sdr.mac.smf_scheduler.SMFScheduleParams attribute)</a>
 </li>
           <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.measurement_tx.html#nearlink_sdr.phy.measurement_tx.MeasLinkParams.bandwidth">(nearlink_sdr.phy.measurement_tx.MeasLinkParams attribute)</a>
+</li>
+          <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html#nearlink_sdr.phy.timing.PSKTimingConfig.bandwidth">(nearlink_sdr.phy.timing.PSKTimingConfig attribute)</a>
 </li>
         </ul></li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.NarrowbandProxySensingFeedback.bandwidth1">bandwidth1 (nearlink_sdr.mac.link_control.NarrowbandProxySensingFeedback attribute)</a>
@@ -2186,6 +2199,10 @@
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.common.polar.html#nearlink_sdr.common.polar.PolarDecoder.decode">decode() (nearlink_sdr.common.polar.PolarDecoder method)</a>
 </li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.frame.html#nearlink_sdr.phy.frame.decode_ft1_a3_candidates">decode_ft1_a3_candidates() (in module nearlink_sdr.phy.frame)</a>
+</li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.frame.html#nearlink_sdr.phy.frame.decode_ft2_a3_capture">decode_ft2_a3_capture() (in module nearlink_sdr.phy.frame)</a>
+</li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.qos.html#nearlink_sdr.mac.qos.HarqController.decode_harq_feedback">decode_harq_feedback() (nearlink_sdr.mac.qos.HarqController method)</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.rx_pipeline.html#nearlink_sdr.phy.rx_pipeline.decode_head">decode_head() (in module nearlink_sdr.phy.rx_pipeline)</a>
@@ -2223,6 +2240,8 @@
 </li>
         </ul></li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.multitone.html#nearlink_sdr.phy.multitone.MultitoneConfig.delta_f_hz">delta_f_hz (nearlink_sdr.phy.multitone.MultitoneConfig property)</a>
+</li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.psk.html#nearlink_sdr.phy.psk.PSKDemodulator.demap_symbols">demap_symbols() (nearlink_sdr.phy.psk.PSKDemodulator method)</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.gfsk.html#nearlink_sdr.phy.gfsk.GFSKDemodulator.demodulate">demodulate() (nearlink_sdr.phy.gfsk.GFSKDemodulator method)</a>
 
@@ -3908,6 +3927,8 @@
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.uwb_pulse.html#nearlink_sdr.phy.uwb_pulse.UWBPulseConfig.max_prf_mhz">max_prf_mhz (nearlink_sdr.phy.uwb_pulse.UWBPulseConfig attribute)</a>
 </li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html#nearlink_sdr.phy.timing.PSKTimingConfig.max_rate_ppm">max_rate_ppm (nearlink_sdr.phy.timing.PSKTimingConfig attribute)</a>
+</li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.qos.html#nearlink_sdr.mac.qos.ArqState.max_retransmit">max_retransmit (nearlink_sdr.mac.qos.ArqState attribute)</a>
 
         <ul>
@@ -4203,6 +4224,8 @@
           <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.sdr_backend.html#module-nearlink_sdr.phy.sdr_backend">nearlink_sdr.phy.sdr_backend</a>
 </li>
           <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.sync_sequence.html#module-nearlink_sdr.phy.sync_sequence">nearlink_sdr.phy.sync_sequence</a>
+</li>
+          <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html#module-nearlink_sdr.phy.timing">nearlink_sdr.phy.timing</a>
 </li>
           <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.tx_pipeline.html#module-nearlink_sdr.phy.tx_pipeline">nearlink_sdr.phy.tx_pipeline</a>
 </li>
@@ -4538,8 +4561,6 @@
           <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.control_info.html#module-nearlink_sdr.phy.control_info">module</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     nearlink_sdr.phy.data_link
 
@@ -4547,6 +4568,8 @@
           <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.data_link.html#module-nearlink_sdr.phy.data_link">module</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     nearlink_sdr.phy.equalizer
 
@@ -4671,6 +4694,13 @@
 
         <ul>
           <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.sync_sequence.html#module-nearlink_sdr.phy.sync_sequence">module</a>
+</li>
+        </ul></li>
+        <li>
+    nearlink_sdr.phy.timing
+
+        <ul>
+          <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html#module-nearlink_sdr.phy.timing">module</a>
 </li>
         </ul></li>
         <li>
@@ -5327,12 +5357,12 @@
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.security.html#nearlink_sdr.mac.security.PairingInitiate">PairingInitiate (class in nearlink_sdr.mac.security)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.security_manager.html#nearlink_sdr.mac.security_manager.PairingManager">PairingManager (class in nearlink_sdr.mac.security_manager)</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.security.html#nearlink_sdr.mac.security.PairingRequest">PairingRequest (class in nearlink_sdr.mac.security)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.security.html#nearlink_sdr.mac.security.PairingResponse">PairingResponse (class in nearlink_sdr.mac.security)</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.security_manager.html#nearlink_sdr.mac.security_manager.PairingState">PairingState (class in nearlink_sdr.mac.security_manager)</a>
@@ -5627,7 +5657,11 @@
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.common.prbs.html#nearlink_sdr.common.prbs.prbs11">prbs11() (in module nearlink_sdr.common.prbs)</a>
 </li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.common.prbs.html#nearlink_sdr.common.prbs.prbs15">prbs15() (in module nearlink_sdr.common.prbs)</a>
+</li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.common.prbs.html#nearlink_sdr.common.prbs.prbs17">prbs17() (in module nearlink_sdr.common.prbs)</a>
+</li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.common.prbs.html#nearlink_sdr.common.prbs.prbs9">prbs9() (in module nearlink_sdr.common.prbs)</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.frame.html#nearlink_sdr.phy.frame.FrameFields.preamble_bits">preamble_bits (nearlink_sdr.phy.frame.FrameFields attribute)</a>
 </li>
@@ -5698,6 +5732,8 @@
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.psk.html#nearlink_sdr.phy.psk.PSKModulator">PSKModulator (class in nearlink_sdr.phy.psk)</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.rf_compliance.html#nearlink_sdr.phy.rf_compliance.PSKSpectrumMask">PSKSpectrumMask (class in nearlink_sdr.phy.rf_compliance)</a>
+</li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html#nearlink_sdr.phy.timing.PSKTimingConfig">PSKTimingConfig (class in nearlink_sdr.phy.timing)</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.security_manager.html#nearlink_sdr.mac.security_manager.PairingState.PUBLIC_KEY_EXCHANGED">PUBLIC_KEY_EXCHANGED (nearlink_sdr.mac.security_manager.PairingState attribute)</a>
 </li>
@@ -5856,6 +5892,8 @@
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.measurement_tx.html#nearlink_sdr.phy.measurement_tx.CSIFeedback.ref_power_dbm">ref_power_dbm (nearlink_sdr.phy.measurement_tx.CSIFeedback attribute)</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.rf_compliance.html#nearlink_sdr.phy.rf_compliance.reference_sensitivity">reference_sensitivity() (in module nearlink_sdr.phy.rf_compliance)</a>
+</li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.psk.html#nearlink_sdr.phy.psk.refine_psk_carrier">refine_psk_carrier() (in module nearlink_sdr.phy.psk)</a>
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.scheduler.html#nearlink_sdr.mac.scheduler.ScheduleManager.register_link">register_link() (nearlink_sdr.mac.scheduler.ScheduleManager method)</a>
 
@@ -7451,6 +7489,8 @@
 </li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.uwb_pulse.html#nearlink_sdr.phy.uwb_pulse.UWBPulseConfig.tp_ns">tp_ns (nearlink_sdr.phy.uwb_pulse.UWBPulseConfig attribute)</a>
 </li>
+        <li><a href="apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html#nearlink_sdr.phy.timing.track_psk_timing">track_psk_timing() (in module nearlink_sdr.phy.timing)</a>
+</li>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.node.html#nearlink_sdr.node.SleNode.transceiver">transceiver (nearlink_sdr.node.SleNode property)</a>
 
         <ul>
@@ -7577,14 +7617,14 @@
           <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.IsochronousParamExchangeRequest.tx_crc_type">(nearlink_sdr.mac.link_control.IsochronousParamExchangeRequest attribute)</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.IsochronousLinkSetup.tx_discard_period">tx_discard_period (nearlink_sdr.mac.link_control.IsochronousLinkSetup attribute)</a>
 
         <ul>
           <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.link_control.html#nearlink_sdr.mac.link_control.IsochronousParamExchangeRequest.tx_discard_period">(nearlink_sdr.mac.link_control.IsochronousParamExchangeRequest attribute)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="apidocs/nearlink_sdr/nearlink_sdr.mac.broadcast.html#nearlink_sdr.mac.broadcast.TransportIndicationInfo.tx_feedback_type">tx_feedback_type (nearlink_sdr.mac.broadcast.TransportIndicationInfo attribute)</a>
 
         <ul>

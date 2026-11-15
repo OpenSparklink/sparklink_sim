@@ -15,8 +15,16 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`prbs9 <nearlink_sdr.common.prbs.prbs9>`
+  - ```{autodoc2-docstring} nearlink_sdr.common.prbs.prbs9
+    :summary:
+    ```
 * - {py:obj}`prbs11 <nearlink_sdr.common.prbs.prbs11>`
   - ```{autodoc2-docstring} nearlink_sdr.common.prbs.prbs11
+    :summary:
+    ```
+* - {py:obj}`prbs15 <nearlink_sdr.common.prbs.prbs15>`
+  - ```{autodoc2-docstring} nearlink_sdr.common.prbs.prbs15
     :summary:
     ```
 * - {py:obj}`prbs17 <nearlink_sdr.common.prbs.prbs17>`
@@ -27,10 +35,24 @@
 
 ### API
 
+````{py:function} prbs9(length: int, seed: int = 511) -> numpy.typing.NDArray[numpy.uint8]
+:canonical: nearlink_sdr.common.prbs.prbs9
+
+```{autodoc2-docstring} nearlink_sdr.common.prbs.prbs9
+```
+````
+
 ````{py:function} prbs11(length: int, seed: int = 2047) -> numpy.typing.NDArray[numpy.uint8]
 :canonical: nearlink_sdr.common.prbs.prbs11
 
 ```{autodoc2-docstring} nearlink_sdr.common.prbs.prbs11
+```
+````
+
+````{py:function} prbs15(length: int, seed: int = 32767) -> numpy.typing.NDArray[numpy.uint8]
+:canonical: nearlink_sdr.common.prbs.prbs15
+
+```{autodoc2-docstring} nearlink_sdr.common.prbs.prbs15
 ```
 ````
 

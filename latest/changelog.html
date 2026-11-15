@@ -3,7 +3,7 @@
   <head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="索引" href="genindex.html"><link rel="search" title="搜索" href="search.html"><link rel="next" title="API Reference" href="apidocs/index.html"><link rel="prev" title="标准条款映射" href="explanation/standard-mapping.html">
+<link rel="index" title="索引" href="genindex.html"><link rel="search" title="搜索" href="search.html"><link rel="next" title="API Reference" href="apidocs/index.html"><link rel="prev" title="PSK 包内采样时钟恢复" href="explanation/psk-timing-recovery.html">
 
     <!-- Generated with Sphinx 8.2.3 and Furo 2025.12.19 -->
         <title>更新日志 - nearlink-sdr 1.0.9 文档</title>
@@ -207,6 +207,8 @@
 <li class="toctree-l2"><a class="reference internal" href="how-to/rust-acceleration.html">Rust 加速模块</a></li>
 <li class="toctree-l2"><a class="reference internal" href="how-to/sdr-deployment.html">SDR E310 部署规划</a></li>
 <li class="toctree-l2"><a class="reference internal" href="how-to/build-docs.html">构建文档</a></li>
+<li class="toctree-l2"><a class="reference internal" href="how-to/real-iq.html">使用真实 SLE IQ 数据</a></li>
+<li class="toctree-l2"><a class="reference internal" href="how-to/rx-timing-audit.html">离线接收定时边界验证</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="reference/index.html">技术参考</a><input aria-label="Toggle navigation of 技术参考" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -266,6 +268,7 @@
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.rx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.rx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.sdr_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sdr_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.sync_sequence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sync_sequence</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.timing</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.tx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.tx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.uhd_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.uhd_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.usrp.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.usrp</span></code></a></li>
@@ -276,6 +279,8 @@
 <li class="toctree-l3"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.node.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.node</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="reference/psk-noise-recovery-results.html">原九个PSK噪声失败的修复与边界</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/psk-timing-tracking-results.html">PSK持续定时跟踪：离线验证结果</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="explanation/index.html">设计说明</a><input aria-label="Toggle navigation of 设计说明" class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -287,6 +292,7 @@
 <li class="toctree-l2"><a class="reference internal" href="explanation/data-flow.html">端到端数据流</a></li>
 <li class="toctree-l2"><a class="reference internal" href="explanation/architecture.html">系统架构</a></li>
 <li class="toctree-l2"><a class="reference internal" href="explanation/standard-mapping.html">标准条款映射</a></li>
+<li class="toctree-l2"><a class="reference internal" href="explanation/psk-timing-recovery.html">PSK 包内采样时钟恢复</a></li>
 </ul>
 </li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">更新日志</a></li>
@@ -347,6 +353,7 @@
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.rx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.rx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.sdr_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sdr_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.sync_sequence.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.sync_sequence</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.timing.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.timing</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.tx_pipeline.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.tx_pipeline</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.uhd_backend.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.uhd_backend</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="apidocs/nearlink_sdr/nearlink_sdr.phy.usrp.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">nearlink_sdr.phy.usrp</span></code></a></li>
@@ -407,6 +414,7 @@
 <section id="fixed">
 <h3>Fixed<a class="headerlink" href="#fixed" title="Link to this heading">¶</a></h3>
 <ul class="simple">
+<li><p>修复低SNR PSK M次方相位解缠造成整包载波斜率错误的问题：默认使用有界相干峰值细化和圆周相位平均，旧回归仅作显式对照，不进行CRC驱动重试。</p></li>
 <li><p>修复 <code class="docutils literal notranslate"><span class="pre">phy/gfsk.py</span></code> 高斯滤波器冲激响应多乘一个因子 2 的问题: 实际单边 -3 dB 带宽为标称 <code class="docutils literal notranslate"><span class="pre">BT</span></code> 的 √2 倍 (BT=0.5 时实测 0.706/T)</p>
 <ul>
 <li><p>改用 <code class="docutils literal notranslate"><span class="pre">h(t)</span> <span class="pre">∝</span> <span class="pre">exp(-t²/(2σ²))</span></code>, <code class="docutils literal notranslate"><span class="pre">σ/T</span> <span class="pre">=</span> <span class="pre">√(ln</span> <span class="pre">2)/(2π·BT)</span></code>, 与 <code class="docutils literal notranslate"><span class="pre">sparklink-hw</span></code> 的 <code class="docutils literal notranslate"><span class="pre">gfsk_tables.py</span></code> / <code class="docutils literal notranslate"><span class="pre">gfsk_reference.py</span></code> 使用同一定义</p></li>
@@ -431,6 +439,7 @@
 <section id="changed">
 <h3>Changed<a class="headerlink" href="#changed" title="Link to this heading">¶</a></h3>
 <ul class="simple">
+<li><p>移除 <code class="docutils literal notranslate"><span class="pre">antsdr-fw-patch</span></code> 与 <code class="docutils literal notranslate"><span class="pre">nearlink_sdr_zynq</span></code> 两个 Git 子模块引用；它们已拆分为独立工程，旧目录在本仓库中忽略，已有独立检出保持原样。</p></li>
 <li><p>全量 docstring 格式从 NumPy 风格统一为 RST field list 风格 (<code class="docutils literal notranslate"><span class="pre">:param:</span></code> / <code class="docutils literal notranslate"><span class="pre">:returns:</span></code> / <code class="docutils literal notranslate"><span class="pre">:rtype:</span></code> / <code class="docutils literal notranslate"><span class="pre">:ivar:</span></code>)，修复 autodoc2 解析失败和 &quot;Duplicate implicit target name&quot; 警告</p>
 <ul>
 <li><p>涉及模块: <code class="docutils literal notranslate"><span class="pre">scrambler.py</span></code>, <code class="docutils literal notranslate"><span class="pre">prbs.py</span></code>, <code class="docutils literal notranslate"><span class="pre">mcs.py</span></code>, <code class="docutils literal notranslate"><span class="pre">tx_pipeline.py</span></code>, <code class="docutils literal notranslate"><span class="pre">rx_pipeline.py</span></code>, <code class="docutils literal notranslate"><span class="pre">mac_interface.py</span></code></p></li>
@@ -442,6 +451,25 @@
 <section id="added">
 <h3>Added<a class="headerlink" href="#added" title="Link to this heading">¶</a></h3>
 <ul class="simple">
+<li><p>发布「sle IQ数据集」：WS63 经 E310 采集的 72 组、360 份真实 SLE IQ，
+通过 Release 分卷提供，补充中文下载、格式、用途和验证范围说明；模型代码及软件版本不变。</p></li>
+<li><p>标注 IQ 数据集可独立使用，校验仅需 Python 标准库，不依赖本项目、uv 或 Git LFS。</p></li>
+<li><p>使用提示改为选样本、突发同步、4M 8PSK 分数定时和静默对照的具体操作。</p></li>
+<li><p>补齐接收定时文档目录和明确的跨页锚点，修复严格文档构建失败。</p></li>
+<li><p>归档PSK原九个噪声失败的三臂结果：0/9→7/9→9/9；新增保留集仍有5个失败，记录原成功包无退化、真实IQ及独立r2静默来源与哈希。</p></li>
+<li><p>PSK离线获取支持显式多符号能量平均，抑制低SNR下包内能量段切碎；默认1符号兼容旧路径，补充开发集噪声恢复与非法窗口测试。</p></li>
+<li><p>新增固定相位/持续跟踪成对复核工具，冻结原保留集和新增 CFO/SRO 保留集，保存逐符号实际坐标、全部失败与恢复/退化关联；补充随机未知数据包内时钟变更验证。</p></li>
+<li><p>新增可选 PSK 包内 Gardner/PI 持续定时跟踪，保持同步捕获规则，记录实际采样坐标、SRO 速率状态与限幅事件；默认关闭，附独立发送真值长包和旋转不变性测试。</p></li>
+<li><p>新增离线 PSK 定时边界实验及独立连续时间发送参考，保留静态/SRO/包长/干扰失败、真实 IQ 对照和输入哈希；不修改接收算法。</p></li>
+<li><p>PSK真实IQ获取支持显式分数相位网格，仅插值同一ADC记录；默认整数路径保持，补充独立密集TX网格下采样验证及反例。</p></li>
+<li><p>为现有PSK模型增加帧参考奇偶索引的符号映射/判决、已知同步的真实IQ获取和盲M次方残余载波细化。</p></li>
+<li><p>FT2/A3采集显式检查Polar头CRC，再读取MCS/长度；复用现有码块分割、Polar和数据CRC，保留未知/截断/坏CRC，不用期待载荷选择同步。</p></li>
+<li><p>增加PRBS15（x¹⁵+x¹⁴+1）数学生成及周期/递推/位序反例测试，用于已有厂测IQ的独立内容核对。</p></li>
+<li><p>在现有帧模块增加显式配置的FT1/A3候选解析：头CRC后读取长度、数据CRC后交付，
+坏头、坏CRC、截断后继续搜索；保留诊断，禁止期待载荷辅助选择同步。</p></li>
+<li><p>为真实IQ增加有界GFSK采集前端：静默对照定阈值、保留短段/截断段、盲CFO和定时，
+复用已有鉴频解调器并保留原始样本坐标；不推断厂测帧或宣称CRC通过。</p></li>
+<li><p>增加约定明确的PRBS9数学向量；不把数学位序默认为WS63厂测固件位序。</p></li>
 <li><p>DLI 指令集完整实现 122 个 opcode, 29 个单元测试全部通过</p>
 <ul>
 <li><p>基本指令补全: READ_SLB_CTRL_BUF / CONFIG_FISA_CHAN / ENABLE_FISA / CONFIG_SLB_SYNC / READ_SLB_SYNC / READ_SLB_POWER / TIME_SYNC_STATUS / TIME_SYNC_REQ / TIME_SYNC_RSP / ADD_WL_DEVICE_EXT</p></li>
@@ -1880,14 +1908,14 @@ AccessRequestInfo、AccessResponseInfo、SystemMgmtFrameInfo 等 7 个数据类<
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="explanation/standard-mapping.html">
+          <a class="prev-page" href="explanation/psk-timing-recovery.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">标准条款映射</div>
+                <div class="title">PSK 包内采样时钟恢复</div>
                 
               </div>
             </a>

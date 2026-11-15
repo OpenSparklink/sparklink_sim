@@ -35,6 +35,14 @@
   - ```{autodoc2-docstring} nearlink_sdr.phy.frame.assemble_frame_bits
     :summary:
     ```
+* - {py:obj}`decode_ft1_a3_candidates <nearlink_sdr.phy.frame.decode_ft1_a3_candidates>`
+  - ```{autodoc2-docstring} nearlink_sdr.phy.frame.decode_ft1_a3_candidates
+    :summary:
+    ```
+* - {py:obj}`decode_ft2_a3_capture <nearlink_sdr.phy.frame.decode_ft2_a3_capture>`
+  - ```{autodoc2-docstring} nearlink_sdr.phy.frame.decode_ft2_a3_capture
+    :summary:
+    ```
 * - {py:obj}`frame_to_symbols <nearlink_sdr.phy.frame.frame_to_symbols>`
   - ```{autodoc2-docstring} nearlink_sdr.phy.frame.frame_to_symbols
     :summary:
@@ -187,6 +195,20 @@
 :canonical: nearlink_sdr.phy.frame.assemble_frame_bits
 
 ```{autodoc2-docstring} nearlink_sdr.phy.frame.assemble_frame_bits
+```
+````
+
+````{py:function} decode_ft1_a3_candidates(bits: numpy.ndarray, *, sync_word: int, data_crc_seed: int, whitening_seed: int | None) -> list[dict]
+:canonical: nearlink_sdr.phy.frame.decode_ft1_a3_candidates
+
+```{autodoc2-docstring} nearlink_sdr.phy.frame.decode_ft1_a3_candidates
+```
+````
+
+````{py:function} decode_ft2_a3_capture(symbols: numpy.ndarray, *, sync_word: int, data_crc_seed: int, pilot_interval: int, carrier_method: str = 'coherent') -> dict
+:canonical: nearlink_sdr.phy.frame.decode_ft2_a3_capture
+
+```{autodoc2-docstring} nearlink_sdr.phy.frame.decode_ft2_a3_capture
 ```
 ````
 

@@ -34,6 +34,7 @@ nearlink_sdr.phy.rf_compliance
 nearlink_sdr.phy.rx_pipeline
 nearlink_sdr.phy.sdr_backend
 nearlink_sdr.phy.sync_sequence
+nearlink_sdr.phy.timing
 nearlink_sdr.phy.tx_pipeline
 nearlink_sdr.phy.uhd_backend
 nearlink_sdr.phy.usrp

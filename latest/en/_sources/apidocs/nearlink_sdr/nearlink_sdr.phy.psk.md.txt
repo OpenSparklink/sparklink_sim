@@ -31,6 +31,14 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`acquire_psk_capture <nearlink_sdr.phy.psk.acquire_psk_capture>`
+  - ```{autodoc2-docstring} nearlink_sdr.phy.psk.acquire_psk_capture
+    :summary:
+    ```
+* - {py:obj}`refine_psk_carrier <nearlink_sdr.phy.psk.refine_psk_carrier>`
+  - ```{autodoc2-docstring} nearlink_sdr.phy.psk.refine_psk_carrier
+    :summary:
+    ```
 * - {py:obj}`rrc_filter <nearlink_sdr.phy.psk.rrc_filter>`
   - ```{autodoc2-docstring} nearlink_sdr.phy.psk.rrc_filter
     :summary:
@@ -151,6 +159,14 @@
 
 ````
 
+````{py:method} demap_symbols(symbols: numpy.ndarray, start_symbol_index: int = 0) -> numpy.ndarray
+:canonical: nearlink_sdr.phy.psk.PSKDemodulator.demap_symbols
+
+```{autodoc2-docstring} nearlink_sdr.phy.psk.PSKDemodulator.demap_symbols
+```
+
+````
+
 `````
 
 `````{py:class} PSKModulator(mod_type: str = 'QPSK', sps: int = 4, beta: float = SLE_RRC_BETA, rrc_span: int = 10)
@@ -174,7 +190,7 @@
 
 ````
 
-````{py:method} map_symbols(bits: numpy.ndarray) -> numpy.ndarray
+````{py:method} map_symbols(bits: numpy.ndarray, start_symbol_index: int = 0) -> numpy.ndarray
 :canonical: nearlink_sdr.phy.psk.PSKModulator.map_symbols
 
 ```{autodoc2-docstring} nearlink_sdr.phy.psk.PSKModulator.map_symbols
@@ -191,6 +207,20 @@
 ````
 
 `````
+
+````{py:function} acquire_psk_capture(signal: numpy.ndarray, quiet: numpy.ndarray, sample_hz: float, symbol_hz: float, sync_symbols: numpy.ndarray, *, timing_subdivisions: int = 1, timing_tracking: bool = False, timing_config: nearlink_sdr.phy.timing.PSKTimingConfig | None = None, energy_window_symbols: int = 1) -> dict
+:canonical: nearlink_sdr.phy.psk.acquire_psk_capture
+
+```{autodoc2-docstring} nearlink_sdr.phy.psk.acquire_psk_capture
+```
+````
+
+````{py:function} refine_psk_carrier(symbols: numpy.ndarray, mod_type: str, start_symbol_index: int, *, method: str = 'coherent') -> tuple[numpy.ndarray, dict]
+:canonical: nearlink_sdr.phy.psk.refine_psk_carrier
+
+```{autodoc2-docstring} nearlink_sdr.phy.psk.refine_psk_carrier
+```
+````
 
 ````{py:function} rrc_filter(beta: float, sps: int, span: int = 10) -> numpy.ndarray
 :canonical: nearlink_sdr.phy.psk.rrc_filter
