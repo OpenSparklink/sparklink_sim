@@ -22,8 +22,8 @@ import numpy as np
 from nearlink_sdr.common.crc import CRC24A_POLY, crc_check
 from nearlink_sdr.common.scrambler import descramble
 from nearlink_sdr.phy.control_info import ControlInfoA3
-from nearlink_sdr.phy.pilot import insert_pilots, remove_pilots
 from nearlink_sdr.phy.preamble import generate_preamble
+from nearlink_sdr.phy.psk_fields import demap_psk_field, map_psk_field
 from nearlink_sdr.phy.sync_sequence import (
     sync_signal_1,
     sync_signal_2,
@@ -288,47 +288,20 @@ def frame_to_symbols(
     segments.append(preamble_syms)
     symbol_count += len(preamble_syms)
 
-    # 同步符号
     sync_mod = _SYNC_CONFIG[config.frame_type]["sync_mod"]
-    sync_syms = _modulate_bits(fields.sync_bits, sync_mod)
+    sync_syms = map_psk_field(fields.sync_bits, sync_mod, symbol_count)
     segments.append(sync_syms)
     symbol_count += len(sync_syms)
 
-    # 含导频插入的控制符号
     ctrl_cfg = _CTRL_CONFIG[config.frame_type]
-    ctrl_syms = _modulate_bits(fields.ctrl_bits, ctrl_cfg["ctrl_mod"])
-    if ctrl_cfg["pilot_interval"] > 0:
-        # 根据数据是否存在决定是否省略最后一个导频
-        has_data = len(fields.data_bits) > 0
-        data_has_pilot = config.pilot_interval > 0
-        omit_ctrl_last = not has_data or not data_has_pilot
-        ctrl_with_pilot, _ = insert_pilots(
-            ctrl_syms,
-            ctrl_cfg["pilot_interval"],
-            ctrl_cfg["ctrl_mod"],
-            start_symbol_index=symbol_count,
-            omit_last_pilot=omit_ctrl_last,
-        )
-        segments.append(ctrl_with_pilot)
-        symbol_count += len(ctrl_with_pilot)
-    else:
-        segments.append(ctrl_syms)
-        symbol_count += len(ctrl_syms)
-
-    # 含导频插入的数据符号
-    if len(fields.data_bits) > 0:
-        data_syms = _modulate_bits(fields.data_bits, config.mod_type)
-        if config.pilot_interval > 0:
-            data_with_pilot, _ = insert_pilots(
-                data_syms,
-                config.pilot_interval,
-                config.mod_type,
-                start_symbol_index=symbol_count,
-                omit_last_pilot=True,
-            )
-            segments.append(data_with_pilot)
-        else:
-            segments.append(data_syms)
+    ctrl_wire = map_psk_field(fields.ctrl_bits, ctrl_cfg["ctrl_mod"], symbol_count,
+                              ctrl_cfg["pilot_interval"],
+                              omit_last=not len(fields.data_bits) or config.pilot_interval == 0)
+    segments.append(ctrl_wire)
+    symbol_count += len(ctrl_wire)
+    if len(fields.data_bits):
+        segments.append(map_psk_field(fields.data_bits, config.mod_type, symbol_count,
+                                       config.pilot_interval, omit_last=True))
 
     return np.concatenate(segments)
 
@@ -382,29 +355,16 @@ def symbols_to_data_bits(
         ctrl_cfg["coded_bits"] or n_ctrl_coded_bits,
         ctrl_cfg["ctrl_mod"],
     )
+    interval = ctrl_cfg["pilot_interval"]
     n_ctrl_with_pilots = n_ctrl_syms
-    if ctrl_cfg["pilot_interval"] > 0:
-        n_pilots = n_ctrl_syms // ctrl_cfg["pilot_interval"]
-        n_ctrl_with_pilots = n_ctrl_syms + n_pilots
-
-    ctrl_raw = symbols[pos : pos + n_ctrl_with_pilots]
-    if ctrl_cfg["pilot_interval"] > 0:
-        ctrl_syms = remove_pilots(ctrl_raw, ctrl_cfg["pilot_interval"])
-    else:
-        ctrl_syms = ctrl_raw
-    ctrl_bits = _demodulate_symbols(ctrl_syms, ctrl_cfg["ctrl_mod"])
+    if interval:
+        n_ctrl_with_pilots += (n_ctrl_syms - int(config.pilot_interval == 0)) // interval
+    ctrl_raw = symbols[pos:pos + n_ctrl_with_pilots]
+    ctrl_bits = demap_psk_field(ctrl_raw, ctrl_cfg["ctrl_mod"], pos, interval)
     pos += n_ctrl_with_pilots
-
     if head_only:
         return ctrl_bits, np.empty(0, dtype=np.int8)
-
-    # 数据符号
-    remaining = symbols[pos:]
-    if config.pilot_interval > 0 and len(remaining) > 0:
-        data_syms = remove_pilots(remaining, config.pilot_interval)
-    else:
-        data_syms = remaining
-    data_bits = _demodulate_symbols(data_syms, config.mod_type)
+    data_bits = demap_psk_field(symbols[pos:], config.mod_type, pos, config.pilot_interval)
 
     if n_data_bits > 0:
         data_bits = data_bits[:n_data_bits]
