@@ -84,3 +84,36 @@ def test_invalid_shapes_or_carrier_arguments():
         refine_psk_carrier(np.ones(10), "QPSK", 0)
     with pytest.raises(ValueError):
         refine_psk_carrier(np.ones(100), "BPSK_NOROT", 0)
+
+
+@pytest.mark.parametrize("subdivisions", [0, 33, 1.5, True])
+def test_invalid_fractional_grid_rejected(subdivisions):
+    with pytest.raises(ValueError):
+        acquire_psk_capture(np.ones(200), np.ones(200), 4000000, 1000000,
+                            np.ones(32), timing_subdivisions=subdivisions)
+
+
+def test_fractional_timing_uses_same_adc_samples_and_known_sync_only():
+    rng = np.random.default_rng(81)
+    sync = PSKModulator("QPSK", sps=1).map_symbols(rng.integers(0, 2, 64))
+    symbols = np.r_[np.ones(20), sync, np.ones(120)]
+    # Independent dense transmit grid, then a single native4SPS sampling operation.
+    up = np.zeros(len(symbols) * 64, complex)
+    up[::64] = symbols
+    dense = fftconvolve(up, rrc_filter(.4, 64), "same")
+    native = dense[6::16] * 1000
+    x = np.r_[np.zeros(512), native, np.zeros(512)]
+    q = .01 * (rng.normal(size=4096) + 1j * rng.normal(size=4096))
+    original = x.copy()
+    integer = acquire_psk_capture(x, q, 4000000, 1000000, sync)
+    fractional = acquire_psk_capture(x, q, 4000000, 1000000, sync,
+                                     timing_subdivisions=8)
+    a = next(b for b in integer["bursts"] if "symbols" in b)
+    b = next(b for b in fractional["bursts"] if "symbols" in b)
+    assert b["sync_score"] > a["sync_score"]
+    assert b["sync_evm"] < a["sync_evm"]
+    assert b["sync_start_raw"] == pytest.approx(512 + 20 * 4 - 6 / 16, abs=.125)
+    assert fractional["sample_hz"] == integer["sample_hz"] == 4000000
+    np.testing.assert_array_equal(x, original)
+    assert acquire_psk_capture(q, q, 4000000, 1000000, sync,
+                               timing_subdivisions=8)["bursts"] == []

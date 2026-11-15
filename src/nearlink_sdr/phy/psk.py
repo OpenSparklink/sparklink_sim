@@ -237,13 +237,15 @@ class PSKDemodulator:
 
 
 def acquire_psk_capture(signal: np.ndarray, quiet: np.ndarray, sample_hz: float,
-                        symbol_hz: float, sync_symbols: np.ndarray) -> dict:
+                        symbol_hz: float, sync_symbols: np.ndarray, *,
+                        timing_subdivisions: int = 1) -> dict:
     """从完整IQ能量段按已知同步获取符号；不使用期待载荷或CRC选择同步。
 
     beta=.4/10-symbol RRC复用原滤波器；居中离线滤波使用未来样本，非硬件时间。
     每SPS相位的差分归一相关消除常量相位/CFO；选最大相关，固定门限.85。
     由同步估计CFO/相位/增益，保留短段、边界段及未同步段；返回的symbols未通过CRC。
     """
+    from scipy.interpolate import CubicSpline
     from scipy.signal import correlate, fftconvolve
 
     x, q, ref = np.asarray(signal), np.asarray(quiet), np.asarray(sync_symbols)
@@ -256,6 +258,9 @@ def acquire_psk_capture(signal: np.ndarray, quiet: np.ndarray, sample_hz: float,
     sps = round(ratio)
     if sps < 4 or abs(ratio - sps) > 1e-9:
         raise ValueError("PSK acquisition requires integer SPS >=4")
+    if (not isinstance(timing_subdivisions, int) or isinstance(timing_subdivisions, bool)
+            or not 1 <= timing_subdivisions <= 32):
+        raise ValueError("timing_subdivisions must be an integer in1..32")
     box = np.ones(sps) / sps
     threshold = 4 * float(np.quantile(np.convolve(abs(q) ** 2, box, "same"), .999))
     energy = np.convolve(abs(x) ** 2, box, "same") > threshold
@@ -271,9 +276,17 @@ def acquire_psk_capture(signal: np.ndarray, quiet: np.ndarray, sample_hz: float,
             continue
         lo, hi = max(0, int(a) - 32 * sps), min(len(x), int(b) + 32 * sps)
         z = fftconvolve(x[lo:hi], rrc_filter(.4, sps), mode="same")
+        interpolator = CubicSpline(np.arange(len(z)), z) if timing_subdivisions > 1 else None
+
+        def sample(phase):
+            if interpolator is None:
+                return z[int(phase)::sps]
+            return interpolator(np.arange(phase, len(z) - 1, sps))
+
         best = None
-        for phase in range(sps):
-            y = z[phase::sps]
+        for tick in range(sps * timing_subdivisions):
+            phase = tick / timing_subdivisions if interpolator is not None else tick
+            y = sample(phase)
             dy = y[1:] * y[:-1].conj()
             corr = correlate(dy, dr, mode="valid")
             norm = np.sqrt(np.convolve(abs(dy) ** 2, np.ones(len(dr)), "valid")
@@ -289,8 +302,9 @@ def acquire_psk_capture(signal: np.ndarray, quiet: np.ndarray, sample_hz: float,
             continue
         raw_start = lo + phase + offset * sps
         # Return only symbols whose center is present in the original recording.
-        y = z[phase::sps][offset:]
-        y = y[:max(0, (min(int(b) + 4 * sps, len(x)) - raw_start + sps - 1) // sps)]
+        y = sample(phase)[offset:]
+        centers = raw_start + np.arange(len(y)) * sps
+        y = y[centers < min(int(b) + 4 * sps, len(x))]
         t = np.arange(len(y))
         v = y * np.exp(-1j * delta * t)
         slope, intercept = np.polyfit(np.arange(len(ref)),
@@ -307,6 +321,8 @@ def acquire_psk_capture(signal: np.ndarray, quiet: np.ndarray, sample_hz: float,
     return dict(sample_hz=sample_hz, requested_symbol_hz=symbol_hz, sps=sps,
                 threshold_codes2=threshold, sync_threshold=.85, beta=.4, rrc_span=10,
                 timing_method="maximum normalized differential known-sync correlation; no payload",
+                timing_subdivisions=timing_subdivisions,
+                interpolation="none" if timing_subdivisions == 1 else "cubic after RRC; same ADC samples/rate",
                 index_semantics="original file symbol-center sample; centered offline RRC; no hardware timestamp",
                 bursts=bursts)
 
