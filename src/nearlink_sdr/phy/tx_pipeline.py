@@ -8,8 +8,10 @@ from __future__ import annotations
 
 __all__ = [
     "TxConfig",
+    "attach_head_crc",
     "encode_head",
     "encode_payload",
+    "head_crc_parameters",
     "tx_chain",
 ]
 
@@ -21,7 +23,9 @@ import numpy as np
 
 from nearlink_sdr.common.code_block_seg import segment_with_crc, segment_without_crc
 from nearlink_sdr.common.crc import (
+    CRC12_POLY,
     CRC24A_POLY,
+    CRC24B_POLY,
     CRC32_POLY,
     crc_attach,
 )
@@ -74,6 +78,8 @@ class TxConfig:
     pilot_interval: int = 8
     sps: int = 4
     symbol_rate_mhz: float = 1.0
+    head_crc_seed: int | None = None
+    head_llid: int | None = None
     _mcs: object = field(init=False, repr=False, default=None)
 
     def __post_init__(self) -> None:
@@ -102,6 +108,44 @@ class TxConfig:
     @property
     def crc_poly(self) -> int:
         return CRC32_POLY if self.crc_len == 32 else CRC24A_POLY
+
+
+
+def head_crc_parameters(cfg: TxConfig) -> tuple[int, int, int, np.ndarray | None]:
+    """Return actual §6.4 control CRC context, independent of payload CRC seed.
+
+    A group defaults to the transmitted sync low 12 bits. An explicit seed
+    describes a separately supplied sync context. B group requires link LLID;
+    absence is a configuration error, never a successful unchecked header.
+    """
+    if cfg.frame_type in (1, 2):
+        from nearlink_sdr.phy.sync_sequence import sync_signal_1, sync_signal_2
+
+        sync = (sync_signal_1 if cfg.frame_type == 1 else sync_signal_2)(cfg.pid)
+        seed = cfg.head_crc_seed
+        if seed is None:
+            seed = sum(int(b) << i for i, b in enumerate(sync[:12]))
+        if not isinstance(seed, int) or isinstance(seed, bool) or not 0 <= seed < 4096:
+            raise ValueError("A-group header CRC seed must be a 12-bit integer")
+        return CRC12_POLY, 12, seed, None
+    if cfg.frame_type not in (3, 4):
+        raise ValueError("Unsupported frame type")
+    if cfg.head_crc_seed is not None:
+        raise ValueError("B-group header CRC uses fixed seed 0x555555")
+    llid = cfg.head_llid
+    if not isinstance(llid, int) or isinstance(llid, bool) or not 0 <= llid < 2**24:
+        raise ValueError("B-group header CRC requires explicit 24-bit head_llid")
+    return CRC24B_POLY, 24, 0x555555, np.array([(llid >> i) & 1 for i in range(24)])
+
+
+def attach_head_crc(info_bits: np.ndarray, cfg: TxConfig) -> np.ndarray:
+    """Attach the real control CRC to supplied information (also for ideal simulations)."""
+    info = np.asarray(info_bits)
+    if (info.ndim != 1 or len(info) != cfg.ctrl_bits_len
+            or np.any((info != 0) & (info != 1))):
+        raise ValueError("Control information must be binary and match ctrl_bits_len")
+    poly, width, seed, mask = head_crc_parameters(cfg)
+    return crc_attach(info, poly, width, seed=seed, mask=mask)
 
 
 def encode_payload(data_bits: np.ndarray, cfg: TxConfig) -> np.ndarray:

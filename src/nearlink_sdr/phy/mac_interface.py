@@ -43,9 +43,9 @@ from nearlink_sdr.mac.qos import (
     TxQueue,
 )
 from nearlink_sdr.mac.signaling import decode_signaling, encode_signaling
-from nearlink_sdr.phy.control_info import ControlInfoA2
+from nearlink_sdr.phy.control_info import ControlInfoA2, ControlInfoB1
 from nearlink_sdr.phy.rx_pipeline import rx_chain
-from nearlink_sdr.phy.tx_pipeline import TxConfig, tx_chain
+from nearlink_sdr.phy.tx_pipeline import TxConfig, head_crc_parameters, tx_chain
 
 # -----------------------------------------------------------------------
 # 字节 / 比特转换
@@ -72,7 +72,7 @@ def bits_to_bytes(bits: np.ndarray) -> bytes:
 def mac_to_iq(
     mac_payload: bytes,
     cfg: TxConfig,
-    ctrl_info: ControlInfoA2 | None = None,
+    ctrl_info: ControlInfoA2 | ControlInfoB1 | None = None,
 ) -> np.ndarray:
     """MAC 层载荷 → 基带 IQ 信号。
 
@@ -83,19 +83,28 @@ def mac_to_iq(
     """
     data_bits = bytes_to_bits(mac_payload)
 
-    if ctrl_info is None:
-        ctrl_info = ControlInfoA2(
-            packet_type=0,
-            empty_packet=0,
-            tx_sn=0,
-            rx_sn=0,
-            flow_ctrl=0,
-            sys_mgmt_rx=0,
-            reserved=0,
-            data_length=len(mac_payload),
-        )
-
-    ctrl_bits = ctrl_info.pack(sync_seed=cfg.pid)
+    if not 0 <= len(mac_payload) <= 2047:
+        raise ValueError("MAC payload must fit the 11-bit data_length")
+    if cfg.frame_type in (3, 4):
+        head_crc_parameters(cfg)
+        if cfg.ctrl_bits_len != 27:
+            raise ValueError("B1 MAC transmission requires ctrl_bits_len=27")
+        if ctrl_info is None:
+            ctrl_info = ControlInfoB1(0, 0, 0, cfg.mcs_index, len(mac_payload), 0, 0)
+        if not isinstance(ctrl_info, ControlInfoB1):
+            raise ValueError("FT3/4 MAC transmission requires B1 control information")
+        ctrl_bits = ctrl_info.pack(llid=cfg.head_llid)
+    else:
+        if cfg.ctrl_bits_len not in (20, 28):
+            raise ValueError("A2 MAC transmission requires ctrl_bits_len=20 or 28 (with LQI)")
+        if ctrl_info is None:
+            ctrl_info = ControlInfoA2(0, 0, 0, 0, 0, 0, 0, len(mac_payload))
+        if not isinstance(ctrl_info, ControlInfoA2):
+            raise ValueError("FT1/2 MAC transmission requires A2 control information")
+        ctrl_bits = ctrl_info.pack(sync_seed=head_crc_parameters(cfg)[2],
+                                  lqi=0 if cfg.ctrl_bits_len == 28 else None)
+    if ctrl_info.data_length != len(mac_payload):
+        raise ValueError("Control length must equal the actual MAC payload length")
 
     return tx_chain(ctrl_bits, data_bits, cfg)
 

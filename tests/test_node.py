@@ -145,7 +145,7 @@ class TestNodeSendReceive:
 
         frame = AsyncDataFrame(segment_type=0, data=payload)
         n_bytes = len(frame.pack())
-        rx = node.receive(tx.iq, n_bytes)
+        rx = node.receive(tx.iq, n_bytes, rx_config=node._tx_config)
         assert isinstance(rx, RxResult)
         assert rx.success
         assert rx.data == payload
@@ -732,7 +732,7 @@ class TestNodeChannelModel:
         assert tx.iq is not None
 
         # 接收端使用无信道节点解码 (信道已在 receive 中应用)
-        rx = node.receive(tx.iq, len(tx.mac_bytes))
+        rx = node.receive(tx.iq, len(tx.mac_bytes), rx_config=node._tx_config)
         # 高 SNR 下应能解码
         assert rx.success
         assert rx.data == payload

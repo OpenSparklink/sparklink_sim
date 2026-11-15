@@ -13,7 +13,13 @@ from nearlink_sdr.phy.rx_pipeline import (
     frame_sync,
     rx_chain,
 )
-from nearlink_sdr.phy.tx_pipeline import TxConfig, encode_head, encode_payload, tx_chain
+from nearlink_sdr.phy.tx_pipeline import (
+    TxConfig,
+    attach_head_crc,
+    encode_head,
+    encode_payload,
+    tx_chain,
+)
 
 
 def _hex_to_bits_lsb(hex_val: int, nbits: int) -> list[int]:
@@ -111,7 +117,7 @@ class TestFT3Pipeline:
     """
 
     CFG = TxConfig(
-        frame_type=3,
+        frame_type=3, head_llid=0,
         mcs_index=5,  # rate 5/8, QPSK
         pid=0,  # m_seq_index
         whitening_seed=0x52,
@@ -125,7 +131,7 @@ class TestFT3Pipeline:
     def _make_head_bits(self) -> np.ndarray:
         """B 组控制信息 27 + CRC24B = 51 bits。"""
         rng = np.random.default_rng(301)
-        return rng.integers(0, 2, 51).astype(np.int8)
+        return attach_head_crc(rng.integers(0, 2, 27).astype(np.int8), self.CFG)
 
     def _make_data_bits(self, n_bytes: int = 10) -> np.ndarray:
         rng = np.random.default_rng(302)
@@ -178,7 +184,7 @@ class TestFT4Pipeline:
     """
 
     CFG = TxConfig(
-        frame_type=4,
+        frame_type=4, head_llid=0,
         mcs_index=0,  # rate 1/4, BPSK
         pid=0,  # m_seq_index
         whitening_seed=0x33,
@@ -191,7 +197,7 @@ class TestFT4Pipeline:
 
     def _make_head_bits(self) -> np.ndarray:
         rng = np.random.default_rng(401)
-        return rng.integers(0, 2, 51).astype(np.int8)
+        return attach_head_crc(rng.integers(0, 2, 27).astype(np.int8), self.CFG)
 
     def _make_data_bits(self, n_bytes: int = 8) -> np.ndarray:
         rng = np.random.default_rng(402)
@@ -243,11 +249,11 @@ class TestMultiBlockLoopback:
     def test_ft3_multi_block_32bytes(self):
         """FT3 32 字节载荷触发 2 码块, 回环正确。"""
         cfg = TxConfig(
-            frame_type=3, mcs_index=0, ctrl_bits_len=27,
+            frame_type=3, head_llid=0, mcs_index=0, ctrl_bits_len=27,
             pilot_interval=4, sps=4,
         )
         rng = np.random.default_rng(501)
-        head = rng.integers(0, 2, 51).astype(np.int8)
+        head = attach_head_crc(rng.integers(0, 2, 27).astype(np.int8), cfg)
         data = rng.integers(0, 2, 32 * 8).astype(np.int8)
         iq = tx_chain(head, data, cfg)
         result = rx_chain(iq, cfg, 32)
@@ -258,11 +264,11 @@ class TestMultiBlockLoopback:
     def test_ft4_multi_block_32bytes(self):
         """FT4 32 字节载荷触发 2 码块, 回环正确。"""
         cfg = TxConfig(
-            frame_type=4, mcs_index=0, ctrl_bits_len=27,
+            frame_type=4, head_llid=0, mcs_index=0, ctrl_bits_len=27,
             pilot_interval=4, sps=4,
         )
         rng = np.random.default_rng(502)
-        head = rng.integers(0, 2, 51).astype(np.int8)
+        head = attach_head_crc(rng.integers(0, 2, 27).astype(np.int8), cfg)
         data = rng.integers(0, 2, 32 * 8).astype(np.int8)
         iq = tx_chain(head, data, cfg)
         result = rx_chain(iq, cfg, 32)
@@ -272,7 +278,7 @@ class TestMultiBlockLoopback:
 
     def test_ft3_multi_block_payload_roundtrip(self):
         """FT3 多码块 encode_payload → decode_payload 载荷可逆。"""
-        cfg = TxConfig(frame_type=3, mcs_index=0, ctrl_bits_len=27)
+        cfg = TxConfig(frame_type=3, head_llid=0, mcs_index=0, ctrl_bits_len=27)
         rng = np.random.default_rng(503)
         data = rng.integers(0, 2, 32 * 8).astype(np.int8)
         coded = encode_payload(data, cfg)
@@ -290,22 +296,22 @@ class TestFrameSyncMultiFT:
     """不同帧类型的帧同步检测。"""
 
     def test_ft3_sync(self):
-        cfg = TxConfig(frame_type=3, mcs_index=5, pid=0, sps=1,
+        cfg = TxConfig(frame_type=3, head_llid=0, mcs_index=5, pid=0, sps=1,
                        whitening_seed=0x52, crc_seed=0, crc_len=24,
                        ctrl_bits_len=27, pilot_interval=4)
         rng = np.random.default_rng(303)
-        head = rng.integers(0, 2, 51).astype(np.int8)
+        head = attach_head_crc(rng.integers(0, 2, 27).astype(np.int8), cfg)
         data = rng.integers(0, 2, 80).astype(int)
         iq = tx_chain(head, data, cfg)
         pos = frame_sync(iq, cfg)
         assert pos >= 0
 
     def test_ft4_sync(self):
-        cfg = TxConfig(frame_type=4, mcs_index=0, pid=0, sps=1,
+        cfg = TxConfig(frame_type=4, head_llid=0, mcs_index=0, pid=0, sps=1,
                        whitening_seed=0x33, crc_seed=0, crc_len=24,
                        ctrl_bits_len=27, pilot_interval=4)
         rng = np.random.default_rng(403)
-        head = rng.integers(0, 2, 51).astype(np.int8)
+        head = attach_head_crc(rng.integers(0, 2, 27).astype(np.int8), cfg)
         data = rng.integers(0, 2, 64).astype(int)
         iq = tx_chain(head, data, cfg)
         pos = frame_sync(iq, cfg)

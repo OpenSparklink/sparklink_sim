@@ -958,7 +958,7 @@ def sim_pipeline_link(
     :returns: {"snr_db": [...], "ber": [...], "fer": [...]}
     """
     from nearlink_sdr.phy.rx_pipeline import rx_chain
-    from nearlink_sdr.phy.tx_pipeline import TxConfig, tx_chain
+    from nearlink_sdr.phy.tx_pipeline import TxConfig, attach_head_crc, tx_chain
 
     if snr_range_db is None:
         snr_range_db = np.arange(0, 16, 2)
@@ -969,22 +969,20 @@ def sim_pipeline_link(
     if frame_type == 1:
         ctrl_bits_len = 20
         crc_len = 24
-        head_crc_len = 12
         pilot_interval = 0
     elif frame_type == 2:
         ctrl_bits_len = 28
         crc_len = 24
-        head_crc_len = 12
         pilot_interval = 8
     else:  # FT3/FT4
         ctrl_bits_len = 27
         crc_len = 24
-        head_crc_len = 24
         pilot_interval = 4
 
     cfg = TxConfig(
         frame_type=frame_type,
         mcs_index=mcs_index,
+        head_llid=0 if frame_type >= 3 else None,
         pid=0x123456 if frame_type <= 2 else 0,  # FT3/4 用 m_seq_index
         whitening_seed=0x52,
         crc_seed=0x555555,
@@ -995,15 +993,15 @@ def sim_pipeline_link(
     )
 
     n_data_bits = n_data_bytes * 8
-    ber_list, fer_list = [], []
+    ber_list, fer_list, erasure_list = [], [], []
 
     for snr in snr_range_db:
-        total_errors, total_bits, frame_errors = 0, 0, 0
+        total_errors, total_bits, frame_errors, erased_bits = 0, 0, 0, 0
         ch = ChannelModel(snr_db=float(snr))
 
         for _ in range(n_frames):
             # 生成随机控制信息和数据
-            head_bits = rng.integers(0, 2, ctrl_bits_len + head_crc_len, dtype=np.int8)
+            head_bits = attach_head_crc(rng.integers(0, 2, ctrl_bits_len, dtype=np.int8), cfg)
             data_bits = rng.integers(0, 2, n_data_bits, dtype=int)
 
             # TX
@@ -1016,18 +1014,23 @@ def sim_pipeline_link(
             result = rx_chain(rx_iq, cfg, n_data_bytes)
 
             # 统计
-            errors = int(np.sum(result.data_bits[:n_data_bits] != data_bits))
-            total_errors += errors
-            total_bits += n_data_bits
+            diagnostic = result.diagnostic_data_bits
+            if len(diagnostic) == n_data_bits:
+                total_errors += int(np.sum(diagnostic != data_bits))
+                total_bits += n_data_bits
+            else:
+                erased_bits += n_data_bits
             if not result.crc_ok:
                 frame_errors += 1
 
-        ber = total_errors / total_bits if total_bits > 0 else 0.0
+        ber = total_errors / total_bits if total_bits > 0 else float("nan")
         fer = frame_errors / n_frames
         ber_list.append(ber)
         fer_list.append(fer)
+        erasure_list.append(erased_bits / max(n_frames * n_data_bits, 1))
 
-    return {"snr_db": snr_range_db.tolist(), "ber": ber_list, "fer": fer_list}
+    return {"snr_db": snr_range_db.tolist(), "ber": ber_list, "fer": fer_list,
+            "erasure_rate": erasure_list}
 
 
 def run_phase6_simulation():
@@ -1140,7 +1143,7 @@ def sim_pipeline_channel_link(
     from nearlink_sdr.phy.channel import ChannelConfig
     from nearlink_sdr.phy.equalizer import equalize_1tap, equalize_mmse_freq
     from nearlink_sdr.phy.rx_pipeline import rx_chain
-    from nearlink_sdr.phy.tx_pipeline import TxConfig, tx_chain
+    from nearlink_sdr.phy.tx_pipeline import TxConfig, attach_head_crc, tx_chain
 
     if snr_range_db is None:
         snr_range_db = np.arange(0, 20, 2)
@@ -1152,15 +1155,16 @@ def sim_pipeline_channel_link(
 
     # 帧类型参数
     if frame_type == 1:
-        ctrl_bits_len, crc_len, head_crc_len, pilot_interval = 20, 24, 12, 0
+        ctrl_bits_len, crc_len, pilot_interval = 20, 24, 0
     elif frame_type == 2:
-        ctrl_bits_len, crc_len, head_crc_len, pilot_interval = 28, 24, 12, 8
+        ctrl_bits_len, crc_len, pilot_interval = 28, 24, 8
     else:
-        ctrl_bits_len, crc_len, head_crc_len, pilot_interval = 27, 24, 24, 4
+        ctrl_bits_len, crc_len, pilot_interval = 27, 24, 4
 
     cfg = TxConfig(
         frame_type=frame_type,
         mcs_index=mcs_index,
+        head_llid=0 if frame_type >= 3 else None,
         pid=0x123456 if frame_type <= 2 else 0,
         whitening_seed=0x52,
         crc_seed=0x555555,
@@ -1171,13 +1175,13 @@ def sim_pipeline_channel_link(
     )
 
     n_data_bits = n_data_bytes * 8
-    ber_list, fer_list = [], []
+    ber_list, fer_list, erasure_list = [], [], []
 
     for snr in snr_range_db:
-        total_errors, total_bits, frame_errors = 0, 0, 0
+        total_errors, total_bits, frame_errors, erased_bits = 0, 0, 0, 0
 
         for _ in range(n_frames):
-            head_bits = rng.integers(0, 2, ctrl_bits_len + head_crc_len, dtype=np.int8)
+            head_bits = attach_head_crc(rng.integers(0, 2, ctrl_bits_len, dtype=np.int8), cfg)
             data_bits = rng.integers(0, 2, n_data_bits, dtype=int)
 
             iq = tx_chain(head_bits, data_bits, cfg)
@@ -1211,18 +1215,23 @@ def sim_pipeline_channel_link(
 
             result = rx_chain(rx_iq, cfg, n_data_bytes)
 
-            errors = int(np.sum(result.data_bits[:n_data_bits] != data_bits))
-            total_errors += errors
-            total_bits += n_data_bits
+            diagnostic = result.diagnostic_data_bits
+            if len(diagnostic) == n_data_bits:
+                total_errors += int(np.sum(diagnostic != data_bits))
+                total_bits += n_data_bits
+            else:
+                erased_bits += n_data_bits
             if not result.crc_ok:
                 frame_errors += 1
 
-        ber = total_errors / total_bits if total_bits > 0 else 0.0
+        ber = total_errors / total_bits if total_bits > 0 else float("nan")
         fer = frame_errors / n_frames
         ber_list.append(ber)
         fer_list.append(fer)
+        erasure_list.append(erased_bits / max(n_frames * n_data_bits, 1))
 
-    return {"snr_db": snr_range_db.tolist(), "ber": ber_list, "fer": fer_list}
+    return {"snr_db": snr_range_db.tolist(), "ber": ber_list, "fer": fer_list,
+            "erasure_rate": erasure_list}
 
 
 def run_phase7_simulation():

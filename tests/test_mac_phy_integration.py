@@ -119,7 +119,9 @@ class TestMacToIq:
         """验证不同帧类型都能产生 IQ。"""
         payload = b"\xAA\xBB\xCC"
         for ft in [1, 2, 3, 4]:
-            cfg = TxConfig(frame_type=ft, mcs_index=0 if ft == 1 else 7)
+            cfg = TxConfig(frame_type=ft, mcs_index=0 if ft == 1 else 7,
+                           ctrl_bits_len=27 if ft >= 3 else 28,
+                           head_llid=0 if ft >= 3 else None)
             iq = mac_to_iq(payload, cfg)
             assert len(iq) > 0, f"帧类型 {ft} 未产生 IQ 信号"
 
@@ -661,7 +663,7 @@ class TestMultiFrameTypeIntegration:
 
     def test_ft3_data_roundtrip(self):
         """FT3 帧类型数据传输。"""
-        cfg = TxConfig(frame_type=3, mcs_index=7)
+        cfg = TxConfig(frame_type=3, head_llid=0, ctrl_bits_len=27, mcs_index=7)
         data = b"FT3 test payload"
         recovered, ok = roundtrip_data(data, cfg)
         assert ok
@@ -669,7 +671,7 @@ class TestMultiFrameTypeIntegration:
 
     def test_ft4_data_roundtrip(self):
         """FT4 帧类型数据传输。"""
-        cfg = TxConfig(frame_type=4, mcs_index=7)
+        cfg = TxConfig(frame_type=4, head_llid=0, ctrl_bits_len=27, mcs_index=7)
         data = b"FT4 test payload"
         recovered, ok = roundtrip_data(data, cfg)
         assert ok

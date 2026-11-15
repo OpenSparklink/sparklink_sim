@@ -29,7 +29,7 @@ import numpy as np
 from nearlink_sdr.phy.channel import ChannelConfig, ChannelModel
 from nearlink_sdr.phy.mac_interface import MacRxResult, iq_to_mac, mac_to_iq
 from nearlink_sdr.phy.rx_pipeline import rx_chain
-from nearlink_sdr.phy.tx_pipeline import TxConfig, tx_chain
+from nearlink_sdr.phy.tx_pipeline import TxConfig, attach_head_crc, tx_chain
 from nearlink_sdr.phy.usrp import (
     LoopbackBuffer,
     SLETransceiver,
@@ -134,12 +134,12 @@ class USRPLoopbackSim:
 
         :param data_bits: 信息比特。
         :param cfg: 发射配置。
-        :param ctrl_bits: 控制信息比特, None 时使用全零。
+        :param ctrl_bits: 控制信息比特, None 时使用全零信息并附加真实 CRC。
 
         :returns: LoopbackResult 包含 CRC 校验结果和 BER。
         """
         if ctrl_bits is None:
-            ctrl_bits = np.zeros(cfg.ctrl_bits_len, dtype=np.int8)
+            ctrl_bits = attach_head_crc(np.zeros(cfg.ctrl_bits_len, dtype=np.int8), cfg)
 
         iq = tx_chain(ctrl_bits, data_bits, cfg)
         self._loopback.clear()
@@ -150,9 +150,9 @@ class USRPLoopbackSim:
         n_data_bytes = (len(data_bits) + 7) // 8
         result = rx_chain(rx_iq, cfg, n_data_bytes)
 
-        n_cmp = min(len(data_bits), len(result.data_bits))
-        errors = int(np.sum(data_bits[:n_cmp] != result.data_bits[:n_cmp]))
-        ber = errors / max(n_cmp, 1)
+        n_cmp = min(len(data_bits), len(result.diagnostic_data_bits))
+        errors = int(np.sum(data_bits[:n_cmp] != result.diagnostic_data_bits[:n_cmp]))
+        ber = errors / n_cmp if n_cmp else float("nan")
 
         return LoopbackResult(
             tx_samples=n_sent,

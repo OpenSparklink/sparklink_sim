@@ -316,7 +316,7 @@ class TestUSRPLoopbackSim:
         sim = USRPLoopbackSim(snr_db=50.0)
         rng = np.random.default_rng(1)
         data = rng.integers(0, 2, 80).astype(np.int8)
-        cfg = TxConfig(frame_type=3, mcs_index=7, sps=4)
+        cfg = TxConfig(frame_type=3, head_llid=0, mcs_index=7, sps=4)
         result = sim.loopback_phy(data, cfg)
         assert result.crc_ok
         assert result.head_crc_ok
@@ -327,7 +327,7 @@ class TestUSRPLoopbackSim:
         sim = USRPLoopbackSim(snr_db=50.0)
         rng = np.random.default_rng(2)
         data = rng.integers(0, 2, 80).astype(np.int8)
-        cfg = TxConfig(frame_type=4, mcs_index=7, sps=4)
+        cfg = TxConfig(frame_type=4, head_llid=0, mcs_index=7, sps=4)
         result = sim.loopback_phy(data, cfg)
         assert result.crc_ok
         assert result.head_crc_ok

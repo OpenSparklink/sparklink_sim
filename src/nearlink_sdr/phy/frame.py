@@ -338,6 +338,7 @@ def symbols_to_data_bits(
     config: FrameConfig,
     n_ctrl_coded_bits: int = 0,
     n_data_bits: int = 0,
+    *, head_only: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
     """将接收符号流解析还原为控制位和数据位。
 
@@ -356,6 +357,8 @@ def symbols_to_data_bits(
         n_sync = 32
         offset = n_preamble + n_sync
         ctrl_bits = symbols[offset : offset + n_ctrl_coded_bits].real.astype(np.int8)
+        if head_only:
+            return ctrl_bits, np.empty(0, dtype=np.int8)
         data_start = offset + n_ctrl_coded_bits
         data_bits = symbols[data_start : data_start + n_data_bits].real.astype(np.int8)
         return ctrl_bits, data_bits
@@ -391,6 +394,9 @@ def symbols_to_data_bits(
         ctrl_syms = ctrl_raw
     ctrl_bits = _demodulate_symbols(ctrl_syms, ctrl_cfg["ctrl_mod"])
     pos += n_ctrl_with_pilots
+
+    if head_only:
+        return ctrl_bits, np.empty(0, dtype=np.int8)
 
     # 数据符号
     remaining = symbols[pos:]

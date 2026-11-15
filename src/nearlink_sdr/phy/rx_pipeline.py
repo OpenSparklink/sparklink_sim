@@ -15,7 +15,7 @@ __all__ = [
 ]
 
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -36,7 +36,7 @@ from nearlink_sdr.phy.sync_sequence import (
     sync_signal_3,
     sync_signal_4,
 )
-from nearlink_sdr.phy.tx_pipeline import TxConfig
+from nearlink_sdr.phy.tx_pipeline import TxConfig, head_crc_parameters
 
 # Head 编码后固定码长
 _HEAD_CODED_LEN = {1: 0, 2: 64, 3: 256, 4: 256}
@@ -51,11 +51,16 @@ _MOD_STR = {
 
 @dataclass
 class RxResult:
-    """接收结果。"""
+    """接收结果；data_bits 仅交付头/数据 CRC 均正确的载荷。
+
+    diagnostic_data_bits 可保留头 CRC 正确但数据 CRC 失败的译码比特，
+    仅供 BER 诊断，不交给 MAC。
+    """
     data_bits: np.ndarray
     ctrl_bits: np.ndarray
     crc_ok: bool
     head_crc_ok: bool
+    diagnostic_data_bits: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int8))
 
 
 def decode_payload(scrambled_bits: np.ndarray, cfg: TxConfig,
@@ -67,6 +72,23 @@ def decode_payload(scrambled_bits: np.ndarray, cfg: TxConfig,
     :param n_info_bits: 原始信息比特数 (data_bytes * 8, 不含 CRC)。
     :returns: (data_bits, crc_ok) — 原始数据比特和 CRC 校验结果。
     """
+    if (not isinstance(n_info_bits, int) or isinstance(n_info_bits, bool)
+            or not 0 <= n_info_bits <= 2047 * 8):
+        raise ValueError("Payload information length must be an integer in [0,16376]")
+    scrambled_bits = np.asarray(scrambled_bits)
+    if scrambled_bits.ndim != 1 or np.any((scrambled_bits != 0) & (scrambled_bits != 1)):
+        raise ValueError("Payload must be a one-dimensional binary array")
+    b_len = n_info_bits + cfg.crc_len
+    if cfg.is_uncoded:
+        expected = b_len
+    else:
+        segments = (segment_with_crc(np.zeros(b_len, dtype=int), cfg.rate_str)
+                    if cfg.frame_type in (3, 4) else
+                    segment_without_crc(np.zeros(b_len, dtype=int), cfg.rate_str,
+                                        crc_len=cfg.crc_len))
+        expected = sum(n for n, _ in segments)
+    if len(scrambled_bits) != expected:
+        return np.empty(0, dtype=np.int8), False
     # 解扰
     offset = _HEAD_CODED_LEN[cfg.frame_type]
     sc = scramble_sequence(offset + len(scrambled_bits), cfg.whitening_seed)
@@ -75,14 +97,6 @@ def decode_payload(scrambled_bits: np.ndarray, cfg: TxConfig,
     if cfg.is_uncoded:
         data_with_crc = coded.astype(np.int8)
     else:
-        # 用分段函数确定分段结构
-        b_len = n_info_bits + cfg.crc_len
-        dummy = np.zeros(b_len, dtype=int)
-        if cfg.frame_type in (3, 4):
-            segments = segment_with_crc(dummy, cfg.rate_str)
-        else:
-            segments = segment_without_crc(dummy, cfg.rate_str, crc_len=cfg.crc_len)
-
         # 按 N 切分编码比特, 逐块 Polar 解码
         pos = 0
         info_blocks: list[np.ndarray] = []
@@ -132,20 +146,23 @@ def decode_head(scrambled_bits: np.ndarray, cfg: TxConfig) -> tuple[np.ndarray, 
     :param cfg: 发射/接收配置。
     :returns: (ctrl_bits, crc12_ok) — 控制信息 + CRC12 比特、CRC12 校验结果。
     """
-    # 解扰
-    sc = scramble_sequence(len(scrambled_bits), cfg.whitening_seed)
-    coded = np.asarray(scrambled_bits, dtype=np.uint8) ^ sc[:len(scrambled_bits)]
-
-    if cfg.frame_type == 1:
-        return coded.astype(np.int8), True
-
-    # Polar 解码
+    poly, width, seed, mask = head_crc_parameters(cfg)
     n_coded = _HEAD_CODED_LEN[cfg.frame_type]
-    # A 组 (FT2): CRC12, B 组 (FT3/4): CRC24B
-    head_crc_len = 24 if cfg.frame_type >= 3 else 12
-    k_info = cfg.ctrl_bits_len + head_crc_len
-    decoded = polar_decode_control(coded.astype(np.int_), k_info, n_coded=n_coded)
-    return decoded, True
+    k_info = cfg.ctrl_bits_len + width
+    if (not isinstance(cfg.ctrl_bits_len, int) or cfg.ctrl_bits_len <= 0
+            or (n_coded and k_info > n_coded)):
+        raise ValueError("Invalid control information length")
+    bits = np.asarray(scrambled_bits)
+    if bits.ndim != 1 or np.any((bits != 0) & (bits != 1)):
+        raise ValueError("Header must be a one-dimensional binary array")
+    expected = n_coded or k_info
+    if len(bits) != expected:
+        return np.empty(0, dtype=np.int8), False
+    sc = scramble_sequence(expected, cfg.whitening_seed)
+    coded = bits.astype(np.uint8) ^ sc
+    decoded = (coded.astype(np.int8) if cfg.frame_type == 1 else
+               polar_decode_control(coded.astype(np.int_), k_info, n_coded=n_coded))
+    return decoded, bool(crc_check(decoded, poly, width, seed=seed, mask=mask))
 
 
 def frame_sync(iq_signal: np.ndarray, cfg: TxConfig) -> int:
@@ -216,6 +233,10 @@ def rx_chain(
     :param n_data_bytes: 数据长度 (字节), 用于确定码块分割。
     :returns: 包含恢复数据、控制信息和校验结果的 RxResult。
     """
+    if (not isinstance(n_data_bytes, int) or isinstance(n_data_bytes, bool)
+            or not 0 <= n_data_bytes <= 2047):
+        raise ValueError("Known payload length must be an integer in [0,2047]")
+    head_crc_parameters(cfg)  # Fail explicitly on missing link context.
     # 匹配滤波 + 下采样 → 符号级
     if cfg.frame_type == 1:
         demod = GFSKDemodulator(sps=cfg.sps)
@@ -225,6 +246,29 @@ def rx_chain(
         h = rrc_filter(0.4, cfg.sps)
         filtered = np.convolve(iq_signal, h, mode="same")
         symbols = filtered[::cfg.sps]
+
+    frame_cfg = FrameConfig(
+        frame_type=cfg.frame_type,
+        symbol_rate_mhz=cfg.symbol_rate_mhz,
+        pilot_interval=cfg.pilot_interval,
+        crc_len=cfg.crc_len,
+        sync_m_index=cfg.pid,
+        mod_type=cfg.mod_str,
+    )
+
+    head_coded = _HEAD_CODED_LEN[cfg.frame_type]
+    n_ctrl_coded = head_coded if head_coded > 0 else cfg.ctrl_bits_len + 12
+    ctrl_bits_demod, _ = symbols_to_data_bits(
+        symbols, frame_cfg,
+        n_ctrl_coded_bits=n_ctrl_coded,
+        n_data_bits=0, head_only=True,
+    )
+
+    # 头部解码
+    ctrl_decoded, head_ok = decode_head(ctrl_bits_demod, cfg)
+
+    if not head_ok:
+        return RxResult(np.empty(0, dtype=np.int8), ctrl_decoded, False, False)
 
     # 帧结构解析 → 提取头部比特和数据比特
     n_data_bits = n_data_bytes * 8
@@ -240,32 +284,19 @@ def rx_chain(
             segments = segment_without_crc(dummy, cfg.rate_str, crc_len=cfg.crc_len)
         total_coded_bits = sum(n for n, _ in segments)
 
-    frame_cfg = FrameConfig(
-        frame_type=cfg.frame_type,
-        symbol_rate_mhz=cfg.symbol_rate_mhz,
-        pilot_interval=cfg.pilot_interval,
-        crc_len=cfg.crc_len,
-        sync_m_index=cfg.pid,
-        mod_type=cfg.mod_str,
+    _, data_bits_demod = symbols_to_data_bits(
+        symbols, frame_cfg, n_ctrl_coded_bits=n_ctrl_coded, n_data_bits=total_coded_bits,
     )
-
-    head_coded = _HEAD_CODED_LEN[cfg.frame_type]
-    n_ctrl_coded = head_coded if head_coded > 0 else cfg.ctrl_bits_len + 12
-    ctrl_bits_demod, data_bits_demod = symbols_to_data_bits(
-        symbols, frame_cfg,
-        n_ctrl_coded_bits=n_ctrl_coded,
-        n_data_bits=total_coded_bits,
-    )
-
-    # 头部解码
-    ctrl_decoded, head_ok = decode_head(ctrl_bits_demod, cfg)
+    if len(data_bits_demod) != total_coded_bits:
+        return RxResult(np.empty(0, dtype=np.int8), ctrl_decoded, False, True)
 
     # 载荷解码
     data_decoded, crc_ok = decode_payload(data_bits_demod, cfg, n_data_bits)
 
     return RxResult(
-        data_bits=data_decoded,
+        data_bits=data_decoded if crc_ok else np.empty(0, dtype=np.int8),
         ctrl_bits=ctrl_decoded,
         crc_ok=crc_ok,
         head_crc_ok=head_ok,
+        diagnostic_data_bits=data_decoded,
     )

@@ -74,6 +74,10 @@
 |------|------|
 | {py:mod}`nearlink_sdr.node` | SLE 节点实体 (统一收发接口) |
 
+## 接收链验证
+
+[分阶段接收链修复与证据](rx-chain-hardening.md)记录接口语义、失败及复现方法。
+
 ## 完整 API 文档
 
 ```{toctree}

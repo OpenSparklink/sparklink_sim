@@ -19,7 +19,7 @@ __all__ = [
 
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import IntEnum, auto
 from typing import TYPE_CHECKING
 
@@ -595,7 +595,8 @@ class SleNode:
             encrypted=encrypted, channel=channel,
         )
 
-    def receive(self, iq_signal: np.ndarray, n_mac_bytes: int) -> RxResult:
+    def receive(self, iq_signal: np.ndarray, n_mac_bytes: int, *,
+                rx_config: TxConfig | None = None) -> RxResult:
         """从 IQ 信号解码数据。
 
         如果配置了信道模型, 会在解码前应用信道效应。
@@ -604,7 +605,13 @@ class SleNode:
         if self._channel is not None:
             iq_signal = self._channel.apply_fading(iq_signal)
 
-        rx: MacRxResult = iq_to_mac(iq_signal, self._tx_config, n_mac_bytes)
+        if rx_config is None:
+            # This model transmits sync PID from the sender address. Receive with
+            # the known peer context, never retry header seeds using CRC results.
+            rx_config = self._tx_config
+            if self.config.frame_type in (1, 2) and len(self._peer_address) >= 3:
+                rx_config = replace(rx_config, pid=int.from_bytes(self._peer_address[:3], "big"))
+        rx: MacRxResult = iq_to_mac(iq_signal, rx_config, n_mac_bytes)
 
         if not rx.crc_ok:
             return RxResult(data=None, success=False)
