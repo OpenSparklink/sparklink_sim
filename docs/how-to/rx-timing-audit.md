@@ -56,6 +56,7 @@ CubicSpline；以已知坐标采样。CRC/头编码复用模型，独立性限�
 `process_peak_rss_KiB` 是 Linux 进程累计 RSS 高水位（含生成、存档等），不是每臂增量。
 图表与 JSON 为同一批数据；`manifest.json` 覆盖输出字节身份。
 
+(compare-continuous-timing)=
 ## 比较持续定时跟踪
 
 在同一 worktree 中使用新输出目录：
@@ -85,6 +86,7 @@ UV_CACHE_DIR=/tmp/rx-uv MPLCONFIGDIR=/tmp/rx-mpl PYTHONPATH="$PWD/src" \
 
 算法及API见 [PSK包内采样时钟恢复](../explanation/psk-timing-recovery.md)。
 
+(review-noise-recovery)=
 ## 复核噪声分段与载波修复
 
 使用上一轮冻结输出作为输入源，原九个失败及190个原仿真输入保持原样。

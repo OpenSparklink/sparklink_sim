@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import os
 
 import pytest
@@ -108,13 +109,10 @@ class TestPairingWithSM3:
     @pytest.mark.parametrize("auth", [AuthMethod.NUMERIC_COMPARISON, AuthMethod.NO_INPUT])
     def test_sm3_kdf_pairing(self, auth: AuthMethod):
         """SM3 KDF 配对 (若 gmssl 不可用则跳过)。"""
-        try:
-            g, t = run_pairing_procedure(
-                kdf_type=KdfType.HMAC_SM3, auth_method=auth,
-            )
-            assert g.is_paired and t.is_paired
-        except (NotImplementedError, ImportError):
-            pytest.skip("gmssl 未安装")
+        if importlib.util.find_spec("gmssl") is None:
+            pytest.skip("optional gmssl dependency is not installed")
+        g, t = run_pairing_procedure(kdf_type=KdfType.HMAC_SM3, auth_method=auth)
+        assert g.is_paired and t.is_paired
 
 
 # ═══════════════════════════════════════════════════════════════════════

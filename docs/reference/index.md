@@ -83,5 +83,8 @@
 ```{toctree}
 :maxdepth: 2
 
+rx-chain-hardening
+psk-timing-tracking-results
+psk-noise-recovery-results
 /apidocs/nearlink_sdr/nearlink_sdr
 ```

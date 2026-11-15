@@ -12,4 +12,5 @@ sdr-deployment
 build-docs
 real-iq
 strict-receive
+rx-timing-audit
 ```

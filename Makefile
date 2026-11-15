@@ -17,8 +17,8 @@ install:  ## 安装全部依赖 (uv Python 依赖 + npm Node.js 工具)
 
 accel:  ## 编译并安装 Rust 加速模块
 # [accel-start]
-	uv pip install maturin
-	uv run maturin develop --manifest-path rust/Cargo.toml --release
+	uv sync --frozen --group accel
+	uv run --frozen --no-sync maturin develop --manifest-path rust/Cargo.toml --locked --release
 # [accel-end]
 
 install-fonts:  ## 安装 HarmonyOS 字体到系统

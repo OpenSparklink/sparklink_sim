@@ -224,7 +224,7 @@ PYTHONPATH=src UV_CACHE_DIR=/tmp/rx-uv uv run --frozen --no-sync python \
 不再为满足等待条件换成更弱的较早峰。不改变0.85门限、相位网格、插值器、Gardner/PI或CRC策略。
 独立连续时间发送参考的新反例先失败后修复，并覆盖8种内部量子对齐位置。
 目标派生文件恢复11个完整包；全量2916通过、2跳过、覆盖率91%，ruff通过。
-完整矩阵将在该修复后再次冻结复核，之前的83包结果仍作为基线保留。
+修复后 `stream-fixed-final` 再次完整复核364份输入：仿真203/206、真实63个完整包及1个尾部截断、派生84包、静默144份无候选；无成功退化、无整段/分块判定或轨迹不一致。原83包结果仍作为基线保留。
 
 可复现诊断与图表保存在 `guard-diagnosis-final`（含逐位错误位置、固定载波/轨迹对照、
 同步相关曲线、轨迹差异及manifest），驱动为 `scripts/diagnose_stream_guard.py`。
@@ -255,3 +255,41 @@ Python 3.14.8，NumPy 2.4.3，SciPy 1.17.1，纯 Python Polar，无 Rust 扩展�
 
 此前低 SNR 边界以 `psk-noise-recovery-results.json` 为准：原 9 个恢复，新增 5 个仍失败。
 不能用更换共享数据集的索引来复写冻结输入。
+
+
+## 阶段 6a：测试含义与实际后端
+
+此前工作分支没有 push 触发条件，`6918108` 的 GitHub 精确提交查询返回空运行列表。
+现在 CI 明确接收 `master`、`codex/psk-timing-tracking` 推送，以及手动触发；PR 目标仍为 master。
+推送状态与检查状态分别记录，不将推送成功当成 CI 已运行或通过。
+
+原 HMAC-SM3 测试吞掉 `NotImplementedError`，没有执行算法也显示通过。
+现在缺少 gmssl 时显式 skip；安装时核验三个独立 OpenSSL HMAC-SM3 向量（包括超过64字节的密钥），
+并执行 SM3 配对结果断言。依赖存在但导入/实现损坏时失败，不以异常捕获改为成功。
+新增 `sm3` 可选依赖固定 gmssl 3.2.2，独立 CI 作业预检必须可用。
+
+Python/Rust 两个完整测试作业都先输出实际加载后端、Python、依赖版本及提交号。
+Rust 作业必须构建成功且模块实际加载；扩展缺失不被算成 Rust 验证。
+安装脚本 `--required` 构建失败返回非零并保留完整输出；maturin 1.16.0 纳入锁文件。
+有扩展时直接运行 Python 与 Rust 的八种 Polar 几何、变可靠度 LLR、零 LLR 及四种带种子 CRC 对照；
+无扩展时这组测试明确跳过。CI 的 JUnit、完整日志、构建日志、后端元数据在失败时也上传。
+覆盖率作业强制纯 Python，门限90.1%，仍须关键反例和端到端测试。
+
+本地独立 Rust 环境位于 `/tmp/rx-rust-env`，未改动主检出的共享环境。
+依赖与构建输出、实际后端和测试报告保存在 `rx-chain-hardening/ci-verification`。
+纯 Python 全量2918通过、6跳过，覆盖率90.65%；跳过包括未安装的可选依赖/扩展，不能称作已验证算法。
+独立 Rust+SM3 环境全量2935通过、无跳过（17.49秒），包括所有后端一致性与可选 SM3 算法。远端结果另存。
+严格文档构建还揭示此前新增模块/报告未进入目录及中文片段链接无锚点；补齐目录与显式锚点，保留原13条警告日志。
+
+```sh
+uv sync --frozen --group accel
+uv run --frozen --no-sync maturin develop --manifest-path rust/Cargo.toml --locked --release
+uv run --frozen --no-sync python scripts/check_receiver_backend.py --expected-rust yes --output backend.json
+uv run --frozen --no-sync pytest tests/ -q --tb=short --junitxml=report.xml
+# 独立无Rust环境执行可选SM3算法
+uv sync --frozen --extra sm3
+uv run --frozen --no-sync python scripts/check_receiver_backend.py --expected-rust no --require-sm3 --output backend.json
+uv run --frozen --no-sync pytest tests/test_crypto.py tests/conformance/test_security.py -q
+```
+
+常规 `uv sync` 会调整环境依赖；开发者应在独立环境分别运行上述后端，不能用同一个标签混合两类性能结果。

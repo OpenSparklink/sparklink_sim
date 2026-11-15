@@ -1,6 +1,6 @@
 # NearLink SDR
 
-[![CI](https://github.com/sanchuanhehe/nearlink_sdr_sim/actions/workflows/ci.yml/badge.svg)](https://github.com/sanchuanhehe/nearlink_sdr_sim/actions/workflows/ci.yml)
+[![CI](https://github.com/OpenSparklink/sparklink_sim/actions/workflows/ci.yml/badge.svg)](https://github.com/OpenSparklink/sparklink_sim/actions/workflows/ci.yml)
 
 符合 TXS-10002-2025 SparkLink SLE 标准的软件无线电链路级仿真系统，目标硬件平台为 USRP E310。
 
