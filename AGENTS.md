@@ -24,13 +24,11 @@ src/nearlink_sdr/
 ├── mac/          # MAC 层 (功率控制信令, 帧结构, 信令注册)
 └── sim/          # 链路仿真
 tests/            # 测试文件, 与 src 模块一一对应
-nearlink_sdr_zynq/
-├── rtl/          # FPGA RTL 源码 (SystemVerilog)
-├── tb/           # cocotb 仿真测试
-├── constraints/  # Vivado 约束 (XDC)
-├── scripts/      # Vivado Tcl 脚本
-└── ip/           # Xilinx IP 核
 ```
+
+`antsdr-fw-patch` 与 `nearlink_sdr_zynq` 已成为独立工程，不再作为本仓库的
+Git submodule。固件、RTL 及其工具链要求适用于对应独立工程；本仓库的模型测试
+无需初始化这两个目录。下表中的 FPGA 路径保留为拆分前的历史进度记录。
 
 ## 开发规范
 

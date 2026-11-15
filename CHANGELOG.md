@@ -24,6 +24,8 @@
 
 ### Changed
 
+- 移除 `antsdr-fw-patch` 与 `nearlink_sdr_zynq` 两个 Git 子模块引用；它们已拆分为独立工程，旧目录在本仓库中忽略，已有独立检出保持原样。
+
 - 全量 docstring 格式从 NumPy 风格统一为 RST field list 风格 (`:param:` / `:returns:` / `:rtype:` / `:ivar:`)，修复 autodoc2 解析失败和 "Duplicate implicit target name" 警告
   - 涉及模块: `scrambler.py`, `prbs.py`, `mcs.py`, `tx_pipeline.py`, `rx_pipeline.py`, `mac_interface.py`
 - 通过 `sphinx-intl update` 重建所有 `.po` 翻译文件，同步新增/变更的 `msgid` 并补齐英文翻译

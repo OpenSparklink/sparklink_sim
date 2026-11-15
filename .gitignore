@@ -26,3 +26,7 @@ rust/target/
 rust/.venv/rust/uv.lock
 .coverage
 .Xil/
+
+# Independent projects formerly recorded as gitlinks
+/antsdr-fw-patch/
+/nearlink_sdr_zynq/

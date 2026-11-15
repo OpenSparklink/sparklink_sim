@@ -44,6 +44,10 @@ examples/         # 可运行的示例脚本
 docs/             # Sphinx 文档 (Diataxis 四象限)
 ```
 
+`antsdr-fw-patch`（固件）和 `nearlink_sdr_zynq`（FPGA）已拆分为独立工程，
+本仓库不再以 Git submodule 引用它们。仿真模型的安装和测试无需初始化子模块；
+旧路径下已有的独立检出由各自仓库管理，并在本仓库中忽略。
+
 ## 技术栈
 
 - Python 3.14+, uv, hatchling
