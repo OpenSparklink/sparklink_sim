@@ -1,4 +1,41 @@
-# 检查真实 GFSK IQ
+# 使用真实 SLE IQ 数据
+
+## 先下载数据集
+
+[sle IQ数据集](https://github.com/OpenSparklink/sparklink_sim/releases/tag/sle-iq-20261116-r2)
+记录了 WS63 发出的真实星闪测试信号，由 E310 通过 30 dB 衰减连接采集。
+IQ 是无线波形的两路采样数值，可以用于离线解调、接收算法开发和 FPGA 回放测试。
+
+本版有 72 组配置、360 份文件，覆盖 GFSK、QPSK、8PSK 及 1/2/4 MSym/s 符号率。
+每组包含三次发射采样，以及发射前后各一次静默采样。下载约 450 MB，解压后 IQ 约 1.51 GB。
+旧错位编码样本已由修复后的实测样本替换，发布包不含旧错误 IQ、试采和失败空文件。
+
+在全新目录执行以下命令。需要 GitHub CLI、zstd、tar、sha256sum 和 uv，预留至少 3 GB 空间。
+
+```sh
+gh release download sle-iq-20261116-r2 -R OpenSparklink/sparklink_sim -D sle-iq-assets
+cd sle-iq-assets
+sha256sum -c SHA256SUMS
+cat ws63-rx2-20261115-r2.tar.zst.part-* > sle-iq.tar.zst
+sha256sum -c ARCHIVE_SHA256SUMS
+mkdir restored
+zstd -dc sle-iq.tar.zst | tar -xf - -C restored
+uv run --no-project python verify_dataset.py restored/ws63-rx2-20261115-r2
+```
+
+四个分卷必须全部下载、按编号拼接后再解压，不需要 Git LFS。
+原始数据在解压目录的 `raw/` 下；先看 `iq-index.csv` 选样本，再从 `samples.jsonl`
+读取对应的采样参数和验证记录。完整的附件、压缩包和原始文件都可分别校验。
+
+数据为 16 MS/s、约 2441 MHz、10 MHz 带宽，RX2 手动增益 15 dB。
+小端有符号 16 位整数按 I、Q 交错，每四字节构成一个复数采样；原生 ADC 只有 12 位有效数据，
+其余位作符号扩展。每份文件约 65.536 ms，未裁切、归一化或重采样。
+
+这些是厂测程序的选定测试信号，不覆盖全部 SLE 业务和配置。完整帧已核对同步、CRC、长度
+和已知载荷；边缘半包不计成功。部分早期固件身份未知，采集也没有硬件丢样计数或空口时间戳。
+本数据集不能单独证明生产接收机、标准互通或绝对射频指标已经通过。
+
+## 检查 GFSK IQ
 
 先读取采集元数据，按实际 I/Q 顺序、字节序及有效位宽解包。
 保留整段原始 IQ 和关联静默对照，不按已知载荷或同步位置预先裁切。
