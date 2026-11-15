@@ -110,7 +110,7 @@ def simulate(case):
     return x, q, dict(sync_start=sync_start, step=step), bits
 
 
-def score_symbols(y, frame, kind, expected_length):
+def score_symbols(y, frame, kind, expected_length, *, carrier_method="coherent"):
     """Post-selection diagnostic, including bad-CRC bytes; never feeds acquisition/decoder."""
     nbits = expected_length*8
     bps = 3 if kind == '8PSK' else 2
@@ -118,7 +118,7 @@ def score_symbols(y, frame, kind, expected_length):
     start = 65
     if kind not in ('8PSK', 'QPSK') or len(y) < start+ndata:
         return dict(ber=None, content_ok=False, recovered_length=None)
-    corrected, _ = refine_psk_carrier(y[start:start+ndata], kind, start)
+    corrected, _ = refine_psk_carrier(y[start:start+ndata], kind, start, method=carrier_method)
     hard = PSKDemodulator(kind, sps=1).demap_symbols(corrected, start)[:nbits]
     reference_bits = prbs9(nbits)
     errors = hard != reference_bits
@@ -133,7 +133,7 @@ def score_symbols(y, frame, kind, expected_length):
 
 
 def analyze(x, q, kind, length, grid, truth=None, *, timing_tracking=False,
-            energy_window_symbols=1):
+            energy_window_symbols=1, carrier_method="coherent"):
     t0 = time.perf_counter()
     acquisition = acquire_psk_capture(x, q, FS, RS, SYNC, timing_subdivisions=grid,
                                       timing_tracking=timing_tracking,
@@ -152,8 +152,8 @@ def analyze(x, q, kind, length, grid, truth=None, *, timing_tracking=False,
         row = dict(burst_index=i, timing_loop_loss_of_lock=None, cycle_slips=None, **burst)
         if y is not None:
             frame = decode_ft2_a3_capture(y, sync_word=WORD, data_crc_seed=0x555555,
-                                         pilot_interval=0)
-            diag = score_symbols(y, frame, kind, length)
+                                         pilot_interval=0, carrier_method=carrier_method)
+            diag = score_symbols(y, frame, kind, length, carrier_method=carrier_method)
             payload = frame.pop('payload')
             row.update(frame=frame, **diag)
             row['payload_hex'] = None if payload is None else payload.hex()

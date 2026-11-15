@@ -84,3 +84,31 @@ UV_CACHE_DIR=/tmp/rx-uv MPLCONFIGDIR=/tmp/rx-mpl PYTHONPATH="$PWD/src" \
 真实IQ没有这个真值诊断。截断帧仅评价实际存在的符号，并标记误差轨迹未覆盖整包。
 
 算法及API见 [PSK包内采样时钟恢复](../explanation/psk-timing-recovery.md)。
+
+## 复核噪声分段与载波修复
+
+使用上一轮冻结输出作为输入源，原九个失败及190个原仿真输入保持原样。
+本次三臂依次为1符号能量窗+旧载波、8符号窗+旧载波、8符号窗+相干载波；
+每臂都启用包内持续跟踪。方法在读取保留集前固定，不按CRC重试或选择算法。
+
+```sh
+UV_CACHE_DIR=/tmp/rx-uv MPLCONFIGDIR=/tmp/rx-mpl PYTHONPATH="$PWD/src" \
+ uv run --frozen --no-sync python scripts/psk_noise_recovery_audit.py \
+ --baseline /home/sanchuanhehe/.codex/visualizations/2026/11/15/01a1dfe8-f1ae-7233-a63e-c31ffad2d428/rx-timing-tracking/final \
+ --dataset /home/sanchuanhehe/Documents/opensparklink/sparklink-hw/datasets/sle-rf/ws63/20261115-rx2 \
+ --quiet-dataset /home/sanchuanhehe/Documents/opensparklink/sparklink-hw/build/evidence/20261116-ws63-release-r2/ws63-rx2-20261115-r2 \
+ --output output/noise-recovery-new
+```
+
+`--baseline` 必须是上一轮包含生成IQ、派生IQ及manifest的完整冻结目录。
+正样本和配对静默按该目录的旧元数据和哈希读取，不随主数据集索引的更新而换样。
+当前共享数据集正在替换部分profile，因此扩展阴性测试显式使用独立完整r2快照；
+其144份静默的元数据及逐文件哈希另行冻结，不将新profile正样本混入旧对照。
+可用别处的完整静默数据集替换 `--quiet-dataset`，但须保留同样的元数据格式。
+程序拒绝缺失/变更的输入，不静默跳过。
+
+`target-nine.json` 关联原九项的全部三臂结果，`failures.json` 同时保留旧失败、
+中间失败及新保留集失败；`regressions.json` 检查已成功包的退化。
+原成功包在选择完成后按同步坐标±2采样匹配，不按载荷内容配对。
+新增保留集固定seed44016/55016、8/10/12/15dB、CFO30kHz和SRO100ppm，
+不得看到结果后调参再称为保留集。存在剩余失败时预期退出码1。

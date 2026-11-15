@@ -78,3 +78,8 @@ def test_lqi_unsupported_mcs_remains_unknown():
     control = wire(polar_encode_control(head), "QPSK", 32, 16, True)
     row = decode_ft2_a3_capture(np.r_[np.ones(32), control], pilot_interval=0, **ARGS)
     assert row["status"] == "unsupported_mcs" and row["payload"] is None
+
+
+def test_invalid_carrier_method_is_not_a_crc_retry_strategy():
+    with pytest.raises(ValueError):
+        decode_ft2_a3_capture(np.ones(100),pilot_interval=0,carrier_method='crc_retry',**ARGS)

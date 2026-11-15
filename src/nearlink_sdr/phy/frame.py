@@ -107,7 +107,8 @@ def decode_ft1_a3_candidates(
 
 
 def decode_ft2_a3_capture(symbols: np.ndarray, *, sync_word: int,
-                           data_crc_seed: int, pilot_interval: int) -> dict:
+                           data_crc_seed: int, pilot_interval: int,
+                           carrier_method: str = "coherent") -> dict:
     """解析显式无加扰/CRC24A的FT2/A3采集，symbols从已知同步起点开始。
 
     控制QPSK固定16:1导频，Polar(64,48)，实际A3头CRC后才读长度和MCS。
@@ -122,6 +123,8 @@ def decode_ft2_a3_capture(symbols: np.ndarray, *, sync_word: int,
     from nearlink_sdr.phy.rx_pipeline import decode_payload
     from nearlink_sdr.phy.tx_pipeline import TxConfig
 
+    if carrier_method not in ("coherent", "phase_regression"):
+        raise ValueError("Carrier method must be coherent or phase_regression")
     if pilot_interval not in (0, 1, 4, 16):
         raise ValueError("Explicit factory pilot interval must be0/1/4/16")
     symbols = np.asarray(symbols)
@@ -158,7 +161,8 @@ def decode_ft2_a3_capture(symbols: np.ndarray, *, sync_word: int,
     if len(symbols) < start + nwire:
         row["status"] = "truncated_data"
         return row
-    data, carrier = refine_psk_carrier(symbols[start:start + nwire], cfg.mod_str, start)
+    data, carrier = refine_psk_carrier(symbols[start:start + nwire], cfg.mod_str, start,
+                                       method=carrier_method)
     row["carrier"] = carrier
     bits = PSKDemodulator(cfg.mod_str, sps=1).demap_symbols(data, start).reshape(-1, bps)
     if pilot_interval:

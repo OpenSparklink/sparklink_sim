@@ -354,12 +354,16 @@ def acquire_psk_capture(signal: np.ndarray, quiet: np.ndarray, sample_hz: float,
 
 
 def refine_psk_carrier(symbols: np.ndarray, mod_type: str,
-                       start_symbol_index: int) -> tuple[np.ndarray, dict]:
+                       start_symbol_index: int, *,
+                       method: str = "coherent") -> tuple[np.ndarray, dict]:
     """按星座M次方盲细化残余载波；不使用期待载荷、CRC或导频内容。
 
-    先去帧参考的奇偶旋转；FFT选择归一频率±.1内的峰，再对残余M次方相位线性拟合。
+    去帧参考奇偶旋转，以M次方FFT选频，再作有界相干峰值细化和圆周相位平均。
+    phase_regression保留旧unwrap回归供离线单因素对照，不按CRC在两种方法间重试。
     需要前置已知同步消除星座相位歧义；不搜索π/M旋转以迎合CRC。
     """
+    if method not in ("coherent", "phase_regression"):
+        raise ValueError("Carrier method must be coherent or phase_regression")
     y = np.asarray(symbols)
     if y.ndim != 1 or len(y) < 32 or not np.isfinite(y).all():
         raise ValueError("Need at least32 finite synchronized symbols")
@@ -373,9 +377,39 @@ def refine_psk_carrier(symbols: np.ndarray, mod_type: str,
     power = -(base / np.maximum(abs(base), 1e-12)) ** m * abs(base) ** 2
     nfft = 16 * 2 ** int(np.ceil(np.log2(len(y))))
     grid = np.fft.fftfreq(nfft)
-    spectrum = abs(np.fft.fft(power * np.hanning(len(power)), n=nfft))
+    window = np.hanning(len(power))
+    spectrum = abs(np.fft.fft(power * window, n=nfft))
     band = np.flatnonzero(abs(grid) < .1)
     freq = float(grid[band[np.argmax(spectrum[band])]])
+    if method == "coherent":
+        # The oversampled FFT already localizes the strongest coherent peak. Refine
+        # within one FFT bin, without unwrapping noisy Mth-power phase samples.
+        centered = (i - (len(y) - 1) / 2) / len(y)
+        baseband = power * window * np.exp(-2j * np.pi * freq * i)
+        offset = 0.0
+        lower = max(-len(y) / nfft, (-.1 - freq) * len(y))
+        upper = min(len(y) / nfft, (.1 - freq) * len(y))
+        derivative_factor = -2j * np.pi * centered
+        curvature_factor = -(2 * np.pi * centered) ** 2
+        for _ in range(3):
+            values = baseband * np.exp(-2j * np.pi * offset * centered)
+            total = values.sum()
+            derivative = (derivative_factor * values).sum()
+            curvature = (curvature_factor * values).sum()
+            gradient = 2 * (derivative * total.conjugate()).real
+            hessian = 2 * ((curvature * total.conjugate()).real + abs(derivative) ** 2)
+            if hessian >= 0:
+                break
+            offset = max(lower, min(upper, float(offset - gradient / hessian)))
+        refined = freq + offset / len(y)
+        total = np.sum(power * window * np.exp(-2j * np.pi * refined * i))
+        phase = float(np.angle(total))
+        corrected = y * np.exp(-1j * (2 * np.pi * refined * i + phase) / m)
+        return corrected, dict(
+            residual_cycles_per_symbol=float(refined / m), residual_phase_radians=phase / m,
+            frequency_refinement_bins=float(offset * nfft / len(y)),
+            coherence=float(abs(total) / max(float(np.sum(abs(power) * window)), 1e-30)),
+            method="blind de-rotated Mth-power coherent FFT/Newton; no expected bits")
     slope, phase = np.polyfit(i, np.unwrap(np.angle(power * np.exp(-2j * np.pi * freq * i))), 1)
     phase = (phase + np.pi) % (2 * np.pi) - np.pi
     corrected = y * np.exp(-1j * (2 * np.pi * freq * i + slope * i + phase) / m)

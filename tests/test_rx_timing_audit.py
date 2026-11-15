@@ -72,3 +72,18 @@ def test_longer_energy_average_recovers_development_noise_fragmentation(kind, sn
     assert not any(b['whole_packet_ok'] for b in old['rows'])
     assert sum(b['whole_packet_ok'] for b in new['rows'])==1
     np.testing.assert_array_equal(x,original)
+
+
+def test_coherent_carrier_recovers_noisy_full_frame_without_crc_retry():
+    x,q,truth,_=audit.simulate(dict(kind='8PSK',length=255,offset=.419,ppm=0,
+                                   snr_db=10,seed=11015))
+    old,_=audit.analyze(x,q,'8PSK',255,8,truth,timing_tracking=True,
+                        energy_window_symbols=8,carrier_method='phase_regression')
+    new,_=audit.analyze(x,q,'8PSK',255,8,truth,timing_tracking=True,
+                        energy_window_symbols=8,carrier_method='coherent')
+    a=next(b for b in old['rows']if 'frame'in b)
+    b=next(b for b in new['rows']if 'frame'in b)
+    assert a['frame']['status']=='bad_data_crc' and a['ber']>.4
+    assert b['whole_packet_ok'] and b['ber']==0
+    assert a['sync_start_raw']==b['sync_start_raw'] and a['sync_score']==b['sync_score']
+    assert a['timing_loop']==b['timing_loop']

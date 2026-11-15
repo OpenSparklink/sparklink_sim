@@ -130,3 +130,31 @@ def test_energy_window_must_fit_both_recordings():
     with pytest.raises(ValueError):
         acquire_psk_capture(np.ones(1000),np.ones(65),16000000,4000000,
                             np.ones(32),energy_window_symbols=32)
+
+
+@pytest.mark.parametrize('kind', ['BPSK','QPSK','8PSK'])
+@pytest.mark.parametrize('cfo', [-1700,2300])
+def test_coherent_fine_carrier_preserves_parity_and_known_frequency(kind,cfo):
+    rng=np.random.default_rng(191116)
+    mod=PSKModulator(kind,sps=1)
+    bits=rng.integers(0,2,1800*mod.bits_per_symbol)
+    reference=mod.map_symbols(bits,13)
+    t=np.arange(len(reference))
+    y=reference*np.exp(1j*(.18+2*np.pi*cfo*t/4000000))
+    y+=.05*(rng.normal(size=len(y))+1j*rng.normal(size=len(y)))
+    original=y.copy()
+    corrected,fit=refine_psk_carrier(y,kind,13)
+    assert fit['residual_cycles_per_symbol']*4000000==pytest.approx(cfo,abs=10)
+    assert fit['residual_phase_radians']==pytest.approx(.18,abs=.02)
+    hard=PSKDemodulator(kind,sps=1).demap_symbols(corrected,13)
+    np.testing.assert_array_equal(hard,bits)
+    np.testing.assert_array_equal(y,original)
+    assert abs(fit['frequency_refinement_bins'])<=1.000001
+
+
+def test_coherent_carrier_flat_signal_and_invalid_method():
+    corrected,fit=refine_psk_carrier(np.zeros(64,complex),'QPSK',0)
+    np.testing.assert_array_equal(corrected,np.zeros(64))
+    assert fit['coherence']==0
+    with pytest.raises(ValueError):
+        refine_psk_carrier(np.ones(100),'QPSK',0,method='crc_retry')
