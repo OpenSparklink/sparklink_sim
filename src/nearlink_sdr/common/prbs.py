@@ -7,6 +7,7 @@ PRBS17: x^17 + x^3 + 1, 周期 131071, 用于测试干扰信号数据。
 from __future__ import annotations
 
 __all__ = [
+    "prbs9",
     "prbs11",
     "prbs17",
 ]
@@ -59,6 +60,21 @@ def prbs11(length: int, seed: int = 0x7FF) -> NDArray[np.uint8]:
     """
     state = [(seed >> i) & 1 for i in range(11)]
     return _lfsr_generate(state, 10, 1, length)
+
+
+def prbs9(length: int, seed: int = 0x1FF) -> NDArray[np.uint8]:
+    """Conventional PRBS9, x^9 + x^5 + 1, output stage 8 first.
+
+    This mathematical convention does not establish a particular vendor's factory
+    packet byte order, whitening or seed. Those must be verified independently.
+
+    :param length: Nonnegative output bit count.
+    :param seed: Nonzero nine-bit initial state, default all ones.
+    :returns: PRBS9 bits, never a factory frame/CRC verdict.
+    """
+    if length < 0 or not 0 < seed < 512:
+        raise ValueError("PRBS9 needs nonnegative length and nonzero nine-bit seed")
+    return _lfsr_generate([(seed >> i) & 1 for i in range(9)], 8, 4, length)
 
 
 def prbs17(length: int, seed: int = 0x1FFFF) -> NDArray[np.uint8]:

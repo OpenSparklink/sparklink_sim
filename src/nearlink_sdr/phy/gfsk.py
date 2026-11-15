@@ -3,10 +3,12 @@ __all__ = [
     "GFSK_BW_CONFIG",
     "GFSKDemodulator",
     "GFSKModulator",
+    "analyze_gfsk_capture",
 ]
 
 
 import numpy as np
+from scipy.signal import firwin, lfilter
 
 # TXS-10002-2025 6.2.1.1 GFSK调制
 # BT = 0.5, 调制系数 h 在 0.45~0.55 之间
@@ -123,3 +125,103 @@ class GFSKDemodulator:
             bits[i] = 1 if np.sum(segment) > 0 else 0
 
         return bits
+
+
+def analyze_gfsk_capture(signal: np.ndarray, quiet: np.ndarray,
+                         sample_hz: float, symbol_hz: float) -> dict:
+    """Acquire energy bursts and call the existing GFSK discriminator.
+
+    This front end does not infer factory frame fields, whitening seeds or CRC.
+    Timing maximizes the integrated-frequency eye, without expected payload or
+    sync correlation. Every energy segment is reported, including short/partial
+    segments. Returned indexes refer to the original, unchanged input.
+
+    :param signal: Complete complex IQ acquisition, no pre-alignment required.
+    :param quiet: Associated quiet controls in the same native amplitude units.
+    :param sample_hz: Actual acquisition sample rate.
+    :param symbol_hz: Requested symbol rate, explicitly supplied, not assumed 8 SPS.
+    :returns: Acquisition parameters and burst diagnostics; bits are not business data.
+    """
+    x = np.asarray(signal)
+    noise = np.asarray(quiet)
+    if (x.ndim != 1 or noise.ndim != 1 or len(x) < 65 or len(noise) < 65
+            or not np.isfinite(x).all() or not np.isfinite(noise).all()):
+        raise ValueError("Expected finite one-dimensional IQ and quiet controls")
+    if not np.isfinite([sample_hz, symbol_hz]).all() or min(sample_hz, symbol_hz) <= 0:
+        raise ValueError("Sample and symbol rates must be finite and positive")
+    ratio = sample_hz / symbol_hz
+    sps = round(ratio)
+    if sps < 4 or abs(ratio - sps) > 1e-9:
+        raise ValueError("Capture front end currently requires integer SPS >= 4")
+    box = np.ones(sps) / sps
+    quiet_power = np.convolve(abs(noise) ** 2, box, mode="same")
+    threshold = 4 * float(np.quantile(quiet_power, 0.999))
+    energy = np.convolve(abs(x) ** 2, box, mode="same") > threshold
+    starts = np.flatnonzero(np.diff(energy.astype(int), prepend=0) == 1)
+    ends = np.flatnonzero(np.diff(energy.astype(int), append=0) == -1) + 1
+    # Fixed, documented acquisition filter, not a payload-dependent correction.
+    taps = firwin(65, symbol_hz, fs=sample_hz)
+    delay = (len(taps) - 1) // 2
+    filtered = lfilter(taps, [1], x)
+    bursts = []
+    for a, b in zip(starts, ends, strict=True):
+        burst = dict(start_raw=int(a), end_raw_exclusive=int(b),
+                     edge_truncated=bool(a == 0 or b == len(x)))
+        bursts.append(burst)
+        if b - a < 64 * sps:
+            burst["status"] = "short_energy_segment"
+            continue
+        lo, hi = int(a + 8 * sps), int(b - 8 * sps)
+        frequency = (np.angle(filtered[lo + 1:hi] * np.conj(filtered[lo:hi - 1]))
+                     * sample_hz / (2 * np.pi))
+        centers = np.quantile(frequency, [0.2, 0.8])
+        if np.ptp(centers) < symbol_hz * 0.001:
+            burst["status"] = "insufficient_frequency_states"
+            continue
+        for _ in range(20):
+            labels = abs(frequency[:, None] - centers[None, :]).argmin(axis=1)
+            if not all(np.any(labels == k) for k in range(2)):
+                break
+            centers = np.array([frequency[labels == k].mean() for k in range(2)])
+        else:
+            cfo = float(centers.mean())
+            corrected = filtered * np.exp(-2j * np.pi * cfo * np.arange(len(x)) / sample_hz)
+            eye = []
+            for phase in range(sps):
+                begin = lo + phase
+                disc = np.angle(corrected[begin + 1:hi] * np.conj(corrected[begin:hi - 1]))
+                n = len(disc) // sps
+                eye.append(float(np.mean(abs(disc[:n * sps].reshape(n, sps).sum(axis=1)))))
+            phase = int(np.argmax(eye))
+            start = lo + phase
+            start -= ((start - max(int(a) - delay, 0)) // sps) * sps
+            stop = min(int(b) + 4 * sps, len(x))
+            bits = GFSKDemodulator(sps=sps).demodulate(corrected[start:stop])
+            transition_energy = np.diff(frequency) ** 2
+            transition_energy -= transition_energy.mean()
+            nfft = 8 * 2 ** int(np.ceil(np.log2(len(transition_energy))))
+            spectrum = abs(np.fft.rfft(transition_energy * np.hanning(len(transition_energy)),
+                                      n=nfft))
+            grid = np.fft.rfftfreq(nfft, 1 / sample_hz)
+            band = np.flatnonzero((grid >= symbol_hz * 0.9) & (grid <= symbol_hz * 1.1))
+            peak = int(band[np.argmax(spectrum[band])])
+            burst.update(status="demodulated_unparsed", bits=bits,
+                         cfo_hz=cfo, frequency_centers_hz=centers.tolist(),
+                         cluster_half_separation_hz=float(np.ptp(centers) / 2),
+                         timing_eye=eye, timing_phase=phase,
+                         bit0_filtered_index=int(start), bit0_raw_reference=int(start - delay),
+                         bit_sample_step=sps,
+                         spectral_clock_hz=float(grid[peak]),
+                         clock_line_contrast_db=float(20 * np.log10(
+                             max(spectrum[peak], 1e-30) / max(np.median(spectrum[band]), 1e-30))),
+                         clock_observation_s=len(transition_energy) / sample_hz,
+                         clock_fft_grid_hz=sample_hz / nfft,
+                         clock_caveat="finite-burst transition-energy peak near request; not calibrated SRO",
+                         index_precision="one sample timing grid; FIR delay removed; no air timestamp")
+            continue
+        burst["status"] = "insufficient_frequency_states"
+    return dict(sps=sps, sample_hz=sample_hz, requested_symbol_hz=symbol_hz,
+                threshold_codes2=threshold, threshold_rule="4 * quiet 99.9% symbol-power quantile",
+                filter_taps=taps, filter_group_delay_samples=delay,
+                timing_method="maximum mean absolute integrated discriminator; no payload oracle",
+                crc="unknown: factory framing not specified", bursts=bursts)

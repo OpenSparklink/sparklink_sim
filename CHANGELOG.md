@@ -28,6 +28,10 @@
 
 ### Added
 
+- 为真实IQ增加有界GFSK采集前端：静默对照定阈值、保留短段/截断段、盲CFO和定时，
+  复用已有鉴频解调器并保留原始样本坐标；不推断厂测帧或宣称CRC通过。
+- 增加约定明确的PRBS9数学向量；不把数学位序默认为WS63厂测固件位序。
+
 - DLI 指令集完整实现 122 个 opcode, 29 个单元测试全部通过
   - 基本指令补全: READ_SLB_CTRL_BUF / CONFIG_FISA_CHAN / ENABLE_FISA / CONFIG_SLB_SYNC / READ_SLB_SYNC / READ_SLB_POWER / TIME_SYNC_STATUS / TIME_SYNC_REQ / TIME_SYNC_RSP / ADD_WL_DEVICE_EXT
   - 广播指令补全: READ_BC_SET_SIZE / DELETE_BC_SET / CONFIG_SLB_DOMAIN / READ_SLB_DOMAIN / CONFIG_SLB_BC_PARAM / READ_SLB_BC_PARAM
