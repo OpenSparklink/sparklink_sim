@@ -2,6 +2,7 @@
 
 
 __all__ = [
+    "POLAR_DECODER_CACHE_LIMIT",
     "RATE_TABLE",
     "RELIABILITY_SEQ_1024",
     "VALID_CODE_LENGTHS",
@@ -12,6 +13,7 @@ __all__ = [
 ]
 
 
+from collections import OrderedDict
 from functools import lru_cache
 
 import numpy as np
@@ -1307,14 +1309,22 @@ class PolarDecoder:
 # ---------------------------------------------------------------------------
 # PolarDecoder 实例缓存 (避免重复初始化 + SSC 构建开销)
 # ---------------------------------------------------------------------------
-_decoder_cache: dict[tuple[int, int], PolarDecoder] = {}
+POLAR_DECODER_CACHE_LIMIT = 64
+_decoder_cache: OrderedDict[tuple[int, int], PolarDecoder] = OrderedDict()
 
 
 def get_polar_decoder(n: int, k: int) -> PolarDecoder:
-    """获取 PolarDecoder 实例, 相同 (N, K) 复用已创建的对象。"""
+    """复用最近64个(N,K)译码器，限制跨包缓存；可变工作区须串行使用。
+
+    容量是实现资源策略，不是标准的编码参数或接收能力限值。
+    """
     key = (n, k)
     dec = _decoder_cache.get(key)
     if dec is None:
         dec = PolarDecoder(n, k)
         _decoder_cache[key] = dec
+        if len(_decoder_cache) > POLAR_DECODER_CACHE_LIMIT:
+            _decoder_cache.popitem(last=False)
+    else:
+        _decoder_cache.move_to_end(key)
     return dec

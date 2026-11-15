@@ -187,6 +187,17 @@ PYTHONPATH=src UV_CACHE_DIR=/tmp/rx-uv uv run --frozen --no-sync python \
   --repeats 3 --output /tmp/quiet-benchmark-new
 ```
 
+## 阶段 3c：跨包译码器缓存上限
+
+单帧状态数组不含全局 Polar 译码器池。基线 `48764e4` 在 FT2、CRC24、
+1..2047字节、所有已建模码率的合法几何扫描中保留77个译码器，NumPy工作区约1.35MB，
+旧缓存没有淘汰策略。该观察不称为严重内存泄漏，也不能用单帧数组大小替代进程内存。
+
+现将 `get_polar_decoder(N,K)` 的资源策略明确为最近64个实例；最近复用不变，淘汰后按相同参数重建。
+容量是实现资源上限，不是标准合格限值。译码器含可变工作区，当前查找实例须串行使用。
+合法几何扫描验证上限、最近项保留及淘汰后输出不变；记录 `decoder-cache-baseline.json`。
+完整2907通过、2跳过，覆盖率91%，ruff通过。
+
 ## 复现与证据
 
 ```sh
