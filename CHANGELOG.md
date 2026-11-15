@@ -28,6 +28,8 @@
 
 ### Changed
 
+- 根据真实IQ profile优化流式静默短块滤波开销：保留原判定与量子历史，开发对照约2.66/2.69倍、1.88/1.89MS/s，仍未达16MS/s；固定/随机分块与轨迹一致。
+
 - 移除 `antsdr-fw-patch` 与 `nearlink_sdr_zynq` 两个 Git 子模块引用；它们已拆分为独立工程，旧目录在本仓库中忽略，已有独立检出保持原样。
 
 - 全量 docstring 格式从 NumPy 风格统一为 RST field list 风格 (`:param:` / `:returns:` / `:rtype:` / `:ivar:`)，修复 autodoc2 解析失败和 "Duplicate implicit target name" 警告

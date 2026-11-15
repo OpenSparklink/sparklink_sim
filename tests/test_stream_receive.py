@@ -193,3 +193,24 @@ def test_iterator_yields_before_consuming_large_input_and_does_not_queue_output(
     assert receiver.phy._processed < len(x)
     assert sum(len(r.packets) for r in output) == 1
     assert receiver.finish().packets == []
+
+
+def test_profiled_quiet_batching_preserves_canonical_filter_and_packet_trajectories():
+    p = PSKReceiveProfile.ordinary(TxConfig(mcs_index=12, symbol_rate_mhz=4))
+    wire, expected = transmitted(p)
+    x, q, _, _ = iq_record(wire, ppm=100, cfo=30000)
+    quiet = np.tile(q, 20)
+    joined = np.r_[quiet, x, quiet, x, quiet]
+    baseline = PSKStreamReceiver(p, q, quiet_batching=False)
+    reference = baseline.feed(joined)+baseline.finish()
+    optimized = PSKStreamReceiver(p, q, quiet_batching=True)
+    actual = optimized.feed(joined)+optimized.finish()
+    assert optimized.quiet_fast_path_samples > 0
+    assert [r['frame']['payload'] for r in actual] == [expected, expected]
+    equal_events(reference, actual)
+    np.testing.assert_array_equal(optimized._filtered, baseline._filtered)
+    np.testing.assert_array_equal(optimized._fir_state, baseline._fir_state)
+    for sizes in [[1], [37], [4095], [4096], [8192],
+                  np.random.default_rng(67016).integers(1, 8193, 100)]:
+        other, _, _ = consume(p, q, joined, sizes)
+        equal_events(reference, other)

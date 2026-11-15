@@ -152,6 +152,41 @@ PYTHONPATH=src UV_CACHE_DIR=/tmp/rx-uv uv run --frozen --no-sync python \
 
 $B沿用前述证据根目录。纯Python，Rust未安装；未改变原低SNR保留集，也尚未给出流式的全量误检/漏检结论。
 
+## 阶段 3b：经 profile 定位的静默滤波开销优化
+
+不改变能量门限或同步/CRC决策，仅对能量确认低于原门限的已提供输入分块加速。
+每128个内部量子做有限大小的能量检查；若可能包含信号则照常逐量子处理。
+静默快路径从零状态重放超过 FIR/能量有限记忆的尾部，恢复相同量子边界的历史，
+不等待额外输入，不引入4096样本的接收等待（SPS4时批大小4096）。
+额外临时数组有固定上限；可用 `quiet_batching=False` 明确复现未优化算法。
+
+在同一进程、相同冻结开发 IQ、交替方法顺序、一次暖机后各3次测量：
+
+| 开发输入 | 原中位耗时/s | 优化中位耗时/s | 吞吐/MS/s | 观察到的倍数 |
+|---|---:|---:|---:|---:|
+| QPSK mode-057/rx-00 | 1.486 | .558 | 1.878 | 2.66 |
+| 8PSK mode-065/rx-00 | 1.488 | .553 | 1.895 | 2.69 |
+
+每份1048576样本；初始化分列，不计入此吞吐。两方法所有完整包、CRC、输出时点和轨迹一致。
+新测试对长静默夹连续包、1/37/4095/4096/8192及随机分块比较；
+最终FIR历史/状态逐位相同，轨迹满足先前冻结容差。
+2906通过、2跳过、覆盖率91%，ruff通过。
+这是纯Python、一次大输入调用的开发对照，小调用可能无法使用批处理；
+未达到16MS/s，不外推为Rust、实时FPGA或完整接收机能力。
+RSS为两方法、调用者输入和校准共用进程高水位，不能用来宣称单方法峰值内存下降。
+
+`quiet-batching-benchmark` 保存冻结输入/源码、逐次时间与延迟分位数、基线轨迹和图表
+`quiet-batching-cost.png/svg`；红虚线为16MS/s输入时间预算，两方法均高于该预算。
+延迟仅相对接收器最后一个所选符号中心，不是真实空口时间真值。
+
+```sh
+PYTHONPATH=src UV_CACHE_DIR=/tmp/rx-uv uv run --frozen --no-sync python \
+  scripts/benchmark_rx_stream.py --original "$B/rx-timing-tracking/final" \
+  --dataset /home/sanchuanhehe/Documents/opensparklink/sparklink-hw/datasets/sle-rf/ws63/20261115-rx2 \
+  --sample-id series-02/mode-057/rx-00 --sample-id series-02/mode-065/rx-00 \
+  --repeats 3 --output /tmp/quiet-benchmark-new
+```
+
 ## 复现与证据
 
 ```sh

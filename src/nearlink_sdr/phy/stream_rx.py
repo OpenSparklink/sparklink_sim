@@ -41,7 +41,7 @@ class PSKStreamReceiver:
     def __init__(self, profile: PSKReceiveProfile, quiet: np.ndarray, *,
                  timing_subdivisions: int = 8, energy_window_symbols: int = 8,
                  timing_config: PSKTimingConfig | None = None,
-                 carrier_method: str = "coherent"):
+                 carrier_method: str = "coherent", quiet_batching: bool = True):
         if not isinstance(profile, PSKReceiveProfile):
             raise ValueError("Explicit PSKReceiveProfile required")
         self.profile = replace(profile, config=replace(profile.config))
@@ -58,11 +58,16 @@ class PSKStreamReceiver:
         if not isinstance(self.timing_config, PSKTimingConfig):
             raise ValueError("Need PSKTimingConfig")
         self.sps, self.subdivisions = cfg.sps, timing_subdivisions
+        if not isinstance(quiet_batching, bool):
+            raise ValueError("quiet_batching must be boolean")
+        self.quiet_batching = quiet_batching
+        self.quiet_fast_path_samples = 0
         self.carrier_method = carrier_method
         self.reference = profile.sync_symbols()
         self.h = rrc_filter(.4, self.sps)
         self.delay = (len(self.h)-1)//2
         self.quantum = 8*self.sps
+        self.quiet_batch_samples = 128*self.quantum
         self.search_samples = max(64, len(self.reference)+32)*self.sps
         self.history_limit = self.search_samples + 4*self.quantum
         self.future_samples = self.delay+2
@@ -148,6 +153,12 @@ class PSKStreamReceiver:
                 return
             yield from self._process(block)
         while len(samples)-pos >= self.quantum:
+            if (self.quiet_batching and self._active is None
+                    and self._processed % self.quiet_batch_samples == 0
+                    and len(samples)-pos >= self.quiet_batch_samples
+                    and self._quiet_jump(samples[pos:pos+self.quiet_batch_samples])):
+                pos += self.quiet_batch_samples
+                continue
             block = samples[pos:pos+self.quantum]
             yield from self._process(block)
             pos += self.quantum
@@ -177,6 +188,40 @@ class PSKStreamReceiver:
             events.append(self._event(row, end_padding=True))
         self._closed = True
         return events
+
+    def _quiet_jump(self, block):
+        """Skip only provably inactive quanta; reconstruct their exact finite history.
+
+        A vector energy check may veto batching, never synchronization. Its
+        conservative margin excludes threshold-rounding ties. Replaying a tail
+        longer than the FIR/energy memory in canonical quanta erases the zero
+        initialization, preserving subsequent searches and NCO state independently
+        of the caller's chunk size. No future input is awaited for this fast path.
+        """
+        if np.any(self._energy > self.threshold):
+            return False
+        if not np.isfinite(block).all():
+            raise ValueError("Need finite IQ samples")
+        energy, _ = lfilter(self._box, [1.], abs(block)**2, zi=self._energy_state)
+        if np.any(energy > self.threshold*(1-1e-12)):
+            return False
+        warmup = max(len(self._fir_state), len(self._energy_state))
+        tail_size = ((self.history_limit+warmup+self.quantum-1)//self.quantum+1)*self.quantum
+        if tail_size >= len(block):
+            return False
+        skipped = len(block)-tail_size
+        self._processed += skipped
+        self.quiet_fast_path_samples += skipped
+        self._fir_state.fill(0)
+        self._energy_state.fill(0)
+        self._filtered = np.empty(0, complex)
+        self._energy = np.empty(0)
+        self._origin = self._processed-self.delay
+        for offset in range(skipped, len(block), self.quantum):
+            events = self._process(block[offset:offset+self.quantum])
+            if events:
+                raise RuntimeError("Quiet fast-path invariant failed")
+        return True
 
     def _process(self, block):
         if not np.isfinite(block).all():
