@@ -116,71 +116,11 @@ def decode_ft2_a3_capture(symbols: np.ndarray, *, sync_word: int,
     1:1导频仅供显式厂测配置，不能推广为普通业务默认配置。
     返回payload仅表示CRC合格；是否符合外部源的已知数据仍须调用者另行核对。
     """
-    from nearlink_sdr.common.code_block_seg import segment_without_crc
-    from nearlink_sdr.phy.control_info import polar_decode_control
-    from nearlink_sdr.phy.pilot import pilot_symbol
-    from nearlink_sdr.phy.psk import PSKDemodulator, refine_psk_carrier
-    from nearlink_sdr.phy.rx_pipeline import decode_payload
-    from nearlink_sdr.phy.tx_pipeline import TxConfig
+    from nearlink_sdr.phy.strict_rx import PSKReceiveProfile, decode_psk_frame
 
-    if carrier_method not in ("coherent", "phase_regression"):
-        raise ValueError("Carrier method must be coherent or phase_regression")
-    if pilot_interval not in (0, 1, 4, 16):
-        raise ValueError("Explicit factory pilot interval must be0/1/4/16")
-    symbols = np.asarray(symbols)
-    if symbols.ndim != 1 or not np.isfinite(symbols).all():
-        raise ValueError("Expected finite synchronized symbols")
-    row = dict(status="truncated_header", header_crc=None, data_crc=None, payload=None)
-    if len(symbols) < 65:
-        return row
-    #32sync +16control +pilot +16control; last controlpilot follows only if data haspilots.
-    control = PSKDemodulator("QPSK", sps=1).demap_symbols(symbols[32:65], 32).reshape(-1, 2)
-    control = np.delete(control, 16, axis=0).reshape(-1)
-    raw_head = polar_decode_control(control, 48)
-    try:
-        lqi, head = ControlInfoA3.unpack(raw_head, sync_word & 0xFFF, has_lqi=True)
-    except ValueError:
-        row.update(status="bad_header_crc", header_crc=False)
-        return row
-    row.update(header_crc=True, header=vars(head), lqi=lqi, mcs=lqi & 15)
-    if (lqi & 15) not in (6, 8, 10, 12):
-        row["status"] = "unsupported_mcs"
-        return row
-    cfg = TxConfig(frame_type=2, mcs_index=lqi & 15, whitening_seed=0,
-                   crc_seed=data_crc_seed, crc_len=24, ctrl_bits_len=36)
-    nbits = head.data_length * 8 + 24
-    if not cfg.is_uncoded:
-        nbits = sum(n for n, _ in segment_without_crc(
-            np.zeros(nbits, dtype=int), cfg.rate_str, crc_len=24))
-    bps = 2 if cfg.mod_str == "QPSK" else 3
-    ndata = -(-nbits // bps)
-    nwire = ndata + (ndata - 1) // pilot_interval if pilot_interval else ndata
-    start = 66 if pilot_interval else 65
-    row.update(data_start_symbol=start, frame_end_symbol=start + nwire,
-               coded_bits=nbits, data_symbols=ndata, wire_data_symbols=nwire)
-    if len(symbols) < start + nwire:
-        row["status"] = "truncated_data"
-        return row
-    data, carrier = refine_psk_carrier(symbols[start:start + nwire], cfg.mod_str, start,
-                                       method=carrier_method)
-    row["carrier"] = carrier
-    bits = PSKDemodulator(cfg.mod_str, sps=1).demap_symbols(data, start).reshape(-1, bps)
-    if pilot_interval:
-        positions = np.arange(pilot_interval, len(data), pilot_interval + 1)
-        reference = np.array([pilot_symbol(cfg.mod_str, start + int(i)) for i in positions])
-        row["pilot_count"] = len(positions)
-        row["pilot_phase_rms_rad"] = float(np.sqrt(np.mean(
-            np.angle(data[positions] * reference.conj()) ** 2)))
-        bits = np.delete(bits, positions, axis=0)
-    else:
-        row["pilot_count"] = 0
-        row["pilot_phase_rms_rad"] = None
-    decoded, ok = decode_payload(bits.reshape(-1)[:nbits], cfg, head.data_length * 8)
-    row.update(status="valid" if ok else "bad_data_crc", data_crc=bool(ok),
-               modulation=cfg.mod_str, code_rate=cfg.rate_str)
-    if ok:
-        row["payload"] = np.packbits(decoded, bitorder="little").tobytes()
-    return row
+    profile = PSKReceiveProfile.ws63_ft2_a3(
+        sync_word=sync_word, data_crc_seed=data_crc_seed, pilot_interval=pilot_interval)
+    return decode_psk_frame(symbols, profile, carrier_method=carrier_method)
 
 
 # ── 各帧类型参数 ──

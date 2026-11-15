@@ -11,4 +11,5 @@ rust-acceleration
 sdr-deployment
 build-docs
 real-iq
+strict-receive
 ```

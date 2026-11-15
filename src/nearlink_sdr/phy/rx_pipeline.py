@@ -11,6 +11,8 @@ __all__ = [
     "decode_head",
     "decode_payload",
     "frame_sync",
+    "payload_coded_length",
+    "receive_capture",
     "rx_chain",
 ]
 
@@ -63,6 +65,20 @@ class RxResult:
     diagnostic_data_bits: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int8))
 
 
+def payload_coded_length(n_info_bits: int, cfg: TxConfig) -> int:
+    """Exact payload codeword length from a verified length and negotiated PHY context."""
+    if (not isinstance(n_info_bits, int) or isinstance(n_info_bits, bool)
+            or not 0 <= n_info_bits <= 2047 * 8):
+        raise ValueError("Payload information length must be an integer in [0,16376]")
+    b_len = n_info_bits + cfg.crc_len
+    if cfg.is_uncoded:
+        return b_len
+    segments = (segment_with_crc(np.zeros(b_len, dtype=int), cfg.rate_str)
+                if cfg.frame_type in (3, 4) else
+                segment_without_crc(np.zeros(b_len, dtype=int), cfg.rate_str, crc_len=cfg.crc_len))
+    return sum(n for n, _ in segments)
+
+
 def decode_payload(scrambled_bits: np.ndarray, cfg: TxConfig,
                    n_info_bits: int) -> tuple[np.ndarray, bool]:
     """载荷解码: 解扰 → [Polar 解码] → CRC 校验。
@@ -79,14 +95,7 @@ def decode_payload(scrambled_bits: np.ndarray, cfg: TxConfig,
     if scrambled_bits.ndim != 1 or np.any((scrambled_bits != 0) & (scrambled_bits != 1)):
         raise ValueError("Payload must be a one-dimensional binary array")
     b_len = n_info_bits + cfg.crc_len
-    if cfg.is_uncoded:
-        expected = b_len
-    else:
-        segments = (segment_with_crc(np.zeros(b_len, dtype=int), cfg.rate_str)
-                    if cfg.frame_type in (3, 4) else
-                    segment_without_crc(np.zeros(b_len, dtype=int), cfg.rate_str,
-                                        crc_len=cfg.crc_len))
-        expected = sum(n for n, _ in segments)
+    expected = payload_coded_length(n_info_bits, cfg)
     if len(scrambled_bits) != expected:
         return np.empty(0, dtype=np.int8), False
     # 解扰
@@ -97,6 +106,10 @@ def decode_payload(scrambled_bits: np.ndarray, cfg: TxConfig,
     if cfg.is_uncoded:
         data_with_crc = coded.astype(np.int8)
     else:
+        segments = (segment_with_crc(np.zeros(b_len, dtype=int), cfg.rate_str)
+                    if cfg.frame_type in (3, 4) else
+                    segment_without_crc(np.zeros(b_len, dtype=int), cfg.rate_str,
+                                        crc_len=cfg.crc_len))
         # 按 N 切分编码比特, 逐块 Polar 解码
         pos = 0
         info_blocks: list[np.ndarray] = []
@@ -272,17 +285,7 @@ def rx_chain(
 
     # 帧结构解析 → 提取头部比特和数据比特
     n_data_bits = n_data_bytes * 8
-    if cfg.is_uncoded:
-        total_coded_bits = n_data_bits + cfg.crc_len
-    else:
-        # 计算编码后总比特数
-        b_len = n_data_bits + cfg.crc_len
-        dummy = np.zeros(b_len, dtype=int)
-        if cfg.frame_type in (3, 4):
-            segments = segment_with_crc(dummy, cfg.rate_str)
-        else:
-            segments = segment_without_crc(dummy, cfg.rate_str, crc_len=cfg.crc_len)
-        total_coded_bits = sum(n for n, _ in segments)
+    total_coded_bits = payload_coded_length(n_data_bits, cfg)
 
     _, data_bits_demod = symbols_to_data_bits(
         symbols, frame_cfg, n_ctrl_coded_bits=n_ctrl_coded, n_data_bits=total_coded_bits,
@@ -300,3 +303,35 @@ def rx_chain(
         head_crc_ok=head_ok,
         diagnostic_data_bits=data_decoded,
     )
+
+
+def receive_capture(iq_signal: np.ndarray, quiet: np.ndarray, profile, *,
+                    timing_subdivisions: int = 8, timing_tracking: bool = True,
+                    timing_config=None, energy_window_symbols: int = 1,
+                    carrier_method: str = "coherent") -> dict:
+    """Strict IQ → candidates/frames using unknown starts and verified header lengths.
+
+    The separate quiet calibration and explicit profile are required context.
+    Every energy segment and rejection remains in acquisition/frames. Packet
+    timing state resets per acquired sync. This whole-record entry is offline;
+    it does not claim bounded streaming or real-time hardware operation.
+    """
+    from nearlink_sdr.phy.psk import acquire_psk_capture
+    from nearlink_sdr.phy.strict_rx import PSKReceiveProfile, decode_psk_frame
+
+    if not isinstance(profile, PSKReceiveProfile):
+        raise ValueError("Explicit PSKReceiveProfile required")
+    cfg = profile.config
+    symbol_hz = cfg.symbol_rate_mhz * 1e6
+    acquisition = acquire_psk_capture(
+        iq_signal, quiet, cfg.sps * symbol_hz, symbol_hz, profile.sync_symbols(),
+        timing_subdivisions=timing_subdivisions, timing_tracking=timing_tracking,
+        timing_config=timing_config, energy_window_symbols=energy_window_symbols)
+    frames = []
+    for index, burst in enumerate(acquisition["bursts"]):
+        if "symbols" not in burst:
+            continue
+        row = decode_psk_frame(burst["symbols"], profile, carrier_method=carrier_method)
+        row.update(burst_index=index, sync_start_raw=burst["sync_start_raw"])
+        frames.append(row)
+    return dict(profile=profile.name, acquisition=acquisition, frames=frames)

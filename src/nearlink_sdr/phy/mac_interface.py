@@ -11,11 +11,13 @@ from __future__ import annotations
 import struct
 
 __all__ = [
+    "MacCaptureResult",
     "MacRxResult",
     "QosLink",
     "bits_to_bytes",
     "bytes_to_bits",
     "iq_to_mac",
+    "iq_to_mac_capture",
     "iq_to_signaling",
     "mac_to_iq",
     "roundtrip_data",
@@ -44,7 +46,7 @@ from nearlink_sdr.mac.qos import (
 )
 from nearlink_sdr.mac.signaling import decode_signaling, encode_signaling
 from nearlink_sdr.phy.control_info import ControlInfoA2, ControlInfoB1
-from nearlink_sdr.phy.rx_pipeline import rx_chain
+from nearlink_sdr.phy.rx_pipeline import receive_capture, rx_chain
 from nearlink_sdr.phy.tx_pipeline import TxConfig, head_crc_parameters, tx_chain
 
 # -----------------------------------------------------------------------
@@ -130,6 +132,29 @@ class MacRxResult:
     ctrl_bits: np.ndarray
     crc_ok: bool
     head_crc_ok: bool
+    header: dict | None = None
+
+
+@dataclass
+class MacCaptureResult:
+    """CRC-gated MAC packets plus every rejected PHY candidate and RF diagnostic."""
+
+    packets: list[MacRxResult]
+    diagnostics: dict
+
+
+def iq_to_mac_capture(iq_signal: np.ndarray, quiet: np.ndarray, profile, **options) -> MacCaptureResult:
+    """Receive unknown packet positions/lengths using an explicit strict PHY profile.
+
+    Callers needing all packets should use this entry instead of the aligned
+    single-frame ``iq_to_mac`` simulation API. Only frames passing header CRC,
+    length/MCS validation and data CRC enter packets; diagnostics retains failures.
+    """
+    result = receive_capture(iq_signal, quiet, profile, **options)
+    packets = [MacRxResult(row["payload"], np.empty(0, dtype=np.int8), True, True,
+                           header=row["header"])
+               for row in result["frames"] if row["status"] == "valid"]
+    return MacCaptureResult(packets, result)
 
 
 def iq_to_mac(
