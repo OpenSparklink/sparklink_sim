@@ -131,6 +131,14 @@ def score(events, meta):
                                            np.arange(len(e['symbols']))*target['step'])
             row['timing_error'] = dict(rms=float(np.sqrt(np.mean(error**2))),
                 head_mid_tail=[float(error[i]) for i in (0, len(error)//2, len(error)-1)])
+            estimate = e['cfo_hz']
+            row['carrier_error'] = dict(sync_nominal_hz=estimate,
+                sync_error_hz=estimate/(1+target['ppm']*1e-6)-target['cfo_hz'],
+                note='Truth SRO used only to convert nominal symbol-rate estimate for diagnosis')
+            residual = f.get('carrier', {}).get('residual_cycles_per_symbol')
+            if residual is not None:
+                row['carrier_error']['after_payload_error_hz'] = (
+                    (estimate+residual*4e6)/(1+target['ppm']*1e-6)-target['cfo_hz'])
             if f.get('header_crc') and f.get('mcs') == target['mcs']:
                 actual = diagnostic_bits(e, profile(meta['mcs']))
                 wanted = np.unpackbits(np.frombuffer(bytes.fromhex(target['expected_hex']), np.uint8))
@@ -172,6 +180,8 @@ def evaluate(inputs, output, options=None):
                          correlation_bank=None if rx.correlation_bank is None else dict(
                              stats=rx.correlation_bank.stats,
                              state_array_bytes=rx.correlation_bank.state_array_bytes,
+                             emulator_state_bytes=getattr(rx.correlation_bank,
+                                                          'emulator_state_bytes', None),
                              operations=rx.correlation_bank.worst_operations_per_sample())))
         write(output/'results.json', rows)
     summary = dict(inputs=len(rows), samples=sum(r['input']['samples'] for r in rows),
@@ -195,12 +205,15 @@ if __name__ == '__main__':
     parser.add_argument('--generate', choices=['development', 'held-out'])
     parser.add_argument('--inputs', type=Path)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--correlation-backend', choices=['reference', 'structure'],
+    parser.add_argument('--correlation-backend', choices=['reference', 'structure', 'fixed'],
                         default='reference')
+    parser.add_argument('--input-bits', type=int, default=16)
+    parser.add_argument('--input-full-scale', type=float, default=1024.)
     args = parser.parse_args()
     if args.generate:
         generate(args.output, args.generate)
     elif args.inputs:
-        evaluate(args.inputs, args.output, dict(correlation_backend=args.correlation_backend))
+        evaluate(args.inputs, args.output, dict(correlation_backend=args.correlation_backend,
+            correlation_input_bits=args.input_bits, correlation_input_full_scale=args.input_full_scale))
     else:
         parser.error('Need --generate or --inputs')

@@ -62,7 +62,8 @@ class PSKStreamReceiver:
                  capture_config: PSKCaptureConfig | None = None,
                  timing_backend: str = "auto", defer_quiet_fir: bool = True,
                  integer_screen_backend: str = 'auto', adaptive_quiet: bool = True,
-                 correlation_backend: str = 'reference', correlation_input_full_scale: float = 1024.):
+                 correlation_backend: str = 'reference', correlation_input_full_scale: float = 1024.,
+                 correlation_input_bits: int = 16):
         if not isinstance(profile, PSKReceiveProfile):
             raise ValueError("Explicit PSKReceiveProfile required")
         self.profile = replace(profile, config=replace(profile.config))
@@ -121,17 +122,25 @@ class PSKStreamReceiver:
         self.quiet_prefix_jumps = self.quiet_probe_vetoes = 0
         self.search_samples = max(64, len(self.reference)+32)*self.sps
         self.history_limit = self.search_samples + 4*self.quantum
-        if correlation_backend not in ('reference', 'structure'):
-            raise ValueError('correlation_backend must be reference or structure')
+        if correlation_backend not in ('reference', 'structure', 'fixed'):
+            raise ValueError('correlation_backend must be reference, structure or fixed')
         self.correlation_backend = correlation_backend
         self.correlation_bank = None
         if correlation_backend != 'reference':
             from nearlink_sdr.phy.acquisition_bank import DifferentialBank
             if quiet_batching or self.subdivisions == 1 or not self.capture_config.integer_screen:
                 raise ValueError('Structure bank requires quiet_batching=False and integer screen')
-            self.correlation_bank = DifferentialBank(
+            bank_class, options = DifferentialBank, {}
+            if correlation_backend == 'fixed':
+                from nearlink_sdr.phy.acquisition_fixed import (
+                    FixedBankFormat,
+                    FixedDifferentialBank,
+                )
+                bank_class = FixedDifferentialBank
+                options['format'] = FixedBankFormat(input_bits=correlation_input_bits)
+            self.correlation_bank = bank_class(
                 self.reference, self.sps, self.search_samples, self.capture_config.integer_screen,
-                origin=-self.delay, input_full_scale=correlation_input_full_scale)
+                origin=-self.delay, input_full_scale=correlation_input_full_scale, **options)
             self.integer_screen_backend = correlation_backend
         self.future_samples = self.delay+2
         self._fir_state = np.zeros(len(self.h)-1, dtype=complex)

@@ -1,5 +1,6 @@
 __all__ = [
     "acquisition_bank",
+    "acquisition_fixed",
     "channel",
     "control_info",
     "data_link",

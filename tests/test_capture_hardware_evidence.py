@@ -31,8 +31,9 @@ def test_bad_crc_keeps_diagnostic_ber_without_becoming_a_success():
     rx = module['PSKStreamReceiver'](p, q, quiet_batching=False)
     events = rx.feed(x)+rx.finish()
     row = module['score'](events, dict(mcs=8, packets=[dict(sync_start=start, step=step,
-        expected_hex=expected.hex(), length=37, mcs=8)]))
+        expected_hex=expected.hex(), length=37, mcs=8, ppm=0, cfo_hz=0)]))
     assert row['captured'] == 1 and row['correct'] == 0
     f, = row['frames']
     assert f['status'] == 'bad_data_crc' and f['data_crc'] is False
     assert f['bit_errors'] == 16 and f['ber'] == 16/(37*8)
+    assert 'after_payload_error_hz' in f['carrier_error']
