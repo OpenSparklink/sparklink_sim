@@ -16,6 +16,11 @@ from nearlink_sdr.phy.rx_pipeline import payload_coded_length
 from nearlink_sdr.phy.strict_rx import PSKReceiveProfile, decode_psk_frame
 from nearlink_sdr.phy.timing import GardnerPIState, PSKTimingConfig
 
+try:
+    from nearlink_sdr_accel import StreamTiming as _RustStreamTiming
+except ImportError:
+    _RustStreamTiming = None
+
 __all__ = ["PSKStreamReceiver"]
 
 
@@ -54,10 +59,17 @@ class PSKStreamReceiver:
                  timing_subdivisions: int = 8, energy_window_symbols: int = 8,
                  timing_config: PSKTimingConfig | None = None,
                  carrier_method: str = "coherent", quiet_batching: bool = True,
-                 capture_config: PSKCaptureConfig | None = None):
+                 capture_config: PSKCaptureConfig | None = None,
+                 timing_backend: str = "auto"):
         if not isinstance(profile, PSKReceiveProfile):
             raise ValueError("Explicit PSKReceiveProfile required")
         self.profile = replace(profile, config=replace(profile.config))
+        if timing_backend not in ('auto', 'python', 'rust'):
+            raise ValueError("timing_backend must be auto, python or rust")
+        if timing_backend == 'rust' and _RustStreamTiming is None:
+            raise RuntimeError("Rust stream timing extension is not installed")
+        self.timing_backend = ('rust' if timing_backend != 'python' and
+                               _RustStreamTiming is not None else 'python')
         cfg = self.profile.config
         if (not isinstance(cfg.sps, int) or isinstance(cfg.sps, bool) or cfg.sps < 4
                 or not isinstance(timing_subdivisions, int)
@@ -318,6 +330,22 @@ class PSKStreamReceiver:
         self._active = dict(start=start, next=start, previous=raw[0], previous_t=start,
                             count=0, end=None, header=None, loop=loop,
                             slope=slope+found['delta'], phase=phase, gain=gain, score=found['score'])
+        self._active['native'] = None
+        if self.timing_backend == 'rust':
+            self._active['native'] = _RustStreamTiming(
+                sps=float(self.sps), start=start, previous=(float(raw[0].real), float(raw[0].imag)),
+                power=loop.power, kp=loop.kp, ki=loop.ki, lower=loop.lower, upper=loop.upper,
+                phase=phase, slope=self._active['slope'], gain=gain, hold=len(self.reference))
+
+    def _track_native_batch(self, a, latest):
+        target = self._head_required if a['end'] is None else a['end']
+        state = a['native'].advance(self._filtered, float(self._origin), float(latest), target,
+                                    self._values, self._centers, self._rates, self._errors)
+        count, next_t, real, imag, previous_t, power, omega, rate_events, clip_events = state
+        a.update(count=count, next=next_t, previous=complex(real, imag), previous_t=previous_t)
+        loop = a['loop']
+        loop.power, loop.omega = power, omega
+        loop.rate_limit_events, loop.error_clip_events = rate_events, clip_events
 
     def _track(self):
         a, events = self._active, []
@@ -326,13 +354,16 @@ class PSKStreamReceiver:
             count, t, loop = a['count'], a['next'], a['loop']
             if count >= self.max_frame_symbols:
                 raise RuntimeError("Frame exceeded configured legal bound")
-            current = _cubic(self._filtered, self._origin, t)
-            mid = (_cubic(self._filtered, self._origin, (a['previous_t']+t)/2)
-                   if count >= len(self.reference) else None)
-            step, error = loop.advance(current, a['previous'], mid)
-            self._values[count] = current*np.exp(-1j*(a['phase']+a['slope']*count))/a['gain']
-            self._centers[count], self._rates[count], self._errors[count] = t, (loop.omega/self.sps-1)*1e6, error
-            a.update(count=count+1, previous=current, previous_t=t, next=t+step)
+            if a['native'] is not None:
+                self._track_native_batch(a, latest)
+            else:
+                current = _cubic(self._filtered, self._origin, t)
+                mid = (_cubic(self._filtered, self._origin, (a['previous_t']+t)/2)
+                       if count >= len(self.reference) else None)
+                step, error = loop.advance(current, a['previous'], mid)
+                self._values[count] = current*np.exp(-1j*(a['phase']+a['slope']*count))/a['gain']
+                self._centers[count], self._rates[count], self._errors[count] = t, (loop.omega/self.sps-1)*1e6, error
+                a.update(count=count+1, previous=current, previous_t=t, next=t+step)
             if a['count'] == self._head_required:
                 row = decode_psk_frame(self._values[:a['count']], self.profile,
                                        carrier_method=self.carrier_method)
@@ -371,6 +402,7 @@ class PSKStreamReceiver:
                      sync_evm=float(np.sqrt(np.mean(abs(
                          self._values[:len(self.reference)]-self.reference)**2))),
                      interpolation="four-point local cubic Lagrange after causal RRC",
+                     timing_backend=self.timing_backend,
                      cfo_hz=a['slope']*self.profile.config.symbol_rate_mhz*1e6/(2*np.pi),
                      emitted_after_samples=min(self._processed, self.input_samples),
                      used_end_padding=end_padding or self._processed > self.input_samples,

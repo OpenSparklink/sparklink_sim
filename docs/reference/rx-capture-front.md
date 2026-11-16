@@ -167,3 +167,42 @@ profile中逐符号跟踪成为最大热点（被profile累计约0.150/0.305秒�
 复现基准使用上一节命令，将`--baseline-ref`改为`8b69b44`并添加`--baseline-sync`，
 输出选择新目录；详细输入/源码哈希、依赖、完整失败及数值差异分别位于
 `fusion-sync-benchmark-{python,rust}`、`fusion-sync-reproduction`和`fusion-sync-regression-comparison.json`。
+
+## 阶段5：包内定时环的可选Rust加速
+
+新增原生`StreamTiming`，逐符号执行相同局部三次插值、功率归一化、Gardner/PI及相位补偿。
+只保存固定标量；借用原有历史和有界帧输出数组，不复制采集、不搜索同步、不读取期待载荷或CRC。
+在头部/合法帧尾边界返回Python严格解析，不能越过尚未校验的长度。
+滤波历史继续跨包保留，每包新建定时/载波状态。FFI拒绝非法输出界限、非连续数组及不安全插值边界。
+
+`PSKStreamReceiver(..., timing_backend='auto'|'python'|'rust')`保持旧调用兼容；
+auto仅在实际安装新加速类时使用Rust，否则Python。显式rust缺依赖时报错；
+事件记录实际`timing_backend`，CI同时核验Polar/CRC/流式定时的实际后端并记录扩展二进制哈希。
+
+没有放宽原严格断言：原型复数除法不同产生约3.6e-16符号差异，改成NumPy相同的倒数乘法；
+冻结输入又暴露约2.2e-16 TED差异，改用NumPy标量幂一致的libm pow，并阻止编译器改写为乘法。
+初始失败、输入与轨迹保留在`native-initial-difference`及`native-verification`。
+3000符号独立随机DSP状态严格对照，覆盖TED限幅、PI边界和数值运算；
+FT2/3/4、QPSK/8PSK编码/未编码、±100ppm、整段/单样本/固定/随机块对照通过。
+FT3/4测试夹具最初错误沿用28位控制长度，已按合法B1格式27位修正，未改接收参考答案。
+
+最终`native-final-reproduction`一条命令通过，96新保留及96编码输入Python/Rust所有数组逐值一致。
+另将完整364输入在原生后端复跑，判定和所有轨迹与旧Python完全一致：
+`native-original-rust-parity.json`。冻结整包结果、全部失败和零误检结论不变。
+全量Python2982通过、20明确跳过，Rust+SM3 3013通过；Rust单元21通过，clippy、ruff通过，覆盖率大于90%。
+原生测试缺依赖明确跳过，安装扩展时必须实际执行，不能以Python回退充数。
+
+| 同一Rust环境，串行配对5次 | 旧Python定时环MS/s | 新原生环MS/s |
+|---|---:|---:|
+| 真实开发057 | 5.583 | 8.004 |
+| 真实开发065 | 6.306 | 8.487 |
+
+此表取`native-cpu-wall-benchmark-rust`；同时保存CPU/墙钟时间、延迟分布及内存。
+另一正式批次测得6.52/6.86MS/s，全部记录保留，不能把最好一次当作保证吞吐。
+纯Python路径约5.08/5.63MS/s；帧数组452776字节及历史峰495不变，Rust只增加固定标量对象，
+tracemalloc不覆盖原生对象元数据。未达到16MS/s，也未证明满占空比或持续干扰的实时能力。
+当前profile的静默尾段重复滤波、硬解映射和同步搜索仍占主要剩余成本；后续逐项评估。
+
+基准沿用前述命令，`--baseline-ref 91b6d41 --baseline-sync`，选择新输出目录；
+用实际安装加速扩展的解释器执行Rust组。原子提交前已记录Python/Rust源码、Cargo依赖、wheel/扩展哈希；
+本地私有解释器`/tmp/rx-rust-env/bin/python`，未修改共享环境。

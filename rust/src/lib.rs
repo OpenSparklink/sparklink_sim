@@ -2,6 +2,8 @@ use numpy::ndarray::Array2;
 use numpy::{PyArray1, PyReadonlyArray1};
 use pyo3::prelude::*;
 
+mod stream_timing;
+
 /// SSC 优化的 Polar SC 解码器 (Rust 加速版)
 ///
 /// node_type 编码: 2D 数组 [depth][start], 0=rate-0, 1=rate-1, 2=partial
@@ -331,6 +333,7 @@ fn rust_generate_m_sequence<'py>(
 /// 模块入口
 #[pymodule]
 fn nearlink_sdr_accel(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<stream_timing::StreamTiming>()?;
     m.add_class::<RustPolarDecoder>()?;
     m.add_class::<RustPolarEncoder>()?;
     m.add_function(wrap_pyfunction!(rust_crc_calculate, m)?)?;

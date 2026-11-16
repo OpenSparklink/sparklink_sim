@@ -67,6 +67,14 @@ def run(args):
         sources={
             str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in Path("src").rglob("*.py")
         },
+        rust_sources={
+            str(p): hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in [
+                *Path("rust/src").rglob("*.rs"),
+                Path("rust/Cargo.toml"),
+                Path("rust/Cargo.lock"),
+            ]
+        },
         python=platform.python_version(),
         rust_polar_crc=_HAS_RUST_ACCEL,
         dependencies={p: importlib.metadata.version(p) for p in ("numpy", "scipy")},
@@ -104,8 +112,10 @@ def run(args):
                 rx = arms[name](profile, q)
                 init = time.perf_counter() - begin
                 begin = time.perf_counter()
+                cpu_begin = time.process_time()
                 events = rx.feed(x) + rx.finish()
                 elapsed = time.perf_counter() - begin
+                cpu_elapsed = time.process_time() - cpu_begin
                 if reference is None:
                     reference = events
                 equivalent(reference, events)
@@ -113,6 +123,7 @@ def run(args):
                     for key in FIELDS:
                         traces[f"{name}-{i}-{key}"] = event[key]
                 costs[name] = dict(
+                    timing_backend=getattr(rx, "timing_backend", "python"),
                     stats=rx.capture_stats,
                     state_array_bytes=sum(
                         v.nbytes for v in vars(rx).values() if isinstance(v, np.ndarray)
@@ -130,6 +141,7 @@ def run(args):
                             arm=name,
                             repeat=repeat,
                             seconds=elapsed,
+                            cpu_seconds=cpu_elapsed,
                             initialization_seconds=init,
                             samples_per_second=len(x) / elapsed,
                             valid_packets=sum(e["frame"]["status"] == "valid" for e in events),
@@ -172,6 +184,11 @@ def run(args):
         results.append(result)
         print(json.dumps(dict(id=ident, summary=summary, costs=costs, memory=memory)), flush=True)
     plan["process_peak_rss_KiB"] = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    assert all(
+        hashlib.sha256(Path(p).read_bytes()).hexdigest() == h
+        for table in ("sources", "rust_sources")
+        for p, h in plan[table].items()
+    )
     plan["memory_scope"] = (
         "RSS includes both arms/input; tracemalloc excludes native Rust allocations"
     )

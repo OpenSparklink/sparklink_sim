@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 
 
-def run(before, after, output):
+def run(before, after, output, groups=None):
     comparisons = []
     for folder, lines, suffix in [
         ("original-frozen", True, ".npz"),
@@ -15,6 +15,8 @@ def run(before, after, output):
         ("uncoded-boundary", False, ".npz"),
         ("coded-replay", False, "-results.npz"),
     ]:
+        if groups and folder not in groups:
+            continue
         name = "results.jsonl" if lines else "results.json"
 
         def read(root):
@@ -64,5 +66,6 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     for key in ("before", "after", "output"):
         p.add_argument("--" + key, type=Path, required=True)
+    p.add_argument("--group", action="append")
     args = p.parse_args()
-    run(args.before, args.after, args.output)
+    run(args.before, args.after, args.output, args.group)
