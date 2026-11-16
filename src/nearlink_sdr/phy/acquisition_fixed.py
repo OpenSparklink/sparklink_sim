@@ -7,6 +7,7 @@ sized datapaths; they are not a claim about one DSP operation or a synthesized R
 """
 
 import math
+import operator
 import sys
 from dataclasses import dataclass
 from fractions import Fraction
@@ -15,7 +16,16 @@ import numpy as np
 
 from nearlink_sdr.phy.acquisition_bank import CorrelationPoint, DifferentialBank, sign_coefficients
 
-__all__ = ['FixedBankFormat', 'FixedDifferentialBank']
+__all__ = ['FixedBankFormat', 'FixedDifferentialBank', 'fixed_bank_storage_bits']
+
+
+def fixed_bank_storage_bits(sps, k, window_samples, widths):
+    """Packed bank state, excluding FIFO/work registers; shared with the cycle model."""
+    w = widths
+    return (sps*2*w['input']+k*sps*(2*w['difference']+w['difference_power'])+
+            sps*w['window_energy']+window_samples+2*k+1+3*64+
+            math.ceil(math.log2(window_samples))+math.ceil(math.log2(sps))+
+            w['threshold_constant']+12)
 
 
 @dataclass(frozen=True)
@@ -84,11 +94,7 @@ class FixedDifferentialBank(DifferentialBank):
     @property
     def logical_storage_bits(self):
         """Packed delay/energy/hit/coefficient/control state; FIFO/pipeline are separate."""
-        w = self.widths
-        return (self.sps*2*w['input']+self.k*self.sps*(2*w['difference']+w['difference_power'])+
-                self.sps*w['window_energy']+self.window_samples+2*self.k+1+
-                3*64+math.ceil(math.log2(self.window_samples))+math.ceil(math.log2(self.sps))+
-                w['threshold_constant']+12)
+        return fixed_bank_storage_bits(self.sps, self.k, self.window_samples, self.widths)
 
     @property
     def emulator_state_bytes(self):
@@ -128,6 +134,26 @@ class FixedDifferentialBank(DifferentialBank):
         if self.samples+len(x)+abs(self.origin) >= 2**63:
             raise OverflowError('Signed 64-bit sample counter exhausted')
         r, i = self.quantize(x)
+        return self._advance_words(r, i, inspect=inspect)
+
+    def advance_words(self, real, imag, *, inspect=False):
+        """Integer-word port for future RTL comparison; reject invalid words, do not re-quantize."""
+        if (np.ndim(real) != 1 or np.ndim(imag) != 1 or len(real) != len(imag) or
+                not 1 <= len(real) <= 8*self.sps):
+            raise ValueError('Need equally sized1..8*SPS integer word arrays')
+        try:
+            r, i = [list(map(operator.index, values)) for values in (real, imag)]
+        except TypeError as error:
+            raise ValueError('Integer word port cannot round floating samples') from error
+        bound = 1 << (self.format.input_bits-1)
+        if any(v < -bound or v >= bound for v in (*r, *i)):
+            raise ValueError('Input word exceeds declared signed width')
+        if self.samples+len(r)+abs(self.origin) >= 2**63:
+            raise OverflowError('Signed 64-bit sample counter exhausted')
+        return self._advance_words(np.array(r, np.int64), np.array(i, np.int64), inspect=inspect)
+
+    def _advance_words(self, r, i, *, inspect):
+        count = len(r)
         re, im = np.r_[self._sample_real, r], np.r_[self._sample_imag, i]
         # Input≤26 bits: these products/sums have ≤53 bits and cannot overflow int64.
         dr = re[self.sps:]*re[:-self.sps]+im[self.sps:]*im[:-self.sps]
@@ -137,21 +163,21 @@ class FixedDifferentialBank(DifferentialBank):
         joined_re = np.r_[self._difference_real, dr]
         joined_im = np.r_[self._difference_imag, di]
         powers = np.r_[self._powers, power]
-        corr_re, corr_im = np.empty(len(x), np.int64), np.empty(len(x), np.int64)
-        energy = np.empty(len(x), object)
-        for phase in range(min(self.sps, len(x))):
+        corr_re, corr_im = np.empty(count, np.int64), np.empty(count, np.int64)
+        energy = np.empty(count, object)
+        for phase in range(min(self.sps, count)):
             a, b = joined_re[self.sps+phase::self.sps], joined_im[self.sps+phase::self.sps]
             corr_re[phase::self.sps] = (np.correlate(a, self._coefficient_real, 'valid')+
                                        np.correlate(b, self._coefficient_imag, 'valid'))
             corr_im[phase::self.sps] = (np.correlate(b, self._coefficient_real, 'valid')-
                                        np.correlate(a, self._coefficient_imag, 'valid'))
             lane = (self.samples+phase) % self.sps
-            delta = power[phase::self.sps]-powers[phase:len(x):self.sps]
+            delta = power[phase::self.sps]-powers[phase:count:self.sps]
             values = self._energy[lane]+np.cumsum(delta)
             energy[phase::self.sps] = values
             self._energy[lane] = values[-1]
         points, w = [], self.widths
-        for j in range(len(x)):
+        for j in range(count):
             self._checked(int(dr[j]), w['difference'], True)
             self._checked(int(di[j]), w['difference'], True)
             self._checked(int(corr_re[j]), w['correlation'], True)
@@ -173,8 +199,8 @@ class FixedDifferentialBank(DifferentialBank):
         self._difference_real = joined_re[-self.k*self.sps:].copy()
         self._difference_imag = joined_im[-self.k*self.sps:].copy()
         self._powers = powers[-self.k*self.sps:].copy()
-        self.samples += len(x)
-        self.stats['samples'] += len(x)
+        self.samples += count
+        self.stats['samples'] += count
         return points if inspect else None
 
     def worst_operations_per_sample(self):

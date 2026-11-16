@@ -108,6 +108,27 @@ def test_full_scale_dc_exact_threshold_and_wide_products_recover_after_zero_inpu
     assert bank.stats['input_saturations'] == bank.stats['intermediate_overflows'] == 0
 
 
+def test_integer_port_matches_quantized_reference_and_rejects_implicit_rounding():
+    a = FixedDifferentialBank(ref(), 4, 256, format=FixedBankFormat(14))
+    b = FixedDifferentialBank(ref(), 4, 256, format=FixedBankFormat(14))
+    rng = np.random.default_rng(340123)
+    for _ in range(12):
+        real, imag = rng.integers(-8192, 8192, size=(2, 32))
+        # Exact power-of-two conversion to physical IQ; the word interface never sees floats.
+        expected = a.advance((real+1j*imag)/8, inspect=True)
+        actual = b.advance_words(real, imag, inspect=True)
+        assert actual == expected
+    for real, imag in [([1.5], [0]), ([8192], [0]), ([0], [-8193]), ([], []),
+                       ([1, 2], [0]), ([[1]], [[1]])]:
+        before = b.samples
+        with pytest.raises(ValueError):
+            b.advance_words(real, imag)
+        assert b.samples == before
+    b.samples = 2**63-1
+    with pytest.raises(OverflowError):
+        b.advance_words([1], [0])
+
+
 def test_fixed_gate_reaches_strict_receiver_without_changing_bad_crc_to_success():
     from nearlink_sdr.phy.stream_rx import PSKStreamReceiver
     from tests.test_strict_receive import iq_record, transmitted
