@@ -64,7 +64,8 @@ class PSKStreamReceiver:
                  integer_screen_backend: str = 'auto', adaptive_quiet: bool = True,
                  correlation_backend: str = 'reference', correlation_input_full_scale: float = 1024.,
                  correlation_input_bits: int = 16, tone_notch=None,
-                 correlation_mantissa_bits: int = 10):
+                 correlation_mantissa_bits: int = 10,
+                 sync_search_method: str = 'reference', normalized_coarse: bool = False):
         if not isinstance(profile, PSKReceiveProfile):
             raise ValueError("Explicit PSKReceiveProfile required")
         self.profile = replace(profile, config=replace(profile.config))
@@ -132,6 +133,16 @@ class PSKStreamReceiver:
         if correlation_backend not in ('reference', 'structure', 'fixed', 'scaled'):
             raise ValueError('correlation_backend must be reference, structure, fixed or scaled')
         self.correlation_backend = correlation_backend
+        if sync_search_method not in ('reference','local-parabolic'):
+            raise ValueError('Unsupported explicit sync search method')
+        if (sync_search_method != 'reference' and
+                (correlation_backend == 'reference' or self.sps != 4 or self.subdivisions != 8)):
+            raise ValueError('Local sync needs an explicit SPS4/subdivision8 causal bank')
+        if (type(normalized_coarse) is not bool or
+                (normalized_coarse and (correlation_backend != 'scaled' or
+                                       sync_search_method != 'local-parabolic'))):
+            raise ValueError('Q12 ranking needs the scaled local sync path')
+        self.sync_search_method, self.normalized_coarse = sync_search_method,normalized_coarse
         self.correlation_bank = None
         if correlation_backend != 'reference':
             from nearlink_sdr.phy.acquisition_bank import DifferentialBank
@@ -152,10 +163,15 @@ class PSKStreamReceiver:
                 )
                 bank_class = ScaledDifferentialBank
                 options['scaled_format'] = ScaledBankFormat(correlation_mantissa_bits)
+                if normalized_coarse:
+                    from nearlink_sdr.phy.coarse_rank import RankedCoarseBank
+                    bank_class = RankedCoarseBank
             self.correlation_bank = bank_class(
                 self.reference, self.sps, self.search_samples, self.capture_config.integer_screen,
                 origin=-self.delay, input_full_scale=correlation_input_full_scale, **options)
             self.integer_screen_backend = correlation_backend
+            if normalized_coarse:
+                self.integer_screen_backend += '-q12'
         self.tone_correlation_bank = None
         self._tone_filtered = np.empty(0, complex)
         if self.tone_notch is not None:
@@ -167,7 +183,7 @@ class PSKStreamReceiver:
                 tone_bank_class = FixedDifferentialBank
                 tone_options['format'] = FixedBankFormat(correlation_input_bits)
             elif correlation_backend == 'scaled':
-                tone_bank_class = ScaledDifferentialBank
+                tone_bank_class = bank_class
                 tone_options['scaled_format'] = ScaledBankFormat(correlation_mantissa_bits)
             self.tone_correlation_bank = tone_bank_class(
                 self.reference, self.sps, self.search_samples, self.capture_config.integer_screen,
@@ -214,6 +230,8 @@ class PSKStreamReceiver:
                                   truncated_data=0, invalid_metadata=0)
         if self.tone_notch is not None:
             self.capture_stats.update(tone_fallback_searches=0, tone_candidates=0)
+        if self.sync_search_method != 'reference':
+            self.capture_stats.update(coarse_ranking_recomputed_positions=0)
         self.max_frame_symbols = self._frame_bound()
         self._values = np.empty(self.max_frame_symbols, complex)
         self._centers = np.empty(self.max_frame_symbols)
@@ -494,7 +512,8 @@ class PSKStreamReceiver:
         # Raw path has strict priority. A CRC result can never select a path or retry.
         raw, bank, backend = self._filtered, self.correlation_bank, self.integer_screen_backend
         self._filtered, self.correlation_bank = self._tone_filtered, self.tone_correlation_bank
-        self.integer_screen_backend = 'tone-'+self.correlation_backend
+        self.integer_screen_backend = ('tone-'+self.correlation_backend+
+                                       ('-q12' if self.normalized_coarse else ''))
         self.capture_stats['tone_fallback_searches'] += 1
         try:
             self._search_path()
@@ -519,19 +538,29 @@ class PSKStreamReceiver:
         self.sync_searches += 1
         diagnostic = {}
         lower = max(1., self._skip_until-origin)
-        enabled, queried = True, 0
+        enabled, queried, coarse_start = True, 0, None
         if self.correlation_bank is not None:
-            enabled, queried = self.correlation_bank.gate(
-                origin+lower, origin+len(z)-1-(len(self.reference)-1)*self.sps)
+            bounds = (origin+lower,origin+len(z)-1-(len(self.reference)-1)*self.sps)
+            if self.normalized_coarse:
+                enabled,queried,peak = self.correlation_bank.query_best(*bounds,phase_origin=origin)
+                if enabled and peak is None:
+                    raise RuntimeError('Enabled normalized screen has no ranked position')
+                coarse_start = None if peak is None else peak-origin
+            else:
+                enabled,queried = self.correlation_bank.gate(*bounds)
         if enabled:
-            found = search_psk_sync(z, self.sps, self.reference, self.subdivisions,
+            search, options = search_psk_sync, {}
+            if self.sync_search_method == 'local-parabolic':
+                from nearlink_sdr.phy.sync_refine import refine_psk_sync
+                search,options = refine_psk_sync,dict(coarse_start=coarse_start)
+            found = search(z, self.sps, self.reference, self.subdivisions,
                                      min_start=lower, lookahead=4*self.sps,
                                      diagnostics=diagnostic,
                                      integer_screen=(self.capture_config.integer_screen
                                                      if self.correlation_bank is None else None),
                                      integer_backend=('python' if self.correlation_bank is not None or
                                                       self.integer_screen_backend == 'disabled'
-                                                      else self.integer_screen_backend))
+                                                      else self.integer_screen_backend),**options)
         else:
             found = None
             diagnostic = dict.fromkeys(('phase_hypotheses', 'scored_positions',
@@ -553,6 +582,9 @@ class PSKStreamReceiver:
         self.capture_stats['integer_screen_rejections'] += int(
             diagnostic['disposition'] == 'integer_screen_rejected')
         self.capture_stats['full_searches'] += int(diagnostic['phase_hypotheses'] > 0)
+        if self.sync_search_method != 'reference':
+            self.capture_stats['coarse_ranking_recomputed_positions'] += diagnostic.get(
+                'coarse_ranking_positions',0)
         self.capture_stats['maxima_needing_future'] += int(
             diagnostic['disposition'] == 'maximum_needs_future')
         self.capture_stats['correlation_qualifying_searches'] += int(
@@ -653,5 +685,8 @@ class PSKStreamReceiver:
                      timing_loop=a['loop'].diagnostics(len(self.reference), self._rates[:n]))
         if self.tone_notch is not None:
             event['acquisition_path'] = 'tone' if a.get('tone_path') else 'raw'
+        if self.sync_search_method != 'reference':
+            event['sync_search_method'] = self.sync_search_method
+            event['normalized_coarse'] = self.normalized_coarse
         self._active = None
         return event

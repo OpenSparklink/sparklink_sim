@@ -86,6 +86,7 @@ class DiagnosticReceiver(PSKStreamReceiver):
         dr = self.reference[1:]*self.reference[:-1].conj()
         chosen, chosen_reference, reference_best = None, 0., 0.
         ref_gate, model_gate = False, False
+        reference_scores = {}
         for phase in range(self.sps):
             y = z[phase::self.sps]
             dy = y[1:]*y[:-1].conj()
@@ -97,6 +98,7 @@ class DiagnosticReceiver(PSKStreamReceiver):
                 if local < lower:
                     continue
                 point = observer.points[int(origin+local)]
+                reference_scores[point.start] = float(reference_score)
                 model_score = float(np.sqrt(point.score_squared))
                 fixed = isinstance(bank, FixedDifferentialBank)
                 passed = point.energy > 0 and ((point.numerator << bank.format.threshold_fractional_bits)
@@ -124,6 +126,10 @@ class DiagnosticReceiver(PSKStreamReceiver):
                             start=point.start, reference_score=float(reference_score), model_score=model_score,
                             point_gate_changed=different, numeric_budget_failed=bool(violation)))+'\n')
         self.numeric['query_gate_disagreements'] += int(bool(ref_gate) != bool(model_gate))
+        query = getattr(bank,'last_rank_query',None)
+        if (query is not None and query[0] == origin+lower and
+                query[1] == origin+len(z)-1-(len(self.reference)-1)*self.sps and query[2] is not None):
+            chosen_reference = reference_scores[query[2]]
         rank_loss = reference_best-chosen_reference
         self.numeric['unqualified_max_rank_loss'] = max(
             self.numeric['unqualified_max_rank_loss'], rank_loss)
@@ -239,6 +245,8 @@ class Replay:
             selection=str(args.selection.resolve()), selection_sha256=sha(args.selection),
             input_bits=self.bits, full_scale=self.full_scale, chunks=4096,
             tone_radius=getattr(args, 'tone_radius', None),
+            sync_search_method=getattr(args,'sync_method','reference'),
+            normalized_coarse=getattr(args,'normalized_coarse',False),
             quiet_certificate='only zero-target quiet controls; numeric bank work always charged',
             sources=self.sources, driver_sha256=sha(Path(__file__))))
         (self.out/'driver.executed.py').write_bytes(Path(__file__).read_bytes())
@@ -280,6 +288,8 @@ class Replay:
         diagnostic_file = self.out/'evidence'/f'stream{self.stream_index:04}-numeric-changes.jsonl'
         rx = DiagnosticReceiver(profile, q, quiet_batching=False, diagnostic_file=diagnostic_file,
             tone_notch=self.tone_config,
+            sync_search_method=getattr(self.args,'sync_method','reference'),
+            normalized_coarse=getattr(self.args,'normalized_coarse',False),
             correlation_backend=self.args.backend, correlation_input_bits=self.bits,
             correlation_mantissa_bits=self.bits if self.args.backend == 'scaled' else 10,
             correlation_input_full_scale=self.full_scale)
@@ -528,6 +538,8 @@ if __name__ == '__main__':
         parser.add_argument('--'+name, type=Path, required=True)
     parser.add_argument('--tone-radius', type=float, choices=[.9375, .96875])
     parser.add_argument('--backend', choices=['structure', 'fixed', 'scaled'], default='fixed')
+    parser.add_argument('--sync-method',choices=['reference','local-parabolic'],default='reference')
+    parser.add_argument('--normalized-coarse',action='store_true')
     parser.add_argument('--group', choices=['original', 'uncoded', 'held', 'coded', 'weak', 'negatives'],
                         action='append')
     args = parser.parse_args()
