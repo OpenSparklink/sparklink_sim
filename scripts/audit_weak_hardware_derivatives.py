@@ -5,6 +5,7 @@ import hashlib
 import json
 from collections import Counter
 from dataclasses import asdict
+from fractions import Fraction
 from pathlib import Path
 
 import numpy as np
@@ -21,7 +22,12 @@ def sha(p):
 
 
 def write(p, value):
-    p.write_text(json.dumps(value, indent=2) + "\n")
+    def rational(v):
+        if isinstance(v, Fraction):
+            return str(v)
+        raise TypeError(f"Cannot serialize {type(v)}")
+
+    p.write_text(json.dumps(value, indent=2, default=rational) + "\n")
 
 
 def run(args):
@@ -37,7 +43,14 @@ def run(args):
     }
     box = np.ones(32) / 32
     prepared = []
-    for mode in ("mode-057", "mode-065"):
+    if args.inputs:
+        frozen = json.loads((args.inputs / "frozen-plan.json").read_text())
+        prepared = frozen["inputs"]
+        for meta in prepared:
+            assert sha(Path(meta["input_path"])) == meta["input_sha256"]
+            for source in [meta["source"], *meta["calibration_sources"]]:
+                assert sha(args.dataset / source["path"]) == source["sha256"]
+    for mode in () if args.inputs else ("mode-057", "mode-065"):
         dev = next(
             r for r in original["real_inputs"] if r["sample_id"] == f"series-02/{mode}/rx-00"
         )
@@ -109,6 +122,7 @@ def run(args):
         profile=asdict(profile),
         original_plan_sha256=sha(args.original / "frozen-plan.json"),
         previous_results_sha256=sha(args.previous / "results.jsonl"),
+        replayed_from=None if not args.inputs else str(args.inputs),
         inputs=prepared,
         parameters_frozen_before_generation=True,
         capture=dict(legacy=vars(PSKCaptureConfig.legacy()), selected=vars(PSKCaptureConfig())),
@@ -235,4 +249,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     for key in ("original", "previous", "dataset", "output"):
         parser.add_argument("--" + key, type=Path, required=True)
+    parser.add_argument("--inputs", type=Path)
     run(parser.parse_args())

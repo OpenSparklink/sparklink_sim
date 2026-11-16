@@ -285,3 +285,130 @@ Rust+SM3 3060通过，Rust单元22通过、覆盖率大于90%、clippy/ruff通�
 但360组数组对照有352组未满足既有FIR状态逐值一致约定（误差为浮点舍入量级）。
 该候选**未接入接收器**，不把微基准收益计入整链吞吐，也没有放宽原状态断言。
 源码、锁定依赖、初始构建错误及全部差异记录在`fir-native-probe`；后续优先减少重复处理调度。
+
+## 阶段8：有界静默前缀与16MS/s测量
+
+profile确认大量无信号量子仍逐块进入搜索调度。新增`adaptive_quiet=True`，在现有输入中探测
+至多4096样本的能量，只跳过第一个不确定点之前的完整32样本量子；保留原480样本原始尾段，
+按原卷积次序在需要时重建历史。默认最小探测512样本；不等待调用者补满4096样本。
+浮点保护余量仅用于证明安全跳跃，实际2倍能量门限、`.6`整数预筛、`.85`细搜索均不改变。
+
+探测信用初始4096、上限8192：每探测一个样本扣一，实际消费一个样本才返还一，拒绝跳跃也扣费。
+因此主探测覆盖总量不超过已消费输入加4096；每次延后状态准备另计至多32样本，计数器明确分开。
+连续能量门控打开时不再反复探测未来静默。每次同步搜索最坏36相位计算上界保持。
+工厂profile历史峰值495样本、量子待满缓存至多31样本、最大帧11041符号及状态数组452776字节
+保持原预算。可显式`adaptive_quiet=False`复现上阶段调度；长能量窗或尾段无法装入既有预算时回退。
+这些是实现资源限制，对应PSK/同步/CRC条款同前，不是标准合格限值。
+
+最终冻结参数后，776输入（原364、新保留96、未编码边界220、编码96）与阶段2判定及所有轨迹
+逐值相同；Rust另复核原364，Python/Rust对新保留与编码数据也逐值相同。
+12个冻结硬件派生流、920个结果数组亦逐值相同，只成本计数改变；未重新生成派生输入。
+整段、4096/1024/513及固定随机分块保持包判定、交付时点及轨迹。脚本序列化Fraction的初始错误
+保存在`adaptive-weak-hardware-derivatives/serialization-error.log`，修复仅涉及元数据表达。
+
+同机串行、预热一次后5次配对测量，输入各1048576采样。普通采集4Msym/s、SPS4，
+057为QPSK、065为8PSK，255字节PRBS9、厂测A3无编码/导频，按冻结元数据及SHA读取。
+基线是`f9556fc`，下表吞吐包括包解码与finish，不含静默校准初始化；原始每次墙钟/CPU耗时均保存。
+
+| 环境/输入/分块 | 基线MS/s | 新MS/s |
+|---|---:|---:|
+| Rust，057开发，整段 | 13.651 | 17.165 |
+| Rust，065开发，整段 | 14.297 | 18.739 |
+| Rust，057开发，4096 | 13.416 | 16.863 |
+| Rust，065开发，4096 | 14.211 | 18.247 |
+| Python，057开发，4096 | 6.957 | 7.770 |
+| Python，065开发，4096 | 7.836 | 8.932 |
+| Rust，057保留01/02，4096 | 12.628 / 13.867 | 16.211 / 16.955 |
+| Rust，065保留01/02，4096 | 14.369 / 13.914 | 17.936 / 17.966 |
+
+保留采集在参数冻结后只作复核。真实IQ的精确定时、原始CFO/SRO和真实噪声方差未知，
+这里只验证解码结果及相对轨迹，不能把判决残差称为真定时误差。
+
+4096采样在16MS/s下每256µs到达；Rust正常采集调用中位约51µs，P99约3.10–3.89ms，
+峰值3.54–4.69ms，7.4–8.6%的调用超过256µs。平均速率达标不能替代每块实时期限，
+未接入设备输入队列，未验证积压或丢样；没有宣称实时FPGA或完整SLE验收。
+稳态Python/NumPy分配峰值约0.92–1.56MB，包含初始化约33.56MB（静默分位数计算）；
+tracemalloc不含原生分配，进程RSS包含双方实现及整段输入，单独记录在各冻结计划中。
+
+独立负例配对复核：白噪声2097152、色噪声1048576、脉冲262144、单音32768、错PID8916采样，
+均零候选/误交付，最终滤波历史和状态数组逐值相同。最终Rust白/色噪声约79.24/76.81MS/s，
+脉冲11.83、强单音1.37、错PID1.55MS/s；部分负例比上阶段慢至3.31%，没有隐藏。
+缓存及探测/搜索的工作量上界保持，但**持续干扰16MS/s仍未达到**。
+强干扰搜索预算/丢弃策略需要单独定义接收能力损失后开发，不能为追求速率静默丢弃候选。
+
+最终证据为`adaptive-final-{whole-rust,4096-rust,4096-python,held-rust}`、
+`adaptive-stress-rust`、`adaptive-final-reproduction`、`adaptive-regression-comparison.json`、
+`adaptive-original-rust-parity.json`与`adaptive-weak-hardware-parity.json`。
+正常采集性能目录包含实际执行脚本、源码归档、依赖、输入/校准哈希、后端、参数、全部测量及轨迹。
+负例成本初次批次及补充归档批次`adaptive-stress-archived-rust`均保留，后者白/色噪声
+81.31/79.78MS/s、脉冲11.84、单音1.37MS/s；批次波动不能替代上界保证。
+被拒绝的Rust FIR候选另保存90组输入/参考/实际向量（360个数组比较中352个不逐值相同），未接入。
+
+最终本地全量Python3020通过、32明确跳过，覆盖率90.72%；Rust+SM3 3063通过，
+Rust单元22通过，ruff/fmt/clippy通过。CI按实际后端验证并在失败时上传测试及后端诊断。
+
+## 使用：让MAC调用改进后的接收路径
+
+改进入口是`MacStreamReceiver`（内部`PSKStreamReceiver`）。原`iq_to_mac_capture`/
+`receive_capture`整段分段入口保留既有行为；已知对齐的`iq_to_mac`/`rx_chain`仍供理想仿真。
+普通A2及厂测A3必须显式选择profile；不将厂测同步字、CRC或未知编码前缀当通用默认值。
+
+```python
+from nearlink_sdr.phy.mac_interface import MacStreamReceiver
+from nearlink_sdr.phy.strict_rx import PSKReceiveProfile
+from nearlink_sdr.phy.tx_pipeline import TxConfig
+
+profile = PSKReceiveProfile.ordinary(TxConfig(mcs_index=8, symbol_rate_mhz=4))
+rx = MacStreamReceiver(profile, quiet_iq)  # 独立静默参考，禁止包含期待载荷
+for iq_block in input_blocks:
+    for result in rx.iter_feed(iq_block):
+        consume_verified_packets(result.packets)
+        retain_diagnostics(result.diagnostics)
+result = rx.finish()  # 截断候选仅留诊断，不交付MAC
+consume_verified_packets(result.packets)
+retain_diagnostics(result.diagnostics)
+stats = rx.phy.capture_stats
+```
+
+同步不使用期待长度/内容或CRC择优；只有真实头CRC正确后读取合法长度/MCS。
+新增低幅度编码IQ到MAC回归：旧门控漏包、新路径交付完整载荷，坏头CRC仍不交付。
+
+## 剩余边界及复现
+
+| 集合 | 最终结果及未解决事项 |
+|---|---|
+| 原仿真206 | 203正确；3个低SNR边界载荷CRC失败，错误4/1/2比特均保留 |
+| 原硬件 | 63完整包正确；1尾部截断仅诊断 |
+| 原派生84 | 84正确，旧成功零退化 |
+| 新未编码边界220 | 220均捕获、147正确；73数据CRC失败，包含原16幅度漏检 |
+| 新开发后保留96 | 57捕获/头CRC正确、34整包正确；39漏检、23数据CRC失败 |
+| 编码合成IQ96 | 全捕获；硬79、软91整包正确，软剩5个MCS10标记4dB数据CRC失败 |
+| 弱硬件派生126原完整包 | 71正确；保留84中44正确，低能量8PSK增加捕获后仍CRC失败 |
+
+所有结果关联输入ID、冻结SHA、失败帧/BER和诊断轨迹；一比特错误也计整包失败。
+原9个噪声失败在此前已恢复，不把新增边界失败删除或换答案；当前表保留不同集合的真实分母。
+编码软信息在捕获改善后已有12/96整包收益（79→91），仅计编码链路，不改变未编码实验。
+新的57个保留头及编码96个头均已通过CRC，当前优先级仍是数据/低SNR边界；
+头部软信息未据此直接实施，FT1流式集成和未知厂测编码前缀仍独立未完成。
+
+固定`B`为既有证据根、`D`为原IQ路径、`Q`为冻结静默数据路径，可重复正确性闭环：
+
+```sh
+RX_RUST_PYTHON=/tmp/rx-rust-env/bin/python \
+  bash scripts/reproduce_capture_front.sh "$B" "$D" "$Q" /tmp/capture-recheck
+```
+
+环境应使用锁定uv依赖、可选独立maturin扩展（源码/二进制SHA另存），不能把纯Python结果标成Rust。
+性能单次可复现命令（另选全新输出目录）：
+
+```sh
+PYTHONPATH=src /tmp/rx-rust-env/bin/python scripts/benchmark_capture_front.py \
+  --original "$B/rx-timing-tracking/final" --dataset "$D" --baseline-ref f9556fc \
+  --baseline-sync --baseline-demapper --chunk-size 4096 \
+  --sample-id series-02/mode-057/rx-00 --sample-id series-02/mode-065/rx-00 \
+  --output /tmp/capture-performance-recheck
+```
+
+`benchmark_capture_stress.py --inputs "$B/rx-capture-front/independent-negatives" \
+--baseline-ref f9556fc --output /tmp/capture-stress-recheck`复核负例成本，
+`audit_weak_hardware_derivatives.py --inputs`接受冻结派生计划并按哈希重放，避免悄悄换输入。

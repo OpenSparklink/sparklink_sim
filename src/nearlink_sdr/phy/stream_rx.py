@@ -61,7 +61,7 @@ class PSKStreamReceiver:
                  carrier_method: str = "coherent", quiet_batching: bool = True,
                  capture_config: PSKCaptureConfig | None = None,
                  timing_backend: str = "auto", defer_quiet_fir: bool = True,
-                 integer_screen_backend: str = 'auto'):
+                 integer_screen_backend: str = 'auto', adaptive_quiet: bool = True):
         if not isinstance(profile, PSKReceiveProfile):
             raise ValueError("Explicit PSKReceiveProfile required")
         self.profile = replace(profile, config=replace(profile.config))
@@ -87,6 +87,9 @@ class PSKStreamReceiver:
         if not isinstance(quiet_batching, bool):
             raise ValueError("quiet_batching must be boolean")
         self.quiet_batching = quiet_batching
+        if not isinstance(adaptive_quiet, bool):
+            raise ValueError('adaptive_quiet must be boolean')
+        self.adaptive_quiet = adaptive_quiet
         if not isinstance(defer_quiet_fir, bool):
             raise ValueError("defer_quiet_fir must be boolean")
         self.defer_quiet_fir = defer_quiet_fir
@@ -109,6 +112,12 @@ class PSKStreamReceiver:
         self.delay = (len(self.h)-1)//2
         self.quantum = 8*self.sps
         self.quiet_batch_samples = 128*self.quantum
+        self._quiet_probe_credit = self.quiet_batch_samples
+        self._quiet_credit_limit = 2*self.quiet_batch_samples
+        self._quiet_probe_after = 0
+        self._energy_gate_open = False
+        self.quiet_probe_calls = self.quiet_probe_samples = self.quiet_probe_state_samples = 0
+        self.quiet_prefix_jumps = self.quiet_probe_vetoes = 0
         self.search_samples = max(64, len(self.reference)+32)*self.sps
         self.history_limit = self.search_samples + 4*self.quantum
         self.future_samples = self.delay+2
@@ -120,6 +129,11 @@ class PSKStreamReceiver:
                 or not np.isfinite(q).all()):
             raise ValueError("Need finite quiet calibration of65..2**22 samples fitting energy window")
         self._box = np.ones(window)/window
+        warmup = max(len(self.h)-1, window-1)
+        retained = ((self.history_limit+warmup+self.quantum-1)//self.quantum)*self.quantum
+        can_defer = (defer_quiet_fir and window <= self.quantum and
+                     retained <= self.history_limit+len(self.h)-1+window-1)
+        self._quiet_min_probe = retained+self.quantum*(1 if can_defer else 2)
         self.threshold = self.capture_config.energy_multiplier*float(np.quantile(
             np.convolve(abs(q)**2, self._box, "same"), .999))
         self._energy_state = np.zeros(window-1)
@@ -240,12 +254,24 @@ class PSKStreamReceiver:
                 return
             yield from self._process(block)
         while len(samples)-pos >= self.quantum:
-            if (self.quiet_batching and self._active is None
-                    and self._processed % self.quiet_batch_samples == 0
-                    and len(samples)-pos >= self.quiet_batch_samples
-                    and self._quiet_jump(samples[pos:pos+self.quiet_batch_samples])):
-                pos += self.quiet_batch_samples
-                continue
+            if self.quiet_batching and self._active is None:
+                probe = 0
+                if self.adaptive_quiet:
+                    if (not self._energy_gate_open and self._processed >= self._quiet_probe_after
+                            and self._quiet_probe_credit >= self._quiet_min_probe):
+                        available = (len(samples)-pos)//self.quantum*self.quantum
+                        credit = self._quiet_probe_credit//self.quantum*self.quantum
+                        probe = min(self.quiet_batch_samples, available, credit)
+                        if probe < self._quiet_min_probe:
+                            probe = 0
+                elif (self._processed % self.quiet_batch_samples == 0
+                        and len(samples)-pos >= self.quiet_batch_samples):
+                    probe = self.quiet_batch_samples
+                if probe:
+                    consumed = self._quiet_jump(samples[pos:pos+probe])
+                    if consumed:
+                        pos += consumed
+                        continue
             block = samples[pos:pos+self.quantum]
             yield from self._process(block)
             pos += self.quantum
@@ -288,18 +314,37 @@ class PSKStreamReceiver:
         No future input is awaited for this fast path.
         """
         if np.any(self._energy > self.threshold):
-            return False
+            self._energy_gate_open = True
+            return 0
         if not np.isfinite(block).all():
             raise ValueError("Need finite IQ samples")
+        self.quiet_probe_calls += 1
+        self.quiet_probe_samples += len(block)
+        self._quiet_probe_credit -= len(block)
         energy_state = self._energy_state
         if self._quiet_tail is not None:
             # For a box no longer than one quantum, its final delay state only
             # depends on that last quantum, regardless of earlier input/state.
             _, energy_state = _fir_block(self._box, abs(self._quiet_tail[-self.quantum:])**2,
                                           np.zeros(len(self._box)-1))
+            self.quiet_probe_state_samples += self.quantum
         energy, _ = _fir_block(self._box, abs(block)**2, energy_state)
-        if np.any(energy > self.threshold*(1-1e-12)):
-            return False
+        real_dtype = block.real.dtype
+        epsilon = np.finfo(real_dtype).eps if real_dtype.kind == 'f' else np.finfo(float).eps
+        margin = max(1e-12, 64*len(self._box)*epsilon)
+        uncertain = np.flatnonzero(energy > self.threshold*(1-margin))
+        if len(uncertain):
+            self.quiet_probe_vetoes += 1
+            if not self.adaptive_quiet:
+                return 0
+            safe = int(uncertain[0])//self.quantum*self.quantum
+            self._quiet_probe_after = self._processed+safe+self.quantum
+            if safe < self._quiet_min_probe:
+                return 0
+            self.quiet_prefix_jumps += 1
+            block = block[:safe]
+        else:
+            self._quiet_probe_after = self._processed+len(block)
         warmup = max(len(self.h)-1, len(self._box)-1)
         retained = ((self.history_limit+warmup+self.quantum-1)//self.quantum)*self.quantum
         cache_budget = self.history_limit+len(self.h)-1+len(self._box)-1
@@ -313,15 +358,18 @@ class PSKStreamReceiver:
             self._fir_state = np.empty(0, complex)
             self._energy_state = np.empty(0)
             self._processed += len(block)
+            self._quiet_probe_credit = min(self._quiet_credit_limit,
+                                            self._quiet_probe_credit+len(block))
             self._origin = self._processed-self.delay
             self.quiet_fast_path_samples += len(block)-retained
             self.quiet_deferred_fir_samples += len(block)
             self.capture_stats['energy_checks'] += 1
+            self._energy_gate_open = False
             self.peak_history_samples = max(self.peak_history_samples, self.buffered_samples)
-            return True
+            return len(block)
         tail_size = ((self.history_limit+warmup+self.quantum-1)//self.quantum+1)*self.quantum
         if tail_size >= len(block):
-            return False
+            return 0
         skipped = len(block)-tail_size
         self._processed += skipped
         self.quiet_fast_path_samples += skipped
@@ -338,12 +386,15 @@ class PSKStreamReceiver:
         self._filtered = np.concatenate(filtered_parts)[-self.history_limit:]
         self._energy = np.concatenate(energy_parts)[-self.search_samples:]
         self._processed += tail_size
+        self._quiet_probe_credit = min(self._quiet_credit_limit,
+                                        self._quiet_probe_credit+len(block))
         self._origin = self._processed-self.delay-len(self._filtered)
         self.capture_stats['energy_checks'] += 1
+        self._energy_gate_open = False
         if np.any(self._energy > self.threshold):
             raise RuntimeError("Quiet fast-path invariant failed")
         self.peak_history_samples = max(self.peak_history_samples, self.buffered_samples)
-        return True
+        return len(block)
 
     def _process(self, block):
         self._materialize_quiet()
@@ -354,6 +405,9 @@ class PSKStreamReceiver:
         self._filtered = np.concatenate((self._filtered, filtered))
         self._energy = np.concatenate((self._energy, energy))[-self.search_samples:]
         self._processed += len(block)
+        if self._quiet_probe_credit < self._quiet_credit_limit:
+            self._quiet_probe_credit = min(self._quiet_credit_limit,
+                                            self._quiet_probe_credit+len(block))
         events = []
         if self._active is None:
             self._search()
@@ -369,7 +423,8 @@ class PSKStreamReceiver:
         if len(self._filtered) < self.search_samples:
             return
         self.capture_stats['energy_checks'] += 1
-        if not np.any(self._energy > self.threshold):
+        self._energy_gate_open = bool(np.any(self._energy > self.threshold))
+        if not self._energy_gate_open:
             return
         self.capture_stats['energy_triggers'] += 1
         z = self._filtered[-self.search_samples:]

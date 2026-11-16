@@ -287,6 +287,48 @@ def test_deferred_filter_respects_original_cache_budget_and_falls_back_for_long_
         PSKStreamReceiver(p, quiet, defer_quiet_fir=1)
 
 
+def test_adaptive_quiet_prefix_preserves_packet_timing_and_probe_budget():
+    p = PSKReceiveProfile.ordinary(TxConfig(mcs_index=12, symbol_rate_mhz=4))
+    wire, expected = transmitted(p, length=255)
+    x, q, _, _ = iq_record(wire, ppm=100, cfo=30000)
+    joined = np.r_[np.tile(q, 6), x, np.tile(q, 5), x, np.tile(q, 4)]
+    plain = PSKStreamReceiver(p, q, quiet_batching=False)
+    reference = plain.feed(joined)+plain.finish()
+    assert [e['frame']['payload'] for e in reference] == [expected, expected]
+    aligned = PSKStreamReceiver(p, q, adaptive_quiet=False)
+    equal_events(reference, aligned.feed(joined)+aligned.finish())
+    for sizes in ([len(joined)], [4096], [1024], [513],
+                  np.random.default_rng(264016).integers(1, 8193, 100)):
+        rx = PSKStreamReceiver(p, q)
+        events, pos, i = [], 0, 0
+        while pos < len(joined):
+            n = int(sizes[i % len(sizes)])
+            events.extend(rx.feed(joined[pos:pos+n]))
+            assert rx.quiet_probe_samples <= rx.input_samples+rx.quiet_batch_samples
+            assert 0 <= rx._quiet_probe_credit <= rx._quiet_credit_limit
+            pos, i = pos+n, i+1
+        events.extend(rx.finish())
+        equal_events(reference, events)
+        if sizes[0] == len(joined):
+            assert rx.quiet_prefix_jumps > 0
+        assert rx.quiet_probe_state_samples <= rx.quantum*rx.quiet_probe_calls
+        assert rx.peak_history_samples <= plain.peak_history_samples
+    with pytest.raises(ValueError, match='adaptive_quiet'):
+        PSKStreamReceiver(p, q, adaptive_quiet=1)
+
+
+def test_continuous_tone_cannot_repeat_future_energy_probes():
+    p = PSKReceiveProfile.ordinary(TxConfig(mcs_index=8, symbol_rate_mhz=4))
+    rng = np.random.default_rng(265016)
+    q = rng.normal(size=8192)+1j*rng.normal(size=8192)
+    tone = 100*np.exp(2j*np.pi*.1375*np.arange(32768))
+    rx = PSKStreamReceiver(p, q)
+    assert rx.feed(tone)+rx.finish() == []
+    assert rx.quiet_probe_calls == 1
+    assert rx.quiet_probe_samples == rx.quiet_batch_samples
+    assert rx.capture_stats['sync_candidates'] == 0
+
+
 def test_unready_true_sync_peak_is_deferred_without_substituting_an_earlier_phase():
     from scipy.signal import fftconvolve
 

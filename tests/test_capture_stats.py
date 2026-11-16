@@ -93,3 +93,35 @@ def test_integer_screen_avoids_fractional_preparation_for_a_tone(monkeypatch):
     assert diagnostic["disposition"] == "integer_screen_rejected"
     assert diagnostic["integer_phase_hypotheses"] == 4
     assert diagnostic["phase_hypotheses"] == 0
+
+
+def test_weak_coded_capture_reaches_mac_and_bad_head_is_never_delivered():
+    from nearlink_sdr.phy.mac_interface import MacStreamReceiver
+    from nearlink_sdr.phy.psk_sync import PSKCaptureConfig
+
+    profile = PSKReceiveProfile.ordinary(TxConfig(mcs_index=6, symbol_rate_mhz=4))
+    rng = np.random.default_rng(151016)
+    sigma = 50*10**(-5/20)
+    quiet = sigma/np.sqrt(2)*(rng.normal(size=8192)+1j*rng.normal(size=8192))
+    wire, expected = transmitted(profile)
+    x, _, _, _ = iq_record(wire, ppm=100, cfo=30000, offset=1.731)
+    noise = sigma/np.sqrt(2)*(rng.normal(size=len(x))+1j*rng.normal(size=len(x)))
+    old = MacStreamReceiver(profile, quiet, capture_config=PSKCaptureConfig.legacy())
+    assert old.feed(x+noise).packets+old.finish().packets == []
+    for bad_head in (False, True):
+        symbols, _ = transmitted(profile, bad_head=bad_head)
+        signal, _, _, _ = iq_record(symbols, ppm=100, cfo=30000, offset=1.731)
+        receiver = MacStreamReceiver(profile, quiet)
+        packets, frames = [], []
+        for start in range(0, len(signal), 513):
+            for result in receiver.iter_feed((signal+noise)[start:start+513]):
+                packets.extend(result.packets)
+                frames.extend(result.diagnostics['frames'])
+        result = receiver.finish()
+        packets.extend(result.packets)
+        frames.extend(result.diagnostics['frames'])
+        if bad_head:
+            assert packets == [] and [f['status'] for f in frames] == ['bad_header_crc']
+        else:
+            assert [p.mac_payload for p in packets] == [expected]
+            assert packets[0].crc_ok and packets[0].head_crc_ok

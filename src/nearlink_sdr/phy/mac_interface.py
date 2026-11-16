@@ -163,6 +163,8 @@ def iq_to_mac_capture(iq_signal: np.ndarray, quiet: np.ndarray, profile, **optio
     Callers needing all packets should use this entry instead of the aligned
     single-frame ``iq_to_mac`` simulation API. Only frames passing header CRC,
     length/MCS validation and data CRC enter packets; diagnostics retains failures.
+    The adaptive bounded front end is exposed by ``MacStreamReceiver``; this
+    whole-record acquisition interface retains its original segmentation API.
     """
     result = receive_capture(iq_signal, quiet, profile, **options)
     packets = _verified_mac_packets(result["frames"])
