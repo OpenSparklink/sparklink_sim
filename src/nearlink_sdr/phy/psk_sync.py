@@ -2,8 +2,8 @@
 from dataclasses import dataclass
 
 import numpy as np
+from numpy import correlate
 from scipy.interpolate import CubicSpline
-from scipy.signal import correlate
 
 __all__ = ["PSKCaptureConfig", "search_psk_sync"]
 

@@ -7,8 +7,10 @@ import json
 import platform
 import resource
 import subprocess
+import sys
 import time
 import tracemalloc
+import types
 from pathlib import Path
 
 import numpy as np
@@ -45,11 +47,22 @@ def run(args):
     (out / "baseline-stream_rx.py").write_bytes(source)
     namespace = {}
     exec(compile(source, str(out / "baseline-stream_rx.py"), "exec"), namespace)
+    if args.baseline_sync:
+        sync_source = subprocess.check_output(
+            ["git", "show", args.baseline_ref + ":src/nearlink_sdr/phy/psk_sync.py"]
+        )
+        path = out / "baseline-psk_sync.py"
+        path.write_bytes(sync_source)
+        module = types.ModuleType("capture_benchmark_baseline_sync")
+        sys.modules[module.__name__] = module
+        exec(compile(sync_source, str(path), "exec"), module.__dict__)
+        namespace["search_psk_sync"] = module.search_psk_sync
     arms = {"baseline": namespace["PSKStreamReceiver"], "candidate": PSKStreamReceiver}
     plan = dict(
         baseline_receiver_ref=args.baseline_ref,
         baseline_receiver_sha256=hashlib.sha256(source).hexdigest(),
-        shared_dependencies="All modules except stream_rx use current source, recorded below",
+        shared_dependencies="All modules except stream_rx and optional psk_sync use current source",
+        baseline_sync=args.baseline_sync,
         commit=subprocess.check_output(["git", "rev-parse", "HEAD"]).decode().strip(),
         sources={
             str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in Path("src").rglob("*.py")
@@ -183,6 +196,7 @@ if __name__ == "__main__":
     for name in ("original", "dataset", "output"):
         p.add_argument("--" + name, type=Path, required=True)
     p.add_argument("--baseline-ref", required=True)
+    p.add_argument("--baseline-sync", action="store_true")
     p.add_argument("--sample-id", action="append", required=True)
     p.add_argument("--repeats", type=int, default=5)
     run(p.parse_args())

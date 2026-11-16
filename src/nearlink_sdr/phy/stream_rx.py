@@ -222,7 +222,9 @@ class PSKStreamReceiver:
         conservative margin excludes threshold-rounding ties. Replaying a tail
         longer than the FIR/energy memory in canonical quanta erases the zero
         initialization, preserving subsequent searches and NCO state independently
-        of the caller's chunk size. No future input is awaited for this fast path.
+        of the caller's chunk size. The tail keeps each canonical convolution and
+        state addition, but fuses history concatenation and known-inactive dispatch.
+        No future input is awaited for this fast path.
         """
         if np.any(self._energy > self.threshold):
             return False
@@ -240,13 +242,22 @@ class PSKStreamReceiver:
         self.quiet_fast_path_samples += skipped
         self._fir_state.fill(0)
         self._energy_state.fill(0)
-        self._filtered = np.empty(0, complex)
-        self._energy = np.empty(0)
-        self._origin = self._processed-self.delay
+        filtered_parts, energy_parts = [], []
         for offset in range(skipped, len(block), self.quantum):
-            events = self._process(block[offset:offset+self.quantum])
-            if events:
-                raise RuntimeError("Quiet fast-path invariant failed")
+            part = block[offset:offset+self.quantum]
+            filtered, self._fir_state = _fir_block(self.h, part, self._fir_state)
+            local_energy, self._energy_state = _fir_block(
+                self._box, abs(part)**2, self._energy_state)
+            filtered_parts.append(filtered)
+            energy_parts.append(local_energy)
+        self._filtered = np.concatenate(filtered_parts)[-self.history_limit:]
+        self._energy = np.concatenate(energy_parts)[-self.search_samples:]
+        self._processed += tail_size
+        self._origin = self._processed-self.delay-len(self._filtered)
+        self.capture_stats['energy_checks'] += 1
+        if np.any(self._energy > self.threshold):
+            raise RuntimeError("Quiet fast-path invariant failed")
+        self.peak_history_samples = max(self.peak_history_samples, self.buffered_samples)
         return True
 
     def _process(self, block):
@@ -254,8 +265,8 @@ class PSKStreamReceiver:
             raise ValueError("Need finite IQ samples")
         filtered, self._fir_state = _fir_block(self.h, block, self._fir_state)
         energy, self._energy_state = _fir_block(self._box, abs(block)**2, self._energy_state)
-        self._filtered = np.r_[self._filtered, filtered]
-        self._energy = np.r_[self._energy, energy][-self.search_samples:]
+        self._filtered = np.concatenate((self._filtered, filtered))
+        self._energy = np.concatenate((self._energy, energy))[-self.search_samples:]
         self._processed += len(block)
         events = []
         if self._active is None:

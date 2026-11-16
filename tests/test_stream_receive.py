@@ -216,6 +216,23 @@ def test_profiled_quiet_batching_preserves_canonical_filter_and_packet_trajector
         equal_events(reference, other)
 
 
+def test_quiet_tail_fuses_dispatch_without_changing_canonical_fir_state(monkeypatch):
+    p = PSKReceiveProfile.ordinary(TxConfig(mcs_index=8, symbol_rate_mhz=4))
+    rng = np.random.default_rng(174016)
+    quiet = rng.normal(size=8192) + 1j*rng.normal(size=8192)
+    block = .01*(rng.normal(size=4096) + 1j*rng.normal(size=4096))
+    reference = PSKStreamReceiver(p, quiet, quiet_batching=False)
+    assert reference.feed(block) == []
+    actual = PSKStreamReceiver(p, quiet)
+    monkeypatch.setattr(actual, '_process', lambda _: pytest.fail('per-quantum quiet dispatch'))
+    assert actual.feed(block) == []
+    for field in ('_filtered', '_energy', '_fir_state', '_energy_state'):
+        np.testing.assert_array_equal(getattr(actual, field), getattr(reference, field))
+    assert actual._origin == reference._origin
+    assert actual._processed == reference._processed
+    assert actual.buffered_samples == reference.buffered_samples
+
+
 def test_unready_true_sync_peak_is_deferred_without_substituting_an_earlier_phase():
     from scipy.signal import fftconvolve
 
