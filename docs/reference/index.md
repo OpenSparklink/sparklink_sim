@@ -89,6 +89,7 @@ rx-acquisition-hardware
 rx-interference-capture
 sle-transceiver-model
 rx-scope
+rx-rrc-model
 psk-timing-tracking-results
 psk-noise-recovery-results
 /apidocs/nearlink_sdr/nearlink_sdr

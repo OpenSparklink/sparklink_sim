@@ -26,6 +26,8 @@ __all__ = [
     "psk_fields",
     "psk_sync",
     "rf_compliance",
+    "rrc_flow",
+    "rrc_word",
     "rx_pipeline",
     "sdr_backend",
     "stream_rx",

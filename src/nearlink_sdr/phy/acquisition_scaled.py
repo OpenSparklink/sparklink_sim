@@ -15,7 +15,7 @@ from nearlink_sdr.phy.acquisition_bank import CorrelationPoint
 from nearlink_sdr.phy.acquisition_fixed import FixedBankFormat, FixedDifferentialBank
 from nearlink_sdr.phy.acquisition_rounding import folded_rounding_cost, folded_statistics
 
-__all__ = ["ScaledBankFormat", "ScaledDifferentialBank", "align_words"]
+__all__ = ["ScaledBankFormat", "ScaledDifferentialBank", "align_words", "quantize_scaled_words"]
 
 
 @dataclass(frozen=True)
@@ -60,6 +60,40 @@ def align_words(values, shifts):
     increment = (shift > 0) & ((remainder > half) | ((remainder == half) & ((base & 1) != 0)))
     result = (base + increment).astype(np.int64)
     return np.where(negative, -result, result)
+
+
+def quantize_scaled_words(samples, format, *, stats):
+    """Shared finite-format conversion; preserve the bank's RNE/range semantics.
+
+    Physical value is mantissa*2**exponent. This floating adapter describes an
+    input word representation; it is not a measured ADC calibration or SIR gain.
+    Caller owns counters and bounds processing batches for hardware modeling.
+    """
+    if not isinstance(format, ScaledBankFormat) or not isinstance(stats, dict):
+        raise ValueError("Need ScaledBankFormat and explicit counter dictionary")
+    x = np.asarray(samples, dtype=np.clongdouble)
+    if x.ndim != 1 or not np.isfinite(x).all():
+        raise ValueError("Need finite one-dimensional input")
+    peak = np.maximum(abs(x.real), abs(x.imag))
+    exponent = np.frexp(peak)[1] - (format.mantissa_bits - 2)
+    stats["exponent_underflows"] = stats.get("exponent_underflows", 0) + int(
+        np.count_nonzero((peak > 0) & (exponent < format.minimum_exponent))
+    )
+    stats["exponent_overflows"] = stats.get("exponent_overflows", 0) + int(
+        np.count_nonzero(exponent > format.maximum_exponent)
+    )
+    exponent = np.clip(exponent, format.minimum_exponent, format.maximum_exponent)
+    limit = 1 << (format.mantissa_bits - 1)
+    r, i = [np.rint(np.ldexp(v, -exponent)) for v in (x.real, x.imag)]
+    stats["input_saturations"] = stats.get("input_saturations", 0) + int(
+        np.count_nonzero((r < -limit) | (r >= limit))
+        + np.count_nonzero((i < -limit) | (i >= limit))
+    )
+    return (
+        np.clip(r, -limit, limit - 1).astype(np.int64),
+        np.clip(i, -limit, limit - 1).astype(np.int64),
+        exponent.astype(np.int16),
+    )
 
 
 class ScaledDifferentialBank(FixedDifferentialBank):
@@ -117,28 +151,7 @@ class ScaledDifferentialBank(FixedDifferentialBank):
         input. ``input_full_scale`` is kept only for constructor compatibility;
         this format does not apply the old static normalization shift.
         """
-        x = np.asarray(samples, dtype=np.clongdouble)
-        if x.ndim != 1 or not np.isfinite(x).all():
-            raise ValueError("Need finite one-dimensional input")
-        peak = np.maximum(abs(x.real), abs(x.imag))
-        exponent = np.frexp(peak)[1] - (self.format.input_bits - 2)
-        cfg = self.scaled_format
-        self.stats["exponent_underflows"] += int(
-            np.count_nonzero((peak > 0) & (exponent < cfg.minimum_exponent))
-        )
-        self.stats["exponent_overflows"] += int(np.count_nonzero(exponent > cfg.maximum_exponent))
-        exponent = np.clip(exponent, cfg.minimum_exponent, cfg.maximum_exponent)
-        limit = 1 << (self.format.input_bits - 1)
-        r, i = [np.rint(np.ldexp(v, -exponent)) for v in (x.real, x.imag)]
-        self.stats["input_saturations"] += int(
-            np.count_nonzero((r < -limit) | (r >= limit))
-            + np.count_nonzero((i < -limit) | (i >= limit))
-        )
-        return (
-            np.clip(r, -limit, limit - 1).astype(np.int64),
-            np.clip(i, -limit, limit - 1).astype(np.int64),
-            exponent.astype(np.int16),
-        )
+        return quantize_scaled_words(samples, self.scaled_format, stats=self.stats)
 
     def advance(self, samples, *, inspect=False):
         x = np.asarray(samples)
