@@ -173,17 +173,7 @@ class FixedRRC:
             raise OverflowError("Signed64 sample counter exhausted")
         joined = [np.r_[a, b] for a, b in zip((self._r, self._i, self._e), (r, i, e), strict=True)]
         wr, wi, we = [np.lib.stride_tricks.sliding_window_view(a, 81) for a in joined]
-        present = (wr != 0) | (wi != 0)
-        common = np.max(np.where(present, we, -48), axis=1)
-        shifts = np.maximum(common[:, None] - we, 0)
-        ar, ai = [align_words(v.ravel(), shifts.ravel()).reshape(v.shape) for v in (wr, wi)]
-        self.stats["aligned_components_erased"] += int(
-            np.count_nonzero((wr != 0) & (ar == 0)) + np.count_nonzero((wi != 0) & (ai == 0))
-        )
-        sums = [
-            (v[:, :40] + v[:, 80:40:-1]) @ self.coefficients[:40] + v[:, 40] * self.coefficients[40]
-            for v in (ar, ai)
-        ]
+        sums, common = self._accumulate(wr, wi, we)
         peak = max(int(np.max(abs(a), initial=0)) for a in sums)
         self.stats["max_accumulator_magnitude"] = max(self.stats["max_accumulator_magnitude"], peak)
         if peak >= 2 ** (self.accumulator_bits - 1):
@@ -195,6 +185,21 @@ class FixedRRC:
         self.stats["samples"] += len(r)
         self._bound_counters()
         return tuple(np.array(a, np.int64) for a in zip(*words, strict=True))
+
+    def _accumulate(self, wr, wi, we):
+        """Original global-input alignment, retained as an explicit reference arm."""
+        present = (wr != 0) | (wi != 0)
+        common = np.max(np.where(present, we, -48), axis=1)
+        shifts = np.maximum(common[:, None] - we, 0)
+        ar, ai = [align_words(v.ravel(), shifts.ravel()).reshape(v.shape) for v in (wr, wi)]
+        self.stats["aligned_components_erased"] += int(
+            np.count_nonzero((wr != 0) & (ar == 0)) + np.count_nonzero((wi != 0) & (ai == 0))
+        )
+        sums = [
+            (v[:, :40] + v[:, 80:40:-1]) @ self.coefficients[:40] + v[:, 40] * self.coefficients[40]
+            for v in (ar, ai)
+        ]
+        return sums, common
 
     def _bound_counters(self):
         for name, value in self.stats.items():

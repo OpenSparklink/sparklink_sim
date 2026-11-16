@@ -13,6 +13,7 @@ from audit_capture_hardware import sha, write
 from scipy.signal import lfilter
 
 from nearlink_sdr.phy.rrc_flow import RRCFlow, RRCFlowAssumptions
+from nearlink_sdr.phy.rrc_pair import PairProductRRC
 from nearlink_sdr.phy.rrc_word import FixedRRC, FixedRRCFormat, SymmetricRRC
 
 
@@ -116,7 +117,7 @@ def generate(args):
     (args.output / "generator.executed.py").write_bytes(Path(__file__).read_bytes())
 
 
-class WordObserver(FixedRRC):
+class WordTrace:
     """Caller-owned offline trace; not proposed filter storage."""
 
     def __init__(self, format):
@@ -129,7 +130,28 @@ class WordObserver(FixedRRC):
         return words
 
 
+class WordObserver(WordTrace, FixedRRC):
+    """Original window-input reference arm."""
+
+
+class PairWordObserver(WordTrace, PairProductRRC):
+    """New pair-product arm, traced without changing receiver decisions."""
+
+
+def relative_norm(error, reference):
+    """Exact zero-reference rule; never hide a nonzero error with an epsilon."""
+    denominator = float(np.linalg.norm(reference))
+    numerator = float(np.linalg.norm(error))
+    return numerator / denominator if denominator else (float("inf") if numerator else 0.0)
+
+
+def check_model_schedule(model, cycle):
+    if model == "pair" and cycle:
+        raise ValueError("Pair-product physical cycle model not yet available; no reference reuse")
+
+
 def evaluate(args):
+    check_model_schedule(args.model, args.cycle)
     args.output.mkdir(parents=True, exist_ok=False)
     budget = json.loads(args.budget.read_text())
     plan = json.loads((args.inputs / "inputs.json").read_text())
@@ -139,7 +161,8 @@ def evaluate(args):
         if args.selection is None or sha(args.selection) != plan["selection_sha256"]:
             raise ValueError("Held-out evaluation requires its frozen format selection")
         selection = json.loads(args.selection.read_text())
-        assert selection["format"] == asdict(format)
+        arms = selection.get("arms", [dict(model="global", format=selection["format"])])
+        assert dict(model=args.model, format=asdict(format)) in arms
         check_selection_sources(selection, args)
     sources = {str(p): sha(p) for p in Path("src").rglob("*.py")}
     write(
@@ -149,6 +172,7 @@ def evaluate(args):
             budget_sha256=sha(args.budget),
             input_plan=str((args.inputs / "inputs.json").resolve()),
             format=asdict(format),
+            model=args.model,
             sources=sources,
             source_commit=subprocess.check_output(["git", "rev-parse", "HEAD"]).decode().strip(),
             driver_sha256=sha(Path(__file__)),
@@ -167,17 +191,16 @@ def evaluate(args):
         with np.load(meta["path"]) as data:
             x = data["iq"]
         reference = lfilter(h, [1.0], np.r_[x, np.zeros(80)])
-        floating, fixed = SymmetricRRC(), WordObserver(format)
+        floating = SymmetricRRC()
+        fixed = (PairWordObserver if args.model == "pair" else WordObserver)(format)
         structural = np.r_[floating.feed(x), floating.finish()]
         result = np.r_[fixed.feed(x), fixed.finish()]
         difference = result - reference
-        relative = float(np.linalg.norm(difference) / np.linalg.norm(reference))
-        peak_error = float(np.max(abs(difference)) / np.max(abs(reference)))
+        relative = relative_norm(difference, reference)
+        ref_peak, error_peak = float(np.max(abs(reference))), float(np.max(abs(difference)))
+        peak_error = error_peak / ref_peak if ref_peak else (float("inf") if error_peak else 0.0)
         local_errors = [
-            float(
-                np.linalg.norm(difference[k : k + 64])
-                / max(np.linalg.norm(reference[k : k + 64]), 1e-300)
-            )
+            relative_norm(difference[k : k + 64], reference[k : k + 64])
             for k in range(0, len(result), 64)
         ]
         range_events = sum(
@@ -192,10 +215,19 @@ def evaluate(args):
                 "intermediate_overflows",
             ]
         )
+        limits = budget["numerical_budget"]
+        rms_limit = limits.get(
+            "global_normalized_rms", limits.get("normalized_filter_error_rms_max")
+        )
+        peak_limit = limits.get(
+            "global_relative_peak", limits.get("max_sample_error_over_reference_peak")
+        )
+        local_limit = limits.get("local64_relative_rms")
         accepted = (
-            relative <= budget["numerical_budget"]["normalized_filter_error_rms_max"]
-            and peak_error <= budget["numerical_budget"]["max_sample_error_over_reference_peak"]
+            relative <= rms_limit
+            and peak_error <= peak_limit
             and range_events == 0
+            and (local_limit is None or max(local_errors) <= local_limit)
         )
         row = dict(
             input=meta,
@@ -220,8 +252,7 @@ def evaluate(args):
         )
         rows.append(row)
         write(args.output / "results.json", rows)
-    flow = RRCFlow(format)
-    estimate = flow.resource_estimate()
+    estimate = RRCFlow(format).resource_estimate() if args.model == "global" else None
     cycles = None
     if args.cycle:
         cycles = {}
@@ -259,11 +290,15 @@ def evaluate(args):
                 r["max_64_sample_relative_rms_error"] for r in rows
             ),
             range_events=sum(r["range_events"] for r in rows),
-            operation_estimate=FixedRRC(format).operation_estimate(),
+            operation_estimate=(PairProductRRC if args.model == "pair" else FixedRRC)(
+                format
+            ).operation_estimate(),
             resource_estimate=estimate,
             cycles=cycles,
             isolated_schedule_under_assumptions_passed=cycle_passed,
-            local_window_acceptance=None,
+            local_window_acceptance=None
+            if local_limit is None
+            else all(r["max_64_sample_relative_rms_error"] <= local_limit for r in rows),
             receiver_promotion=False,
             full_rx_acceptance=None,
         ),
@@ -297,6 +332,7 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--input-bits", type=int, default=12)
     parser.add_argument("--coefficient-bits", type=int, default=18)
+    parser.add_argument("--model", choices=["global", "pair"], default="global")
     parser.add_argument("--cycle", action="store_true")
     args = parser.parse_args()
     if args.generate:

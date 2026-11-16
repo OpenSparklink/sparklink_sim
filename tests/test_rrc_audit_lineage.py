@@ -60,6 +60,17 @@ def test_exact_source_needs_no_exception_and_missing_lineage_rejects(context):
         driver.check_selection_sources(selection, args)
 
 
+def test_zero_reference_and_unimplemented_pair_cycle_are_explicit(context):
+    driver = context[0]
+    assert driver.relative_norm([0, 0], [0, 0]) == 0
+    assert driver.relative_norm([1, 0], [0, 0]) == float("inf")
+    assert driver.relative_norm([3, 4], [6, 8]) == 0.5
+    driver.check_model_schedule("global", True)
+    driver.check_model_schedule("pair", False)
+    with pytest.raises(ValueError, match="no reference reuse"):
+        driver.check_model_schedule("pair", True)
+
+
 def test_only_exactly_pinned_cost_method_can_change(context):
     driver, flow, _, old, selection, args, digest = context
     flow.write_text(flow.read_text().replace("'bits': 8", "'bits': 16"))

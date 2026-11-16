@@ -77,6 +77,8 @@ jobs:
       - name: Verify actual backend
         run: uv run --frozen --no-sync python scripts/check_receiver_backend.py --expected-rust ${{ matrix.backend == 'rust' && 'yes' || 'no' }} --output backend.json
       - name: Run tests
+        env:
+          SPARKLINK_TEST_DIAGNOSTICS: receiver-diagnostics
         run: uv run --frozen --no-sync pytest tests/ -v --tb=short --junitxml=report.xml 2>&1 | tee test.log
       - name: Upload tests and diagnostics even on failure
         if: always()
@@ -88,6 +90,7 @@ jobs:
             test.log
             build.log
             backend.json
+            receiver-diagnostics/
 
   optional-sm3:
     name: Optional SM3 algorithms
