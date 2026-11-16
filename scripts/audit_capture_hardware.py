@@ -152,13 +152,14 @@ def score(events, meta):
                 false_deliveries=sum(not r['matched'] and r['status'] == 'valid' for r in frames))
 
 
-def evaluate(inputs, output, options=None):
+def evaluate(inputs, output, options=None, chunk_pattern="whole"):
     output.mkdir(parents=True, exist_ok=False)
     (output/'evidence').mkdir()
     plan = json.loads((inputs/'frozen-inputs.json').read_text())
     options = options or {}
     write(output/'frozen-plan.json', dict(input_plan=str((inputs/'frozen-inputs.json').resolve()),
           input_plan_sha256=sha(inputs/'frozen-inputs.json'), options=options,
+          chunk_pattern=chunk_pattern, chunk_seed=360116,
           source_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip(),
           source_sha256={str(p): sha(p) for p in Path('src').rglob('*.py')},
           driver_sha256=sha(Path(__file__)), association_tolerance_samples=4))
@@ -171,7 +172,16 @@ def evaluate(inputs, output, options=None):
             # No quiet jumping: continuous detector work must remain visible in hardware studies.
             rx = PSKStreamReceiver(profile(meta['mcs']), data['quiet'], quiet_batching=False,
                                    **options)
-            events = rx.feed(data['iq'])+rx.finish()
+            x, events = data['iq'], []
+            if chunk_pattern == 'whole':
+                events.extend(rx.feed(x))
+            else:
+                rng, start = np.random.default_rng(360116), 0
+                while start < len(x):
+                    size = 257 if chunk_pattern == 'fixed' else int(rng.integers(1, 1001))
+                    events.extend(rx.feed(x[start:start+size]))
+                    start += size
+            events.extend(rx.finish())
         traces = {f'{i}-{k}': e[k] for i, e in enumerate(events) for k in
                   ('symbols', 'symbol_centers_raw', 'timing_rate_ppm', 'timing_detector_error')}
         np.savez_compressed(output/'evidence'/(meta['id']+'.npz'), **traces)
@@ -191,6 +201,9 @@ def evaluate(inputs, output, options=None):
                    false_candidates=sum(r['false_candidates'] for r in rows),
                    false_deliveries=sum(r['false_deliveries'] for r in rows),
                    statuses=dict(Counter(f['status'] for r in rows for f in r['frames'])))
+    frozen = json.loads((output/'frozen-plan.json').read_text())
+    assert all(sha(Path(p)) == h for p, h in frozen['source_sha256'].items())
+    assert sha(Path(__file__)) == frozen['driver_sha256']
     write(output/'summary.json', summary)
     write(output/'failures.json', [r for r in rows if r['correct'] != r['known_packets'] or
                                    r['false_candidates']])
@@ -207,6 +220,7 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--correlation-backend', choices=['reference', 'structure', 'fixed'],
                         default='reference')
+    parser.add_argument('--chunk-pattern', choices=['whole', 'fixed', 'random'], default='whole')
     parser.add_argument('--input-bits', type=int, default=16)
     parser.add_argument('--input-full-scale', type=float, default=1024.)
     args = parser.parse_args()
@@ -214,6 +228,7 @@ if __name__ == '__main__':
         generate(args.output, args.generate)
     elif args.inputs:
         evaluate(args.inputs, args.output, dict(correlation_backend=args.correlation_backend,
-            correlation_input_bits=args.input_bits, correlation_input_full_scale=args.input_full_scale))
+            correlation_input_bits=args.input_bits, correlation_input_full_scale=args.input_full_scale),
+            chunk_pattern=args.chunk_pattern)
     else:
         parser.error('Need --generate or --inputs')
