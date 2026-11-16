@@ -26,6 +26,7 @@ from profile_rx_stream import number
 
 from nearlink_sdr.phy.acquisition_bank import DifferentialBank, normalized_greater
 from nearlink_sdr.phy.acquisition_fixed import FixedBankFormat, FixedDifferentialBank
+from nearlink_sdr.phy.acquisition_scaled import ScaledBankFormat, ScaledDifferentialBank
 from nearlink_sdr.phy.psk import rrc_filter
 from nearlink_sdr.phy.stream_rx import PSKStreamReceiver
 from nearlink_sdr.phy.strict_rx import PSKReceiveProfile, decode_psk_frame
@@ -54,25 +55,34 @@ class DiagnosticReceiver(PSKStreamReceiver):
     def __init__(self, *args, diagnostic_file, **kwargs):
         super().__init__(*args, **kwargs)
         self.correlation_bank = PointObserver(self.correlation_bank)
+        if self.tone_correlation_bank is not None:
+            self.tone_correlation_bank = PointObserver(self.tone_correlation_bank)
         self.diagnostic_file = diagnostic_file
         self.numeric = dict(eligible_score_observations=0, max_score_error=0.,
             max_squared_score_error=0., max_normalized_rank_loss=0.,
             unqualified_max_rank_loss=0., eligible_rank_queries=0,
             point_gate_disagreements=0, query_gate_disagreements=0, budget_violations=0,
             diagnostic_cache_capacity=self.search_samples,
-            scope='offline observer, no data/CRC feedback; only executed energy-open query positions')
+            scope='offline observer, no feedback; energy-open raw and executed tone-fallback windows')
 
     def _search(self):
-        context = None
+        context, tone_context = None, None
+        previous_tone_queries = self.capture_stats.get('tone_fallback_searches', 0)
         if len(self._filtered) >= self.search_samples and np.any(self._energy > self.threshold):
             z = self._filtered[-self.search_samples:]
             origin = self._origin+len(self._filtered)-len(z)
             context = z, origin, max(1., self._skip_until-origin)
+            if self.tone_correlation_bank is not None:
+                tone_context = self._tone_filtered[-self.search_samples:], origin, context[2]
         super()._search()
-        if context is None:
-            return
-        z, origin, lower = context
-        bank = self.correlation_bank.primary
+        if context is not None:
+            self._observe_context(self.correlation_bank, *context, path='raw')
+        if (tone_context is not None and
+                self.capture_stats['tone_fallback_searches'] > previous_tone_queries):
+            self._observe_context(self.tone_correlation_bank, *tone_context, path='tone')
+
+    def _observe_context(self, observer, z, origin, lower, *, path):
+        bank = observer.primary
         dr = self.reference[1:]*self.reference[:-1].conj()
         chosen, chosen_reference, reference_best = None, 0., 0.
         ref_gate, model_gate = False, False
@@ -86,7 +96,7 @@ class DiagnosticReceiver(PSKStreamReceiver):
                 local = phase+j*self.sps
                 if local < lower:
                     continue
-                point = self.correlation_bank.points[int(origin+local)]
+                point = observer.points[int(origin+local)]
                 model_score = float(np.sqrt(point.score_squared))
                 fixed = isinstance(bank, FixedDifferentialBank)
                 passed = point.energy > 0 and ((point.numerator << bank.format.threshold_fractional_bits)
@@ -110,7 +120,7 @@ class DiagnosticReceiver(PSKStreamReceiver):
                     self.numeric['budget_violations'] += int(violation)
                 if violation or different:
                     with self.diagnostic_file.open('a') as log:
-                        log.write(json.dumps(dict(query_after_samples=self._processed,
+                        log.write(json.dumps(dict(path=path, query_after_samples=self._processed,
                             start=point.start, reference_score=float(reference_score), model_score=model_score,
                             point_gate_changed=different, numeric_budget_failed=bool(violation)))+'\n')
         self.numeric['query_gate_disagreements'] += int(bool(ref_gate) != bool(model_gate))
@@ -123,7 +133,7 @@ class DiagnosticReceiver(PSKStreamReceiver):
                 self.numeric['max_normalized_rank_loss'], rank_loss)
             if rank_loss > .005:
                 with self.diagnostic_file.open('a') as log:
-                    log.write(json.dumps(dict(query_after_samples=self._processed,
+                    log.write(json.dumps(dict(path=path, query_after_samples=self._processed,
                         reference_best=reference_best, normalized_rank_loss=rank_loss,
                         numeric_rank_budget_failed=True))+'\n')
 
@@ -208,8 +218,10 @@ class Replay:
         from nearlink_sdr.phy.tone_notch import ToneNotchConfig
         radius = getattr(args, 'tone_radius', None)
         self.tone_config = None if radius is None else ToneNotchConfig(radius=radius)
-        self.bits = self.selection['hardware_input_bits']
-        self.full_scale = self.selection['hardware_input_full_scale']
+        self.bits = (self.selection['mantissa_bits'] if args.backend == 'scaled' else
+                     self.selection['hardware_input_bits'])
+        self.full_scale = (1. if args.backend == 'scaled' else
+                           self.selection['hardware_input_full_scale'])
         if self.bits is None or self.selection['held_out_seen']:
             raise ValueError('Need a frozen development-only format')
         self.baseline = args.evidence_root/'rx-capture-front/adaptive-final-reproduction'
@@ -244,7 +256,10 @@ class Replay:
             else:
                 certificate['tone_never_activates_proof'] = proof
         if certificate is not None:
-            if self.args.backend == 'fixed':
+            if self.args.backend == 'scaled':
+                bank = ScaledDifferentialBank(profile.sync_symbols(), 4, 256,
+                    scaled_format=ScaledBankFormat(self.bits))
+            elif self.args.backend == 'fixed':
                 bank = FixedDifferentialBank(profile.sync_symbols(), 4, 256,
                     input_full_scale=self.full_scale, format=FixedBankFormat(self.bits))
             else:
@@ -253,13 +268,20 @@ class Replay:
             certificate['no_input_saturation_proved'] = (
                 certificate['rrc_component_upper_bound'] < self.full_scale-
                 self.full_scale/(1 << (self.bits-1)))
+            if self.args.backend == 'scaled':
+                certificate['no_input_saturation_proved'] = None
+                certificate['format_scope'] = (
+                    'Closed search gate only; no scaled internal-state or range proof')
             return [], dict(certificate=certificate, numerically_processed_samples=0,
                 continuous_work_charged_samples=len(x), eof_virtual_padding_samples=42,
+                continuous_bank_instances=1 if self.tone_config is None else 2,
+                cost_scope='per-bank estimate; detector/notch/RRC/fine/loop work is separate',
                 operations_per_charged_sample=bank.worst_operations_per_sample())
         diagnostic_file = self.out/'evidence'/f'stream{self.stream_index:04}-numeric-changes.jsonl'
         rx = DiagnosticReceiver(profile, q, quiet_batching=False, diagnostic_file=diagnostic_file,
             tone_notch=self.tone_config,
             correlation_backend=self.args.backend, correlation_input_bits=self.bits,
+            correlation_mantissa_bits=self.bits if self.args.backend == 'scaled' else 10,
             correlation_input_full_scale=self.full_scale)
         events = []
         for start in range(0, len(x), 4096):
@@ -271,6 +293,14 @@ class Replay:
             capture_stats=rx.capture_stats, bank_stats=bank.stats,
             numeric_diagnostics=rx.numeric,
             tone_stats=None if rx.tone_notch is None else rx.tone_notch.stats,
+            continuous_bank_instances=1 if self.tone_config is None else 2,
+            tone_bank_stats=(None if rx.tone_correlation_bank is None else
+                             rx.tone_correlation_bank.stats),
+            tone_bank_operations=(None if rx.tone_correlation_bank is None else
+                                  rx.tone_correlation_bank.worst_operations_per_sample()),
+            tone_operations=None if rx.tone_notch is None else rx.tone_notch.operation_estimate(),
+            cost_scope=('bank estimates include raw energy separately per bank '
+                        '(conservative double charge); RRC/fine/loops excluded'),
             numeric_change_log=str(diagnostic_file) if diagnostic_file.exists() else None,
             operations_per_charged_sample=bank.worst_operations_per_sample(),
             emulator_state_array_bytes=bank.state_array_bytes)
@@ -497,7 +527,7 @@ if __name__ == '__main__':
     for name in ('evidence-root', 'dataset', 'quiet-dataset', 'selection', 'output'):
         parser.add_argument('--'+name, type=Path, required=True)
     parser.add_argument('--tone-radius', type=float, choices=[.9375, .96875])
-    parser.add_argument('--backend', choices=['structure', 'fixed'], default='fixed')
+    parser.add_argument('--backend', choices=['structure', 'fixed', 'scaled'], default='fixed')
     parser.add_argument('--group', choices=['original', 'uncoded', 'held', 'coded', 'weak', 'negatives'],
                         action='append')
     args = parser.parse_args()

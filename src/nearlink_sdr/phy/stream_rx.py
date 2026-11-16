@@ -63,7 +63,8 @@ class PSKStreamReceiver:
                  timing_backend: str = "auto", defer_quiet_fir: bool = True,
                  integer_screen_backend: str = 'auto', adaptive_quiet: bool = True,
                  correlation_backend: str = 'reference', correlation_input_full_scale: float = 1024.,
-                 correlation_input_bits: int = 16, tone_notch=None):
+                 correlation_input_bits: int = 16, tone_notch=None,
+                 correlation_mantissa_bits: int = 10):
         if not isinstance(profile, PSKReceiveProfile):
             raise ValueError("Explicit PSKReceiveProfile required")
         self.profile = replace(profile, config=replace(profile.config))
@@ -128,8 +129,8 @@ class PSKStreamReceiver:
         self.quiet_prefix_jumps = self.quiet_probe_vetoes = 0
         self.search_samples = max(64, len(self.reference)+32)*self.sps
         self.history_limit = self.search_samples + 4*self.quantum
-        if correlation_backend not in ('reference', 'structure', 'fixed'):
-            raise ValueError('correlation_backend must be reference, structure or fixed')
+        if correlation_backend not in ('reference', 'structure', 'fixed', 'scaled'):
+            raise ValueError('correlation_backend must be reference, structure, fixed or scaled')
         self.correlation_backend = correlation_backend
         self.correlation_bank = None
         if correlation_backend != 'reference':
@@ -144,6 +145,13 @@ class PSKStreamReceiver:
                 )
                 bank_class = FixedDifferentialBank
                 options['format'] = FixedBankFormat(input_bits=correlation_input_bits)
+            elif correlation_backend == 'scaled':
+                from nearlink_sdr.phy.acquisition_scaled import (
+                    ScaledBankFormat,
+                    ScaledDifferentialBank,
+                )
+                bank_class = ScaledDifferentialBank
+                options['scaled_format'] = ScaledBankFormat(correlation_mantissa_bits)
             self.correlation_bank = bank_class(
                 self.reference, self.sps, self.search_samples, self.capture_config.integer_screen,
                 origin=-self.delay, input_full_scale=correlation_input_full_scale, **options)
@@ -158,6 +166,9 @@ class PSKStreamReceiver:
             if correlation_backend == 'fixed':
                 tone_bank_class = FixedDifferentialBank
                 tone_options['format'] = FixedBankFormat(correlation_input_bits)
+            elif correlation_backend == 'scaled':
+                tone_bank_class = ScaledDifferentialBank
+                tone_options['scaled_format'] = ScaledBankFormat(correlation_mantissa_bits)
             self.tone_correlation_bank = tone_bank_class(
                 self.reference, self.sps, self.search_samples, self.capture_config.integer_screen,
                 origin=-self.delay, input_full_scale=correlation_input_full_scale, **tone_options)

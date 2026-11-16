@@ -42,11 +42,13 @@ def evaluate(args):
     config = None if args.radius == 'off' else ToneNotchConfig(
         radius=float(args.radius), release_blocks=args.release_blocks)
     options = dict(quiet_batching=False, tone_notch=config, correlation_backend=args.backend,
-                   correlation_input_bits=14, correlation_input_full_scale=1024.)
+                   correlation_input_bits=14, correlation_input_full_scale=1024.,
+                   correlation_mantissa_bits=args.mantissa_bits)
     sources = {str(p): sha(p) for p in Path('src').rglob('*.py')}
     write(out/'frozen-plan.json', dict(input_plan=str(args.inputs/'frozen-inputs.json'),
         input_plan_sha256=sha(args.inputs/'frozen-inputs.json'),
         tone=None if config is None else asdict(config), backend=args.backend,
+        mantissa_bits=args.mantissa_bits if args.backend == 'scaled' else None,
         chunks=args.chunks, chunk_seed=370120, source_hashes=sources,
         source_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip(),
         driver_sha256=sha(Path(__file__))))
@@ -95,7 +97,9 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--radius', choices=['off', '0.9375', '0.96875'], default='off')
     parser.add_argument('--release-blocks', type=int, default=128)
-    parser.add_argument('--backend', choices=['reference', 'structure', 'fixed'], default='reference')
+    parser.add_argument('--backend', choices=['reference', 'structure', 'fixed', 'scaled'],
+                        default='reference')
+    parser.add_argument('--mantissa-bits', type=int, default=10)
     parser.add_argument('--chunks', choices=['whole', 'fixed', 'random'], default='whole')
     args = parser.parse_args()
     if args.generate:
