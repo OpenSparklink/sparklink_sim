@@ -9,6 +9,8 @@ import math
 from collections import deque
 from dataclasses import dataclass
 
+from nearlink_sdr.phy.acquisition_rounding import folded_rounding_cost
+
 __all__ = ["CaptureCapacity", "CaptureCapacityAssumptions", "fine_work_floor"]
 
 
@@ -124,6 +126,7 @@ class CaptureCapacity:
         owned = a.queue_depth + 1
         storage = dict(
             two_banks=2 * 12202,
+            rounding_count_and_flags=2 * folded_rounding_cost()['extra_state_bits_upper'],
             two_histories=2 * a.history_samples * a.sample_bits,
             owned_windows=owned * a.window_samples * a.sample_bits,
             descriptors=owned * 256,

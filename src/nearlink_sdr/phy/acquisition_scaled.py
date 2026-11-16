@@ -13,8 +13,9 @@ import numpy as np
 
 from nearlink_sdr.phy.acquisition_bank import CorrelationPoint
 from nearlink_sdr.phy.acquisition_fixed import FixedBankFormat, FixedDifferentialBank
+from nearlink_sdr.phy.acquisition_rounding import folded_rounding_cost, folded_statistics
 
-__all__ = ['ScaledBankFormat', 'ScaledDifferentialBank', 'align_words']
+__all__ = ["ScaledBankFormat", "ScaledDifferentialBank", "align_words"]
 
 
 @dataclass(frozen=True)
@@ -100,12 +101,13 @@ class ScaledDifferentialBank(FixedDifferentialBank):
 
     @property
     def logical_storage_bits(self):
-        # Replace sliding energy with exponent tags. Max-tree/work/FIFO separate.
+        # Exponent tags and folded rounding flags/counts; other work/FIFO separate.
         return (
             super().logical_storage_bits
             - self.sps * self.widths["window_energy"]
             + self.sps * 7
             + self.k * self.sps * 8
+            + folded_rounding_cost(self.k)["extra_state_bits_upper"]
         )
 
     def quantize(self, samples):
@@ -181,16 +183,14 @@ class ScaledDifferentialBank(FixedDifferentialBank):
         ]
         # Bounded emulator batch; every row still uses only samples through its
         # own position. This does not imply parallel hardware or cheaper ports.
-        indices = self.sps + np.arange(len(r))[:, None] + self.sps*np.arange(self.k)
+        indices = self.sps + np.arange(len(r))[:, None] + self.sps * np.arange(self.k)
         a, b, exponents, p = [v[indices] for v in joined]
         common = np.max(np.where(p > 0, exponents, -96), axis=1)
         shifts = np.maximum(common[:, None] - exponents, 0)
-        ar, ai, pe = [align_words(v.ravel(), s.ravel()).reshape(v.shape)
-                      for v, s in ((a, shifts), (b, shifts), (p, 2*shifts))]
-        self.stats["alignment_discarded_terms"] += int(np.count_nonzero((p > 0) & (pe == 0)))
-        correlations_real = ar @ self._coefficient_real + ai @ self._coefficient_imag
-        correlations_imag = ai @ self._coefficient_real - ar @ self._coefficient_imag
-        energies = np.sum(pe.astype(np.uint64), axis=1, dtype=np.uint64)
+        correlations_real, correlations_imag, energies, discarded = folded_statistics(
+            a, b, p, shifts, self._coefficient_real, self._coefficient_imag
+        )
+        self.stats["alignment_discarded_terms"] += discarded
         points, w = [], self.widths
         for j in range(len(r)):
             cr, ci = int(correlations_real[j]), int(correlations_imag[j])
@@ -230,7 +230,7 @@ class ScaledDifferentialBank(FixedDifferentialBank):
     def worst_operations_per_sample(self):
         result = super().worst_operations_per_sample()
         result.update(
-            add=4 * self.k + 7 + self.k - 1,
+            add=4 * self.k + 7 + self.k - 1 + 3,
             compare=3 + self.k - 1,
             other=dict(
                 variable_rne_shifts=3 * self.k + 2,
@@ -240,6 +240,7 @@ class ScaledDifferentialBank(FixedDifferentialBank):
             ),
             data_reads=4 * self.k + 8,
             data_writes=11,
+            rounding=folded_rounding_cost(self.k),
             scope="continuous bank plus raw energy; per-position exponent alignment; no synthesis",
         )
         return result

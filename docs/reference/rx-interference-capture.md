@@ -251,3 +251,41 @@ PYTHONPATH=src python scripts/audit_capture_capacity.py \
 `capacity-*-final`保存请求逐条日志、调度日志、所有容量/历史失败、源文件及参数哈希。
 `capacity-*-audit`是早期诊断版本，虽然报告资源失败但退出0，保留原件；最终版本显式返回1，
 没有修改原始IQ、既有接收判定或资源预算。原整数预筛冻结复现的数值失败也继续保留。
+
+## 第四阶段B：合并定点舍入修正
+
+先改善结构中的宽进位需求，不改变接收选择或字格式。
+每项RNE可以写成算术右移的`floor+increment`，其中increment为0/1，由guard/sticky/奇偶位决定。
+系数仅0/±1且累加前不饱和，因此可以先累加floor，再将带符号的increment计入小计数器，
+最后分别修正复相关的实/虚部及能量。负数半LSB及超字宽移位也适用，不能按无符号截断处理。
+
+FT2的31项/位置，逐项对齐原有93次宽进位变为3次宽结果修正；
+另需至多152次小计数加法、7位有符号相关修正及5位无符号能量修正。
+移位器、guard/sticky、指数最大值、输入转换都保留，并非总加法次数93→3。
+按4 lane估算，新增round位、lane及最终计数状态上界188bit/银行；
+单银行12202→12390bit，两银行增加376bit。其他FIFO/流水/端口仍另计，不声称容量减少。
+`capture_capacity`的当前部分容量下界相应96054→96430bit，历史结果不覆盖。
+最坏细搜索图仍不满足18路/200MHz必要条件，不能把宽进位估算当综合或整链吞吐通过。
+
+独立有理数RNE检查全部8位输入及宽字半LSB/大移位；
+以冻结`3f2a477`模型SHA作为旧整数参考，逐位置比较C/E、命中位、查询和统计状态。
+固定干扰集2575264位置/81616查询，动态范围保留57600位置/2048查询，均零差异。
+旧原始/编码/未编码/弱真实派生回归及整段/固定/随机/Python/Rust对照，
+功能与相关点预算保持，捕获/整包和匹配轨迹不变；原4个指数下限事件仍保留。
+此结构改进的接收率增益和量化差值均为0，收益是宽进位图改变，尚未给出综合资源收益。
+
+开发中发现允许无符号系数字后NumPy dot会提升为float64，已保存节点源码/哈希及复现；
+校验后统一转为有符号整数，并补充输出dtype反例。原正常系数本来就是有符号，
+最终源码再次完成逐点及冻结整包复核，不将浮点节点混入整数门限。
+
+```sh
+PYTHONPATH=src python scripts/audit_folded_acquisition.py \
+  --inputs /path/to/rx-interference-capture/held-inputs \
+  --reference-source /path/to/rx-interference-capture/unfolded-reference-3f2a477.py \
+  --source-manifest /path/to/rx-interference-capture/STAGE3-SOURCE.json \
+  --output /tmp/folded-identity-new
+```
+
+旧参考按来源清单SHA核验后执行，不用当前实现自证。
+`folded-final-*`保存最终逐点、动态及整包结果/失败；`folded-unsigned-type-baseline.json`
+和`folded-pretype-guard.py`保留开发反例。该命令仅验整数等价，容量诊断命令仍预期退出1。

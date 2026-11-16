@@ -2,6 +2,7 @@ __all__ = [
     "acquisition_bank",
     "acquisition_fixed",
     "acquisition_flow",
+    "acquisition_rounding",
     "acquisition_scaled",
     "capture_capacity",
     "channel",
