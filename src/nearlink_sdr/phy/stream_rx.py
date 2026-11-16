@@ -90,6 +90,13 @@ class PSKStreamReceiver:
         self._closed = False
         self.peak_history_samples = 0
         self.sync_searches = 0
+        # Cumulative integers only; no per-window log or IQ accumulation.
+        self.capture_stats = dict(energy_checks=0, energy_triggers=0,
+                                  phase_hypotheses=0, scored_positions=0,
+                                  correlation_qualifying_searches=0, maxima_needing_future=0,
+                                  sync_candidates=0, header_crc_ok=0, header_crc_failed=0,
+                                  data_crc_ok=0, data_crc_failed=0, truncated_header=0,
+                                  truncated_data=0, invalid_metadata=0)
         self.max_frame_symbols = self._frame_bound()
         self._values = np.empty(self.max_frame_symbols, complex)
         self._centers = np.empty(self.max_frame_symbols)
@@ -244,15 +251,28 @@ class PSKStreamReceiver:
         return events
 
     def _search(self):
-        if len(self._filtered) < self.search_samples or not np.any(self._energy > self.threshold):
+        if len(self._filtered) < self.search_samples:
             return
+        self.capture_stats['energy_checks'] += 1
+        if not np.any(self._energy > self.threshold):
+            return
+        self.capture_stats['energy_triggers'] += 1
         z = self._filtered[-self.search_samples:]
         origin = self._origin+len(self._filtered)-len(z)
         self.sync_searches += 1
+        diagnostic = {}
         found = search_psk_sync(z, self.sps, self.reference, self.subdivisions,
-                                 min_start=max(1., self._skip_until-origin), lookahead=4*self.sps)
+                                 min_start=max(1., self._skip_until-origin), lookahead=4*self.sps,
+                                 diagnostics=diagnostic)
+        for key in ('phase_hypotheses', 'scored_positions'):
+            self.capture_stats[key] += diagnostic[key]
+        self.capture_stats['maxima_needing_future'] += int(
+            diagnostic['disposition'] == 'maximum_needs_future')
+        self.capture_stats['correlation_qualifying_searches'] += int(
+            diagnostic['best_score'] is not None and diagnostic['best_score'] >= .85)
         if found is None or found['score'] < .85:
             return
+        self.capture_stats['sync_candidates'] += 1
         start = origin+found['phase']+found['offset']*self.sps
         centers = start+np.arange(len(self.reference))*self.sps
         raw = np.array([_cubic(self._filtered, self._origin, t) for t in centers])
@@ -282,6 +302,8 @@ class PSKStreamReceiver:
             if a['count'] == self._head_required:
                 row = decode_psk_frame(self._values[:a['count']], self.profile,
                                        carrier_method=self.carrier_method)
+                self.capture_stats['header_crc_ok'] += int(row['header_crc'] is True)
+                self.capture_stats['header_crc_failed'] += int(row['header_crc'] is False)
                 if row['status'] != 'truncated_data':
                     events.append(self._event(row))
                     break
@@ -298,6 +320,12 @@ class PSKStreamReceiver:
     def _event(self, row, *, end_padding=False):
         a = self._active
         n = a['count']
+        self.capture_stats['data_crc_ok'] += int(row.get('data_crc') is True)
+        self.capture_stats['data_crc_failed'] += int(row.get('data_crc') is False)
+        if row['status'] in ('truncated_header', 'truncated_data'):
+            self.capture_stats[row['status']] += 1
+        self.capture_stats['invalid_metadata'] += int(
+            row['status'] in ('invalid_length', 'unsupported_mcs'))
         # Only metadata from the selected sync decides the next search interval.
         # CRC success never chooses a different phase, seed or sync answer.
         if a['end'] is None:

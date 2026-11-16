@@ -7,13 +7,17 @@ __all__ = ["search_psk_sync"]
 
 
 def search_psk_sync(filtered: np.ndarray, sps: int, reference: np.ndarray,
-                    subdivisions: int, *, min_start: float = 0, lookahead: int = 0):
+                    subdivisions: int, *, min_start: float = 0, lookahead: int = 0,
+                    diagnostics: dict | None = None):
     """Select one maximum normalized differential correlation, independent of CRC/data.
 
     Optional bounds let a stream exclude consumed syncs and delay edge candidates
     until interpolation/sync phase fitting has enough future samples.
     """
     z, ref = np.asarray(filtered), np.asarray(reference)
+    if diagnostics is not None:
+        diagnostics.update(phase_hypotheses=0, scored_positions=0, best_score=None,
+                           disposition="insufficient_history")
     if len(z) < 4:
         return None
     spline = CubicSpline(np.arange(len(z)), z) if subdivisions > 1 else None
@@ -32,6 +36,9 @@ def search_psk_sync(filtered: np.ndarray, sps: int, reference: np.ndarray,
         scores = abs(corr) / np.maximum(norm, 1e-30)
         starts = phase + np.arange(len(scores)) * sps
         legal = starts >= min_start
+        if diagnostics is not None:
+            diagnostics['phase_hypotheses'] += 1
+            diagnostics['scored_positions'] += int(legal.sum())
         if not legal.any():
             continue
         scores[~legal] = -np.inf
@@ -40,10 +47,15 @@ def search_psk_sync(filtered: np.ndarray, sps: int, reference: np.ndarray,
         if best is None or score > best['score']:
             best = dict(score=score, phase=phase, offset=offset,
                         delta=float(np.angle(corr[offset])), phase_symbols=y)
+    if diagnostics is not None:
+        diagnostics.update(best_score=None if best is None else best['score'],
+                           disposition="no_legal_window" if best is None else "ready")
     if best is not None and lookahead:
         # Readiness is a gate on the observed correlation maximum, not a reason
         # to replace it with an earlier, weaker phase that happens to fit now.
         start = best["phase"] + best["offset"] * sps
         if start + (len(ref) - 1) * sps + lookahead > len(z) - 1:
+            if diagnostics is not None:
+                diagnostics['disposition'] = 'maximum_needs_future'
             return None
     return best

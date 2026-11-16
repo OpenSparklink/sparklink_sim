@@ -84,6 +84,7 @@
 :maxdepth: 2
 
 rx-chain-hardening
+rx-capture-front
 psk-timing-tracking-results
 psk-noise-recovery-results
 /apidocs/nearlink_sdr/nearlink_sdr
