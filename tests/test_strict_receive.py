@@ -13,9 +13,10 @@ from tests.test_psk_field_layout import independent_wire
 from tests.test_rx_timing_audit import audit
 
 
-def transmitted(profile, *, bad_head=False, bad_data=False, empty=False, mcs=None, length=37):
+def transmitted(profile, *, bad_head=False, bad_data=False, empty=False, mcs=None, length=37,
+                payload_seed=65016):
     cfg = profile.config
-    payload = np.random.default_rng(65016).integers(0, 256, length, dtype=np.uint8).tobytes()
+    payload = np.random.default_rng(payload_seed).integers(0, 256, length, dtype=np.uint8).tobytes()
     data = np.unpackbits(np.frombuffer(payload, dtype=np.uint8), bitorder=profile.payload_bitorder)
     if profile.control_format == "B1":
         head = ControlInfoB1(0, 0, 0, cfg.mcs_index if mcs is None else mcs, length, 0, 0)

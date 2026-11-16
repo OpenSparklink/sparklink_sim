@@ -85,6 +85,7 @@
 
 rx-chain-hardening
 rx-capture-front
+rx-acquisition-hardware
 psk-timing-tracking-results
 psk-noise-recovery-results
 /apidocs/nearlink_sdr/nearlink_sdr

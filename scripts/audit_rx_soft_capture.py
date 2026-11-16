@@ -40,7 +40,7 @@ def diagnostic_bits(e, profile):
     y, _ = refine_psk_carrier(e["symbols"][start:end], cfg.mod_str, start)
     hard = demap_psk_field(y, cfg.mod_str, start, cfg.pilot_interval)[: f["coded_bits"]]
     llr = None
-    if profile.soft_payload:
+    if not cfg.is_uncoded and profile.soft_payload:
         info = f["soft_information"]
         llr = soft_demap_psk_field(
             y, cfg.mod_str, start, info["variance"], cfg.pilot_interval, method=info["method"]
