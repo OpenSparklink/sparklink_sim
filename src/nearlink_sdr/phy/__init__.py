@@ -28,6 +28,7 @@ __all__ = [
     "strict_rx",
     "sync_sequence",
     "timing",
+    "tone_notch",
     "tx_pipeline",
     "uhd_backend",
     "usrp",

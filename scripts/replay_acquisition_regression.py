@@ -153,6 +153,45 @@ def closed_gate_certificate(x, q, sps=4):
         internal_bank_state_at_eof='not evaluated; never presented as an equal-state result')
 
 
+def tone_closed_certificate(x, config):
+    """Independent sufficient no-activation proof, with conservative dot/sum margins."""
+    if config is None:
+        return dict(method='tone suppression disabled')
+    if (not np.isfinite(x).all() or np.any(abs(x.real) > 1e70) or
+            np.any(abs(x.imag) > 1e70)):
+        return None
+    from scipy.signal import lfilter
+    taps = rrc_filter(.4, 4)
+    values = lfilter(taps, [1.], np.r_[x, np.zeros(42, complex)])
+    delayed = np.r_[np.zeros(4, complex), values[:-4]]
+    power, old_power = abs(values)**2, abs(delayed)**2
+    indices = np.arange(0, len(values), config.block_samples)
+    dot = np.add.reduceat(values*delayed.conj(), indices)
+    a, b = np.add.reduceat(power, indices), np.add.reduceat(old_power, indices)
+    bound = 1024*config.block_samples*np.finfo(float).eps
+    product = a*b
+    numerator = abs(dot)**2
+    filter_error = (4*len(taps)*np.finfo(float).eps*sum(abs(taps))*
+                    max(np.max(abs(x.real), initial=0), np.max(abs(x.imag), initial=0)))
+    current_abs = np.add.reduceat(abs(values), indices)
+    previous_abs = np.add.reduceat(abs(delayed), indices)
+    e0_error = 2*filter_error*current_abs+config.block_samples*filter_error**2
+    e4_error = 2*filter_error*previous_abs+config.block_samples*filter_error**2
+    dot_error = filter_error*(current_abs+previous_abs)+config.block_samples*filter_error**2
+    upper_n = (abs(dot)+dot_error)**2+bound*product
+    lower_product = np.maximum(a-e0_error, 0)*np.maximum(b-e4_error, 0)
+    # Cauchy bounds dominate complex dot summation roundoff; uncertain blocks
+    # are conservatively treated as possibly qualifying, never proved inactive.
+    possible = (upper_n > 0) & (upper_n >=
+                                config.coherence_squared*lower_product*(1-bound))
+    if np.any(possible[1:] & possible[:-1]):
+        return None
+    return dict(method='no two consecutive possibly coherent blocks, includes42 EOF zeros',
+                blocks=len(indices), margin=bound, rrc_output_error_bound=filter_error,
+                max_coherence_squared=float(np.max(np.divide(numerator, product,
+                    out=np.zeros(len(product)), where=product > 0), initial=0)))
+
+
 def checked_manifest(root, relative):
     manifest = json.loads((root/'manifest.json').read_text())
     expected = manifest[str(relative)]
@@ -166,6 +205,9 @@ class Replay:
     def __init__(self, args):
         self.args, self.rows, self.stream_index = args, [], 0
         self.selection = json.loads(args.selection.read_text())
+        from nearlink_sdr.phy.tone_notch import ToneNotchConfig
+        radius = getattr(args, 'tone_radius', None)
+        self.tone_config = None if radius is None else ToneNotchConfig(radius=radius)
         self.bits = self.selection['hardware_input_bits']
         self.full_scale = self.selection['hardware_input_full_scale']
         if self.bits is None or self.selection['held_out_seen']:
@@ -184,6 +226,7 @@ class Replay:
         write(self.out/'frozen-plan.json', dict(groups=args.group, backend=args.backend,
             selection=str(args.selection.resolve()), selection_sha256=sha(args.selection),
             input_bits=self.bits, full_scale=self.full_scale, chunks=4096,
+            tone_radius=getattr(args, 'tone_radius', None),
             quiet_certificate='only zero-target quiet controls; numeric bank work always charged',
             sources=self.sources, driver_sha256=sha(Path(__file__))))
         (self.out/'driver.executed.py').write_bytes(Path(__file__).read_bytes())
@@ -194,6 +237,12 @@ class Replay:
     def receive(self, x, q, profile, *, quiet=False):
         self.stream_index += 1
         certificate = closed_gate_certificate(x, q, profile.config.sps) if quiet else None
+        if certificate is not None:
+            proof = tone_closed_certificate(x, self.tone_config)
+            if proof is None:
+                certificate = None
+            else:
+                certificate['tone_never_activates_proof'] = proof
         if certificate is not None:
             if self.args.backend == 'fixed':
                 bank = FixedDifferentialBank(profile.sync_symbols(), 4, 256,
@@ -209,6 +258,7 @@ class Replay:
                 operations_per_charged_sample=bank.worst_operations_per_sample())
         diagnostic_file = self.out/'evidence'/f'stream{self.stream_index:04}-numeric-changes.jsonl'
         rx = DiagnosticReceiver(profile, q, quiet_batching=False, diagnostic_file=diagnostic_file,
+            tone_notch=self.tone_config,
             correlation_backend=self.args.backend, correlation_input_bits=self.bits,
             correlation_input_full_scale=self.full_scale)
         events = []
@@ -220,6 +270,7 @@ class Replay:
             continuous_work_charged_samples=len(x), eof_virtual_padding_samples=rx.future_samples,
             capture_stats=rx.capture_stats, bank_stats=bank.stats,
             numeric_diagnostics=rx.numeric,
+            tone_stats=None if rx.tone_notch is None else rx.tone_notch.stats,
             numeric_change_log=str(diagnostic_file) if diagnostic_file.exists() else None,
             operations_per_charged_sample=bank.worst_operations_per_sample(),
             emulator_state_array_bytes=bank.state_array_bytes)
@@ -445,6 +496,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('evidence-root', 'dataset', 'quiet-dataset', 'selection', 'output'):
         parser.add_argument('--'+name, type=Path, required=True)
+    parser.add_argument('--tone-radius', type=float, choices=[.9375, .96875])
     parser.add_argument('--backend', choices=['structure', 'fixed'], default='fixed')
     parser.add_argument('--group', choices=['original', 'uncoded', 'held', 'coded', 'weak', 'negatives'],
                         action='append')

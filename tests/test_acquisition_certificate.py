@@ -50,3 +50,16 @@ def test_diagnostic_observer_is_bounded_and_does_not_feed_packet_truth(tmp_path)
     assert all(e['frame']['status'] == 'bad_data_crc' for e in low)
     assert tiny.numeric['budget_violations'] > 0
     assert (tmp_path/'tiny.jsonl').exists()
+
+
+def test_tone_certificate_cannot_skip_two_coherent_blocks(monkeypatch):
+    scripts = Path(__file__).parents[1]/'scripts'
+    monkeypatch.syspath_prepend(str(scripts))
+    from nearlink_sdr.phy.tone_notch import ToneNotchConfig
+    module = runpy.run_path(scripts/'replay_acquisition_regression.py')
+    certify = module['tone_closed_certificate']
+    rng = np.random.default_rng(370121)
+    noise = rng.normal(size=8192)+1j*rng.normal(size=8192)
+    assert certify(noise, ToneNotchConfig()) is not None
+    assert certify(np.zeros(8192), ToneNotchConfig()) is not None
+    assert certify(100*np.exp(.31j*np.arange(8192)), ToneNotchConfig()) is None

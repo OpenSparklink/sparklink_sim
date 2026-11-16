@@ -32,7 +32,7 @@ def profile(mcs=8, pid=0):
                                              whitening_seed=0x52, crc_seed=0x123456))
 
 
-def vector(kind, repeat, seed, positive):
+def vector(kind, repeat, seed, positive, *, tone_frequency=None, tone_phase=.281):
     """Analytic independent TX pulses; no receiver interpolation or expected-data feedback."""
     rng = np.random.default_rng(np.random.SeedSequence([seed, repeat, int(positive),
                                                         KINDS.index(kind)]))
@@ -61,7 +61,8 @@ def vector(kind, repeat, seed, positive):
     q = noise(2048)
     if kind == 'tone':
         tone_amplitude = (2., 10., 20., 50.)[repeat % 4]
-        x += tone_amplitude*np.exp(2j*np.pi*.037125*np.arange(n)+.281j)
+        frequency = .037125 if tone_frequency is None else tone_frequency
+        x += tone_amplitude*np.exp(2j*np.pi*frequency*np.arange(n)+1j*tone_phase)
     elif kind == 'wrong-sync':
         wrong, _ = transmitted(profile(8, 7), length=55, payload_seed=seed+repeat)
         signal, _, _, _ = iq_record(wrong, offset=.793, cfo=-17000)
@@ -82,8 +83,12 @@ def vector(kind, repeat, seed, positive):
                                 signal_window_power=signal_power,
                                 background_window_power=background_power,
                                 measured_sinr_db=10*np.log10(signal_power/background_power)))
-    return x, q, dict(kind=kind, positive=positive, repeat=repeat, mcs=mcs, length=length,
+    info = dict(kind=kind, positive=positive, repeat=repeat, mcs=mcs, length=length,
                      amplitude=amplitude, noise_complex_variance=sigma**2, packets=packets)
+    if kind == 'tone' and tone_frequency is not None:
+        info['tone_frequency_cycles_per_sample'] = float(tone_frequency)
+        info['tone_phase_radians'] = float(tone_phase)
+    return x, q, info
 
 
 KINDS = ('zero', 'awgn', 'tone', 'wrong-sync', 'burst', 'dense')

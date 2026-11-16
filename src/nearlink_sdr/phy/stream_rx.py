@@ -63,10 +63,16 @@ class PSKStreamReceiver:
                  timing_backend: str = "auto", defer_quiet_fir: bool = True,
                  integer_screen_backend: str = 'auto', adaptive_quiet: bool = True,
                  correlation_backend: str = 'reference', correlation_input_full_scale: float = 1024.,
-                 correlation_input_bits: int = 16):
+                 correlation_input_bits: int = 16, tone_notch=None):
         if not isinstance(profile, PSKReceiveProfile):
             raise ValueError("Explicit PSKReceiveProfile required")
         self.profile = replace(profile, config=replace(profile.config))
+        self.tone_notch = None
+        if tone_notch is not None:
+            from nearlink_sdr.phy.tone_notch import CausalToneNotch, ToneNotchConfig
+            if not isinstance(tone_notch, ToneNotchConfig) or quiet_batching:
+                raise ValueError("Tone notch requires config and quiet_batching=False")
+            self.tone_notch = CausalToneNotch(tone_notch, profile.config.sps)
         if timing_backend not in ('auto', 'python', 'rust'):
             raise ValueError("timing_backend must be auto, python or rust")
         if timing_backend == 'rust' and _RustStreamTiming is None:
@@ -142,6 +148,19 @@ class PSKStreamReceiver:
                 self.reference, self.sps, self.search_samples, self.capture_config.integer_screen,
                 origin=-self.delay, input_full_scale=correlation_input_full_scale, **options)
             self.integer_screen_backend = correlation_backend
+        self.tone_correlation_bank = None
+        self._tone_filtered = np.empty(0, complex)
+        if self.tone_notch is not None:
+            if not self.capture_config.integer_screen or self.subdivisions == 1:
+                raise ValueError('Tone fallback requires an enabled integer screen and fine search')
+            from nearlink_sdr.phy.acquisition_bank import DifferentialBank
+            tone_bank_class, tone_options = DifferentialBank, {}
+            if correlation_backend == 'fixed':
+                tone_bank_class = FixedDifferentialBank
+                tone_options['format'] = FixedBankFormat(correlation_input_bits)
+            self.tone_correlation_bank = tone_bank_class(
+                self.reference, self.sps, self.search_samples, self.capture_config.integer_screen,
+                origin=-self.delay, input_full_scale=correlation_input_full_scale, **tone_options)
         self.future_samples = self.delay+2
         self._fir_state = np.zeros(len(self.h)-1, dtype=complex)
         self._quiet_tail = None
@@ -182,6 +201,8 @@ class PSKStreamReceiver:
                                   sync_candidates=0, header_crc_ok=0, header_crc_failed=0,
                                   data_crc_ok=0, data_crc_failed=0, truncated_header=0,
                                   truncated_data=0, invalid_metadata=0)
+        if self.tone_notch is not None:
+            self.capture_stats.update(tone_fallback_searches=0, tone_candidates=0)
         self.max_frame_symbols = self._frame_bound()
         self._values = np.empty(self.max_frame_symbols, complex)
         self._centers = np.empty(self.max_frame_symbols)
@@ -245,7 +266,8 @@ class PSKStreamReceiver:
     def buffered_samples(self):
         if self._quiet_tail is not None:
             return len(self._quiet_tail)+len(self._pending)
-        return len(self._filtered)+len(self._pending)+len(self._fir_state)+len(self._energy_state)
+        return (len(self._filtered)+len(self._pending)+len(self._fir_state)+
+                len(self._energy_state)+len(self._tone_filtered))
 
     @property
     def buffered_symbols(self):
@@ -423,6 +445,10 @@ class PSKStreamReceiver:
         if not np.isfinite(block).all():
             raise ValueError("Need finite IQ samples")
         filtered, self._fir_state = _fir_block(self.h, block, self._fir_state)
+        if self.tone_notch is not None:
+            tone = self.tone_notch.advance(filtered)
+            self.tone_correlation_bank.advance(tone)
+            self._tone_filtered = np.concatenate((self._tone_filtered, tone))
         if self.correlation_bank is not None:
             self.correlation_bank.advance(filtered)
         energy, self._energy_state = _fir_block(self._box, abs(block)**2, self._energy_state)
@@ -436,14 +462,40 @@ class PSKStreamReceiver:
         if self._active is None:
             self._search()
         if self._active is not None:
+            raw = self._filtered
+            if self._active.get('tone_path'):
+                self._filtered = self._tone_filtered
             events.extend(self._track())
+            self._filtered = raw
         if len(self._filtered) > self.history_limit:
             self._filtered = self._filtered[-self.history_limit:]
+        self._tone_filtered = self._tone_filtered[-self.history_limit:]
         self._origin = self._processed-self.delay-len(self._filtered)
         self.peak_history_samples = max(self.peak_history_samples, self.buffered_samples)
         return events
 
     def _search(self):
+        rejected = self.capture_stats['integer_screen_rejections']
+        self._search_path()
+        if (self._active is not None or self.tone_notch is None or not self.tone_notch.active or
+                self.capture_stats['integer_screen_rejections'] == rejected):
+            return
+        # Raw path has strict priority. A CRC result can never select a path or retry.
+        raw, bank, backend = self._filtered, self.correlation_bank, self.integer_screen_backend
+        self._filtered, self.correlation_bank = self._tone_filtered, self.tone_correlation_bank
+        self.integer_screen_backend = 'tone-'+self.correlation_backend
+        self.capture_stats['tone_fallback_searches'] += 1
+        try:
+            self._search_path()
+            if self._active is not None:
+                self._active['tone_path'] = True
+                self._active['screen_backend'] = self.integer_screen_backend
+                self.capture_stats['tone_candidates'] += 1
+        finally:
+            self._filtered, self.correlation_bank = raw, bank
+            self.integer_screen_backend = backend
+
+    def _search_path(self):
         if len(self._filtered) < self.search_samples:
             return
         self.capture_stats['energy_checks'] += 1
@@ -581,12 +633,14 @@ class PSKStreamReceiver:
                          self._values[:len(self.reference)]-self.reference)**2))),
                      interpolation="four-point local cubic Lagrange after causal RRC",
                      timing_backend=self.timing_backend,
-                     integer_screen_backend=self.integer_screen_backend,
+                     integer_screen_backend=a.get('screen_backend', self.integer_screen_backend),
                      cfo_hz=a['slope']*self.profile.config.symbol_rate_mhz*1e6/(2*np.pi),
                      emitted_after_samples=min(self._processed, self.input_samples),
                      used_end_padding=end_padding or self._processed > self.input_samples,
                      symbols=self._values[:n].copy(), symbol_centers_raw=self._centers[:n].copy(),
                      timing_rate_ppm=self._rates[:n].copy(), timing_detector_error=self._errors[:n].copy(),
                      timing_loop=a['loop'].diagnostics(len(self.reference), self._rates[:n]))
+        if self.tone_notch is not None:
+            event['acquisition_path'] = 'tone' if a.get('tone_path') else 'raw'
         self._active = None
         return event
