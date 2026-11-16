@@ -3,6 +3,7 @@ __all__ = [
     "acquisition_fixed",
     "acquisition_flow",
     "acquisition_scaled",
+    "capture_capacity",
     "channel",
     "control_info",
     "data_link",
