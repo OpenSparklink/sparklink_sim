@@ -12,7 +12,7 @@ from scipy.signal import lfilter
 
 from nearlink_sdr.phy.psk import rrc_filter
 from nearlink_sdr.phy.psk_fields import psk_field_layout
-from nearlink_sdr.phy.psk_sync import search_psk_sync
+from nearlink_sdr.phy.psk_sync import PSKCaptureConfig, search_psk_sync
 from nearlink_sdr.phy.rx_pipeline import payload_coded_length
 from nearlink_sdr.phy.strict_rx import PSKReceiveProfile, decode_psk_frame
 from nearlink_sdr.phy.timing import GardnerPIState, PSKTimingConfig
@@ -41,7 +41,8 @@ class PSKStreamReceiver:
     def __init__(self, profile: PSKReceiveProfile, quiet: np.ndarray, *,
                  timing_subdivisions: int = 8, energy_window_symbols: int = 8,
                  timing_config: PSKTimingConfig | None = None,
-                 carrier_method: str = "coherent", quiet_batching: bool = True):
+                 carrier_method: str = "coherent", quiet_batching: bool = True,
+                 capture_config: PSKCaptureConfig | None = None):
         if not isinstance(profile, PSKReceiveProfile):
             raise ValueError("Explicit PSKReceiveProfile required")
         self.profile = replace(profile, config=replace(profile.config))
@@ -63,6 +64,9 @@ class PSKStreamReceiver:
         self.quiet_batching = quiet_batching
         self.quiet_fast_path_samples = 0
         self.carrier_method = carrier_method
+        self.capture_config = capture_config or PSKCaptureConfig()
+        if not isinstance(self.capture_config, PSKCaptureConfig):
+            raise ValueError("Need PSKCaptureConfig")
         self.reference = profile.sync_symbols()
         self.h = rrc_filter(.4, self.sps)
         self.delay = (len(self.h)-1)//2
@@ -78,7 +82,8 @@ class PSKStreamReceiver:
                 or not np.isfinite(q).all()):
             raise ValueError("Need finite quiet calibration of65..2**22 samples fitting energy window")
         self._box = np.ones(window)/window
-        self.threshold = 4*float(np.quantile(np.convolve(abs(q)**2, self._box, "same"), .999))
+        self.threshold = self.capture_config.energy_multiplier*float(np.quantile(
+            np.convolve(abs(q)**2, self._box, "same"), .999))
         self._energy_state = np.zeros(window-1)
         self._energy = np.empty(0)
         self._filtered = np.empty(0, dtype=complex)
@@ -93,6 +98,8 @@ class PSKStreamReceiver:
         # Cumulative integers only; no per-window log or IQ accumulation.
         self.capture_stats = dict(energy_checks=0, energy_triggers=0,
                                   phase_hypotheses=0, scored_positions=0,
+                                  integer_phase_hypotheses=0, integer_scored_positions=0,
+                                  integer_screen_rejections=0, full_searches=0,
                                   correlation_qualifying_searches=0, maxima_needing_future=0,
                                   sync_candidates=0, header_crc_ok=0, header_crc_failed=0,
                                   data_crc_ok=0, data_crc_failed=0, truncated_header=0,
@@ -263,9 +270,14 @@ class PSKStreamReceiver:
         diagnostic = {}
         found = search_psk_sync(z, self.sps, self.reference, self.subdivisions,
                                  min_start=max(1., self._skip_until-origin), lookahead=4*self.sps,
-                                 diagnostics=diagnostic)
-        for key in ('phase_hypotheses', 'scored_positions'):
+                                 diagnostics=diagnostic,
+                                 integer_screen=self.capture_config.integer_screen)
+        for key in ('phase_hypotheses', 'scored_positions', 'integer_phase_hypotheses',
+                    'integer_scored_positions'):
             self.capture_stats[key] += diagnostic[key]
+        self.capture_stats['integer_screen_rejections'] += int(
+            diagnostic['disposition'] == 'integer_screen_rejected')
+        self.capture_stats['full_searches'] += int(diagnostic['phase_hypotheses'] > 0)
         self.capture_stats['maxima_needing_future'] += int(
             diagnostic['disposition'] == 'maximum_needs_future')
         self.capture_stats['correlation_qualifying_searches'] += int(

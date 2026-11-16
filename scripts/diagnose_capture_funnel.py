@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 
 from nearlink_sdr.common.prbs import prbs9
+from nearlink_sdr.phy.psk_sync import PSKCaptureConfig
 from nearlink_sdr.phy.stream_rx import PSKStreamReceiver
 from nearlink_sdr.phy.strict_rx import PSKReceiveProfile
 from nearlink_sdr.phy.tx_pipeline import TxConfig
@@ -83,7 +84,7 @@ def run(args):
         with np.load(path) as data:
             x, q = data["iq"], data["quiet"]
         begin = time.perf_counter()
-        rx = PSKStreamReceiver(profile, q)
+        rx = PSKStreamReceiver(profile, q, capture_config=PSKCaptureConfig.legacy())
         events = rx.feed(x) + rx.finish()
         seconds = time.perf_counter() - begin
         old = module.PSKStreamReceiver(profile, q)
