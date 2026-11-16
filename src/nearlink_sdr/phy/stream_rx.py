@@ -61,7 +61,8 @@ class PSKStreamReceiver:
                  carrier_method: str = "coherent", quiet_batching: bool = True,
                  capture_config: PSKCaptureConfig | None = None,
                  timing_backend: str = "auto", defer_quiet_fir: bool = True,
-                 integer_screen_backend: str = 'auto', adaptive_quiet: bool = True):
+                 integer_screen_backend: str = 'auto', adaptive_quiet: bool = True,
+                 correlation_backend: str = 'reference', correlation_input_full_scale: float = 1024.):
         if not isinstance(profile, PSKReceiveProfile):
             raise ValueError("Explicit PSKReceiveProfile required")
         self.profile = replace(profile, config=replace(profile.config))
@@ -120,6 +121,18 @@ class PSKStreamReceiver:
         self.quiet_prefix_jumps = self.quiet_probe_vetoes = 0
         self.search_samples = max(64, len(self.reference)+32)*self.sps
         self.history_limit = self.search_samples + 4*self.quantum
+        if correlation_backend not in ('reference', 'structure'):
+            raise ValueError('correlation_backend must be reference or structure')
+        self.correlation_backend = correlation_backend
+        self.correlation_bank = None
+        if correlation_backend != 'reference':
+            from nearlink_sdr.phy.acquisition_bank import DifferentialBank
+            if quiet_batching or self.subdivisions == 1 or not self.capture_config.integer_screen:
+                raise ValueError('Structure bank requires quiet_batching=False and integer screen')
+            self.correlation_bank = DifferentialBank(
+                self.reference, self.sps, self.search_samples, self.capture_config.integer_screen,
+                origin=-self.delay, input_full_scale=correlation_input_full_scale)
+            self.integer_screen_backend = correlation_backend
         self.future_samples = self.delay+2
         self._fir_state = np.zeros(len(self.h)-1, dtype=complex)
         self._quiet_tail = None
@@ -401,6 +414,8 @@ class PSKStreamReceiver:
         if not np.isfinite(block).all():
             raise ValueError("Need finite IQ samples")
         filtered, self._fir_state = _fir_block(self.h, block, self._fir_state)
+        if self.correlation_bank is not None:
+            self.correlation_bank.advance(filtered)
         energy, self._energy_state = _fir_block(self._box, abs(block)**2, self._energy_state)
         self._filtered = np.concatenate((self._filtered, filtered))
         self._energy = np.concatenate((self._energy, energy))[-self.search_samples:]
@@ -431,12 +446,32 @@ class PSKStreamReceiver:
         origin = self._origin+len(self._filtered)-len(z)
         self.sync_searches += 1
         diagnostic = {}
-        found = search_psk_sync(z, self.sps, self.reference, self.subdivisions,
-                                 min_start=max(1., self._skip_until-origin), lookahead=4*self.sps,
-                                 diagnostics=diagnostic,
-                                 integer_screen=self.capture_config.integer_screen,
-                                 integer_backend=('python' if self.integer_screen_backend == 'disabled'
-                                                  else self.integer_screen_backend))
+        lower = max(1., self._skip_until-origin)
+        enabled, queried = True, 0
+        if self.correlation_bank is not None:
+            enabled, queried = self.correlation_bank.gate(
+                origin+lower, origin+len(z)-1-(len(self.reference)-1)*self.sps)
+        if enabled:
+            found = search_psk_sync(z, self.sps, self.reference, self.subdivisions,
+                                     min_start=lower, lookahead=4*self.sps,
+                                     diagnostics=diagnostic,
+                                     integer_screen=(self.capture_config.integer_screen
+                                                     if self.correlation_bank is None else None),
+                                     integer_backend=('python' if self.correlation_bank is not None or
+                                                      self.integer_screen_backend == 'disabled'
+                                                      else self.integer_screen_backend))
+        else:
+            found = None
+            diagnostic = dict.fromkeys(('phase_hypotheses', 'scored_positions',
+                'computed_phase_hypotheses', 'reused_phase_hypotheses', 'computed_scored_positions',
+                'integer_evaluations', 'integer_evaluated_positions', 'integer_native_screens',
+                'integer_reference_fallbacks'), 0)
+            diagnostic.update(best_score=None, disposition='integer_screen_rejected')
+        if self.correlation_bank is not None:
+            diagnostic.update(integer_phase_hypotheses=self.sps,
+                              integer_scored_positions=queried, integer_evaluations=0,
+                              integer_evaluated_positions=0, integer_native_screens=0,
+                              integer_reference_fallbacks=0)
         for key in ('phase_hypotheses', 'scored_positions', 'integer_phase_hypotheses',
                     'integer_scored_positions', 'computed_phase_hypotheses',
                     'reused_phase_hypotheses', 'computed_scored_positions', 'integer_evaluations',

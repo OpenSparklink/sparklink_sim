@@ -1,4 +1,5 @@
 __all__ = [
+    "acquisition_bank",
     "channel",
     "control_info",
     "data_link",

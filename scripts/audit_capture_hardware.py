@@ -168,7 +168,11 @@ def evaluate(inputs, output, options=None):
                   ('symbols', 'symbol_centers_raw', 'timing_rate_ppm', 'timing_detector_error')}
         np.savez_compressed(output/'evidence'/(meta['id']+'.npz'), **traces)
         rows.append(dict(input=meta, **score(events, meta), stats=rx.capture_stats,
-                         peak_history_samples=rx.peak_history_samples))
+                         peak_history_samples=rx.peak_history_samples,
+                         correlation_bank=None if rx.correlation_bank is None else dict(
+                             stats=rx.correlation_bank.stats,
+                             state_array_bytes=rx.correlation_bank.state_array_bytes,
+                             operations=rx.correlation_bank.worst_operations_per_sample())))
         write(output/'results.json', rows)
     summary = dict(inputs=len(rows), samples=sum(r['input']['samples'] for r in rows),
                    known_packets=sum(r['known_packets'] for r in rows),
@@ -191,10 +195,12 @@ if __name__ == '__main__':
     parser.add_argument('--generate', choices=['development', 'held-out'])
     parser.add_argument('--inputs', type=Path)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--correlation-backend', choices=['reference', 'structure'],
+                        default='reference')
     args = parser.parse_args()
     if args.generate:
         generate(args.output, args.generate)
     elif args.inputs:
-        evaluate(args.inputs, args.output)
+        evaluate(args.inputs, args.output, dict(correlation_backend=args.correlation_backend))
     else:
         parser.error('Need --generate or --inputs')
