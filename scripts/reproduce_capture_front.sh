@@ -12,7 +12,7 @@ new_output=$4
 mkdir "$new_output"
 export PYTHONPATH=src MPLCONFIGDIR=${MPLCONFIGDIR:-/tmp/rx-mpl} UV_CACHE_DIR=${UV_CACHE_DIR:-/tmp/rx-uv}
 run_python() { uv run --frozen --no-sync python "$@"; }
-run_python scripts/evaluate_capture_front.py --split development --inputs "$baseline_root/rx-capture-front/development-screened/inputs" --output "$new_output/development-screened"
+run_python scripts/evaluate_capture_front.py --split development --inputs "$baseline_root/rx-capture-front/development-screened" --output "$new_output/development-screened"
 run_python scripts/evaluate_capture_front.py --split held-out --inputs "$baseline_root/rx-capture-front/held-out/inputs" --check-chunks --output "$new_output/held-out"
 run_python scripts/audit_capture_negatives.py --output "$new_output/independent-negatives"
 run_python scripts/rx_stream_frozen_replay.py --replay "$baseline_root/rx-chain-hardening/parser-replay" --original "$baseline_root/rx-timing-tracking/final" --dataset "$iq_dataset" --quiet-dataset "$quiet_dataset" --output "$new_output/original-frozen"

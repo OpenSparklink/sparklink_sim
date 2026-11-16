@@ -107,3 +107,36 @@ RX_RUST_PYTHON=/tmp/rx-rust-env/bin/python bash scripts/reproduce_capture_front.
 
 阶段2全量Python2967通过、6明确跳过，覆盖率大于90%；Rust+SM3全量2984通过。
 新默认改善捕获，不使未编码低SNR载荷或16MS/s目标自动通过；下一阶段依据新的profile优化。
+
+## 阶段3：短块一维FIR专用路径
+
+实际profile（`pre-fir-profile-corrected`）中，13368次通用`lfilter`累计耗时约占被profile总时间52%，
+主要包括轴处理、dtype/分母处理；这不是未插桩吞吐。流式入口改为相同卷积和转置延迟状态更新，
+短块仍按原32样本量子处理，没有合并不同同步搜索时刻。9组实/复输入、实/复状态、1/32/81抽头、
+任意短长块与SciPy输出及最终状态逐数组完全相同；实输入/复状态反例在修复前失败，日志保留。
+
+正式基准交替顺序、1次预热后5次测量，初始化和tracemalloc单独测量，计时不带profile，
+同一解释器内仅替换接收器模块（其余模块共享并冻结哈希），固定真实开发IQ `mode-057/065 rx-00`：
+
+| 环境 | 旧短块FIR MS/s（057 / 065） | 新FIR MS/s（057 / 065） |
+|---|---|---|
+| Python | 2.704 / 2.878 | 4.177 / 4.518 |
+| Rust Polar/CRC扩展 | 2.764 / 2.958 | 4.341 / 4.779 |
+
+判定、交付时点、完整轨迹相同；状态452776字节、历史峰495样本相同。
+tracemalloc峰约33.56MB，主要包含初始化处理调用者静默参考的临时数组；两路径差异不超过28字节。
+进程累计RSS另存，包含输入及两方法，不能用于声称单方法RSS下降；tracemalloc不覆盖Rust原生分配。
+完整一条命令已实际跑通，输出 `fir-reproduction-final`，并与阶段2逐输入/全部轨迹比较：
+364旧输入、96新保留、220未编码、96编码的判定和轨迹完全一致；独立负例和双环境也通过。
+复现脚本开发集索引路径首次整体验证发现错误，原失败日志保留，已修复后完整重跑。
+
+本阶段全量Python2976通过、6明确跳过，Rust+SM3 2993通过，覆盖率大于90%。
+基准仍未达16MS/s；它是稀疏真实捕获的离线处理速度，不代表持续干扰/满占空比或FPGA实时能力。
+
+```sh
+PYTHONPATH=src UV_CACHE_DIR=/tmp/rx-uv uv run --frozen --no-sync python \
+  scripts/benchmark_capture_front.py --baseline-ref bf13fbc \
+  --original "$B/rx-timing-tracking/final" --dataset "$D" \
+  --sample-id series-02/mode-057/rx-00 --sample-id series-02/mode-065/rx-00 \
+  --output /tmp/capture-fir-benchmark
+```

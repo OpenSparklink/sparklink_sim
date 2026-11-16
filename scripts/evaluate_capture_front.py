@@ -110,7 +110,10 @@ def run(args):
     out.mkdir(parents=True, exist_ok=False)
     (out / "evidence").mkdir()
     if args.inputs:
-        cases = json.loads((args.inputs / "plan.json").read_text())["inputs"]
+        index = args.inputs / "plan.json"
+        if not index.exists():
+            index = args.inputs / "frozen-plan.json"
+        cases = json.loads(index.read_text())["inputs"]
     else:
         cases = generate(out / "inputs", args.split)
     configs = {"legacy": PSKCaptureConfig.legacy(), "selected": PSKCaptureConfig()}

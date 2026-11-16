@@ -8,7 +8,6 @@ Caller chunk boundaries never determine internal processing quanta.
 from dataclasses import replace
 
 import numpy as np
-from scipy.signal import lfilter
 
 from nearlink_sdr.phy.psk import rrc_filter
 from nearlink_sdr.phy.psk_fields import psk_field_layout
@@ -18,6 +17,19 @@ from nearlink_sdr.phy.strict_rx import PSKReceiveProfile, decode_psk_frame
 from nearlink_sdr.phy.timing import GardnerPIState, PSKTimingConfig
 
 __all__ = ["PSKStreamReceiver"]
+
+
+def _fir_block(taps, block, state):
+    """One-dimensional FIR, a[0]=1, with transposed delay state.
+
+    This is SciPy's FIR convolution/state update without generic axis, dtype or
+    denominator handling on every short block. All callers own validated 1D
+    float64/complex128 arrays and a nonempty block. Output/state retain the same
+    arithmetic and finite memory, including blocks shorter than the filter.
+    """
+    full = np.convolve(taps, np.asarray(block, dtype=state.dtype))
+    full[:len(state)] += state
+    return full[:len(block)], full[len(block):]
 
 
 def _cubic(values, origin, position):
@@ -216,7 +228,7 @@ class PSKStreamReceiver:
             return False
         if not np.isfinite(block).all():
             raise ValueError("Need finite IQ samples")
-        energy, _ = lfilter(self._box, [1.], abs(block)**2, zi=self._energy_state)
+        energy, _ = _fir_block(self._box, abs(block)**2, self._energy_state)
         if np.any(energy > self.threshold*(1-1e-12)):
             return False
         warmup = max(len(self._fir_state), len(self._energy_state))
@@ -240,9 +252,8 @@ class PSKStreamReceiver:
     def _process(self, block):
         if not np.isfinite(block).all():
             raise ValueError("Need finite IQ samples")
-        filtered, self._fir_state = lfilter(self.h, [1.], block, zi=self._fir_state)
-        energy, self._energy_state = lfilter(self._box, [1.], abs(block)**2,
-                                             zi=self._energy_state)
+        filtered, self._fir_state = _fir_block(self.h, block, self._fir_state)
+        energy, self._energy_state = _fir_block(self._box, abs(block)**2, self._energy_state)
         self._filtered = np.r_[self._filtered, filtered]
         self._energy = np.r_[self._energy, energy][-self.search_samples:]
         self._processed += len(block)
