@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import importlib.metadata
 import json
+import os
 import platform
 from collections import Counter
 from pathlib import Path
@@ -17,6 +18,14 @@ def read(p):
 
 def lines(p):
     return [json.loads(v) for v in p.read_text().splitlines()]
+
+
+def manifest_hashes(root, output):
+    """Index manifests relative to the evidence root, including external output trees."""
+    return {
+        os.path.relpath(p.resolve(), root.resolve()): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in sorted(output.rglob("manifest.json"))
+    }
 
 
 def run(root, capture_root=None):
@@ -118,10 +127,7 @@ def run(root, capture_root=None):
     (new / "acceptance-associations.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))
     assert not regressions
-    manifests = {
-        str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
-        for p in new.rglob("manifest.json")
-    }
+    manifests = manifest_hashes(root, new)
     (new / "stage2-evidence-manifests.json").write_text(json.dumps(manifests, indent=2) + "\n")
     import matplotlib
 
