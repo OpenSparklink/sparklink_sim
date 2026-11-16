@@ -254,22 +254,37 @@ class PSKDemodulator:
 
     def demap_symbols(self, symbols: np.ndarray, start_symbol_index: int = 0) -> np.ndarray:
         """判决已滤波符号；奇偶参考帧起点，不能在字段/导频处重新计数。"""
-        # 反旋转 + 最近邻判决
+        # Bound the distance workspace independently of frame/input length.
+        # Keep actual absolute distances and sorted-label argmin tie behavior.
+        symbols = np.asarray(symbols)
         bps = self._bits_per_symbol
-        bits = []
-        for i, sym in enumerate(symbols):
-            # 反相位旋转
-            if self._rotation is not None and ((i + start_symbol_index) % 2 == 1):
-                sym = sym * np.conj(self._rotation)
-
-            # 最近邻判决
-            distances = np.abs(sym - self._constellation_vals)
-            idx = self._constellation_keys[np.argmin(distances)]
-
-            # 解码比特
-            bits.extend((idx >> b) & 1 for b in range(bps - 1, -1, -1))
-
-        return np.array(bits, dtype=int)
+        bits = np.empty(len(symbols)*bps, dtype=int)
+        labels = np.asarray(self._constellation_keys)
+        shifts = np.arange(bps-1, -1, -1)
+        for start in range(0, len(symbols), 128):
+            y = np.array(symbols[start:start+128], dtype=complex, copy=True)
+            if self._rotation is not None:
+                odd = (np.arange(start, start+len(y)) + start_symbol_index) % 2 == 1
+                y[odd] *= np.conj(self._rotation)
+            distances = abs(y[:, None]-self._constellation_vals)
+            nearest = np.argmin(distances, axis=1)
+            rows = np.arange(len(y))
+            best = distances[rows, nearest].copy()
+            distances[rows, nearest] = np.inf
+            second = distances.min(axis=1)
+            # Batched complex arithmetic can differ by a few ulps on exact
+            # boundaries. Preserve the original scalar tie/rounding behavior;
+            # this local numerical check never consults CRC or expected bits.
+            ambiguous = second-best <= 32*np.finfo(float).eps*np.maximum(1., best)
+            for i in np.flatnonzero(ambiguous):
+                value = symbols[start+i]
+                if self._rotation is not None and (start+i+start_symbol_index) % 2 == 1:
+                    value = value*np.conj(self._rotation)
+                nearest[i] = np.argmin(abs(value-self._constellation_vals))
+            selected = labels[nearest]
+            bits[start*bps:(start+len(y))*bps] = (
+                (selected[:, None] >> shifts) & 1).reshape(-1)
+        return bits
 
 
 def acquire_psk_capture(signal: np.ndarray, quiet: np.ndarray, sample_hz: float,

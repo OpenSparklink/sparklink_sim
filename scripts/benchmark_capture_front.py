@@ -17,6 +17,7 @@ import numpy as np
 from profile_rx_stream import load, number
 
 from nearlink_sdr.common.polar import _HAS_RUST_ACCEL
+from nearlink_sdr.phy import psk_fields
 from nearlink_sdr.phy.stream_rx import PSKStreamReceiver
 from nearlink_sdr.phy.strict_rx import PSKReceiveProfile
 
@@ -58,11 +59,24 @@ def run(args):
         exec(compile(sync_source, str(path), "exec"), module.__dict__)
         namespace["search_psk_sync"] = module.search_psk_sync
     arms = {"baseline": namespace["PSKStreamReceiver"], "candidate": PSKStreamReceiver}
+    current_demapper = psk_fields.PSKDemodulator
+    demappers = dict.fromkeys(arms, current_demapper)
+    if args.baseline_demapper:
+        psk_source = subprocess.check_output(
+            ["git", "show", args.baseline_ref + ":src/nearlink_sdr/phy/psk.py"]
+        )
+        path = out / "baseline-psk.py"
+        path.write_bytes(psk_source)
+        module = types.ModuleType("capture_benchmark_baseline_psk")
+        sys.modules[module.__name__] = module
+        exec(compile(psk_source, str(path), "exec"), module.__dict__)
+        demappers["baseline"] = module.PSKDemodulator
     plan = dict(
         baseline_receiver_ref=args.baseline_ref,
         baseline_receiver_sha256=hashlib.sha256(source).hexdigest(),
         shared_dependencies="All modules except stream_rx and optional psk_sync use current source",
         baseline_sync=args.baseline_sync,
+        baseline_demapper=args.baseline_demapper,
         commit=subprocess.check_output(["git", "rev-parse", "HEAD"]).decode().strip(),
         sources={
             str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in Path("src").rglob("*.py")
@@ -108,6 +122,7 @@ def run(args):
         rows, reference, traces, costs = [], None, {}, {}
         for repeat in range(args.repeats + 1):
             for name in list(arms) if repeat % 2 == 0 else list(reversed(arms)):
+                psk_fields.PSKDemodulator = demappers[name]
                 begin = time.perf_counter()
                 rx = arms[name](profile, q)
                 init = time.perf_counter() - begin
@@ -150,13 +165,20 @@ def run(args):
                             ).tolist(),
                         )
                     )
-        memory = {}
+        memory, stream_memory = {}, {}
         for name, cls in arms.items():
+            psk_fields.PSKDemodulator = demappers[name]
             tracemalloc.start()
             rx = cls(profile, q)
             rx.feed(x)
             rx.finish()
             memory[name] = tracemalloc.get_traced_memory()[1]
+            tracemalloc.stop()
+            rx = cls(profile, q)
+            tracemalloc.start()
+            rx.feed(x)
+            rx.finish()
+            stream_memory[name] = tracemalloc.get_traced_memory()[1]
             tracemalloc.stop()
         np.savez_compressed(out / (ident.replace("/", "-") + "-traces.npz"), **traces)
         summary = {
@@ -178,6 +200,7 @@ def run(args):
             measurements=rows,
             costs=costs,
             python_numpy_peak_bytes=memory,
+            python_numpy_stream_peak_bytes=stream_memory,
             frames_and_availability_equal=True,
             trajectories_within_tolerance=True,
         )
@@ -195,6 +218,7 @@ def run(args):
     for name, value in [("frozen-plan.json", plan), ("results.json", results)]:
         (out / name).write_text(json.dumps(value, indent=2) + "\n")
     (out / "driver.executed.py").write_bytes(Path(__file__).read_bytes())
+    psk_fields.PSKDemodulator = current_demapper
     (out / "manifest.json").write_text(
         json.dumps(
             {
@@ -214,6 +238,7 @@ if __name__ == "__main__":
         p.add_argument("--" + name, type=Path, required=True)
     p.add_argument("--baseline-ref", required=True)
     p.add_argument("--baseline-sync", action="store_true")
+    p.add_argument("--baseline-demapper", action="store_true")
     p.add_argument("--sample-id", action="append", required=True)
     p.add_argument("--repeats", type=int, default=5)
     run(p.parse_args())

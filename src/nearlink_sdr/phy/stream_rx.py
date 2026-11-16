@@ -60,7 +60,7 @@ class PSKStreamReceiver:
                  timing_config: PSKTimingConfig | None = None,
                  carrier_method: str = "coherent", quiet_batching: bool = True,
                  capture_config: PSKCaptureConfig | None = None,
-                 timing_backend: str = "auto"):
+                 timing_backend: str = "auto", defer_quiet_fir: bool = True):
         if not isinstance(profile, PSKReceiveProfile):
             raise ValueError("Explicit PSKReceiveProfile required")
         self.profile = replace(profile, config=replace(profile.config))
@@ -86,6 +86,10 @@ class PSKStreamReceiver:
         if not isinstance(quiet_batching, bool):
             raise ValueError("quiet_batching must be boolean")
         self.quiet_batching = quiet_batching
+        if not isinstance(defer_quiet_fir, bool):
+            raise ValueError("defer_quiet_fir must be boolean")
+        self.defer_quiet_fir = defer_quiet_fir
+        self.quiet_deferred_fir_samples = 0
         self.quiet_fast_path_samples = 0
         self.carrier_method = carrier_method
         self.capture_config = capture_config or PSKCaptureConfig()
@@ -100,6 +104,7 @@ class PSKStreamReceiver:
         self.history_limit = self.search_samples + 4*self.quantum
         self.future_samples = self.delay+2
         self._fir_state = np.zeros(len(self.h)-1, dtype=complex)
+        self._quiet_tail = None
         q = np.asarray(quiet)
         window = self.sps * energy_window_symbols
         if (q.ndim != 1 or not window <= len(q) <= 2**22 or len(q) < 65
@@ -135,6 +140,35 @@ class PSKStreamReceiver:
         self._errors = np.empty(self.max_frame_symbols)
         self._head_required = self._header_requirement()
 
+    @property
+    def _filtered(self):
+        self._materialize_quiet()
+        return self._filtered_values
+
+    @_filtered.setter
+    def _filtered(self, value):
+        self._filtered_values = value
+
+    def _materialize_quiet(self):
+        """Rebuild one bounded proven-quiet tail in canonical arithmetic before use."""
+        tail = self._quiet_tail
+        if tail is None:
+            return
+        self._quiet_tail = None
+        self._fir_state = np.zeros(len(self.h)-1, complex)
+        self._energy_state = np.zeros(len(self._box)-1)
+        filtered, energy = [], []
+        for offset in range(0, len(tail), self.quantum):
+            part = tail[offset:offset+self.quantum]
+            y, self._fir_state = _fir_block(self.h, part, self._fir_state)
+            e, self._energy_state = _fir_block(self._box, abs(part)**2, self._energy_state)
+            filtered.append(y)
+            energy.append(e)
+        self._filtered_values = np.concatenate(filtered)[-self.history_limit:]
+        self._energy = np.concatenate(energy)[-self.search_samples:]
+        self._origin = self._processed-self.delay-len(self._filtered_values)
+        self.peak_history_samples = max(self.peak_history_samples, self.buffered_samples)
+
     def _header_requirement(self):
         cfg = self.profile.config
         nbits = 64 if cfg.frame_type == 2 else 256
@@ -160,6 +194,8 @@ class PSKStreamReceiver:
 
     @property
     def buffered_samples(self):
+        if self._quiet_tail is not None:
+            return len(self._quiet_tail)+len(self._pending)
         return len(self._filtered)+len(self._pending)+len(self._fir_state)+len(self._energy_state)
 
     @property
@@ -242,10 +278,34 @@ class PSKStreamReceiver:
             return False
         if not np.isfinite(block).all():
             raise ValueError("Need finite IQ samples")
-        energy, _ = _fir_block(self._box, abs(block)**2, self._energy_state)
+        energy_state = self._energy_state
+        if self._quiet_tail is not None:
+            # For a box no longer than one quantum, its final delay state only
+            # depends on that last quantum, regardless of earlier input/state.
+            _, energy_state = _fir_block(self._box, abs(self._quiet_tail[-self.quantum:])**2,
+                                          np.zeros(len(self._box)-1))
+        energy, _ = _fir_block(self._box, abs(block)**2, energy_state)
         if np.any(energy > self.threshold*(1-1e-12)):
             return False
-        warmup = max(len(self._fir_state), len(self._energy_state))
+        warmup = max(len(self.h)-1, len(self._box)-1)
+        retained = ((self.history_limit+warmup+self.quantum-1)//self.quantum)*self.quantum
+        cache_budget = self.history_limit+len(self.h)-1+len(self._box)-1
+        if (self.defer_quiet_fir and len(self._box) <= self.quantum
+                and retained <= cache_budget and retained < len(block)):
+            # Replace existing history/state, rather than adding another cache.
+            # Keep the original input dtype for exact abs()**2 energy arithmetic.
+            self._quiet_tail = block[-retained:].copy()
+            self._filtered_values = np.empty(0, complex)
+            self._energy = np.empty(0)
+            self._fir_state = np.empty(0, complex)
+            self._energy_state = np.empty(0)
+            self._processed += len(block)
+            self._origin = self._processed-self.delay
+            self.quiet_fast_path_samples += len(block)-retained
+            self.quiet_deferred_fir_samples += len(block)
+            self.capture_stats['energy_checks'] += 1
+            self.peak_history_samples = max(self.peak_history_samples, self.buffered_samples)
+            return True
         tail_size = ((self.history_limit+warmup+self.quantum-1)//self.quantum+1)*self.quantum
         if tail_size >= len(block):
             return False
@@ -273,6 +333,7 @@ class PSKStreamReceiver:
         return True
 
     def _process(self, block):
+        self._materialize_quiet()
         if not np.isfinite(block).all():
             raise ValueError("Need finite IQ samples")
         filtered, self._fir_state = _fir_block(self.h, block, self._fir_state)

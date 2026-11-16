@@ -233,6 +233,60 @@ def test_quiet_tail_fuses_dispatch_without_changing_canonical_fir_state(monkeypa
     assert actual.buffered_samples == reference.buffered_samples
 
 
+@pytest.mark.parametrize('dtype', [np.complex128, np.complex64, np.float64, np.float32])
+def test_deferred_quiet_fir_replaces_cache_and_keeps_original_dtype_arithmetic(monkeypatch, dtype):
+    import nearlink_sdr.phy.stream_rx as module
+    p = PSKReceiveProfile.ordinary(TxConfig(mcs_index=8, symbol_rate_mhz=4))
+    rng = np.random.default_rng(204016)
+    quiet = .001*(rng.normal(size=8192) + 1j*rng.normal(size=8192))
+    raw = .00001*(rng.normal(size=3*4096) + 1j*rng.normal(size=3*4096))
+    raw = (raw.real if np.issubdtype(dtype, np.floating) else raw).astype(dtype)
+    eager = PSKStreamReceiver(p, quiet, defer_quiet_fir=False)
+    deferred = PSKStreamReceiver(p, quiet, defer_quiet_fir=True)
+    assert eager.feed(raw) == []
+    original = module._fir_block
+
+    def checked(taps, samples, state):
+        assert taps is not deferred.h, 'proven-quiet complex FIR must wait until needed'
+        return original(taps, samples, state)
+
+    with monkeypatch.context() as context:
+        context.setattr(module, '_fir_block', checked)
+        assert deferred.feed(raw) == []
+    assert deferred.quiet_deferred_fir_samples == len(raw)
+    assert deferred._quiet_tail.dtype == dtype
+    assert deferred.buffered_samples <= eager.buffered_samples
+    assert sum(v.nbytes for v in vars(deferred).values() if isinstance(v, np.ndarray)) <= sum(
+        v.nbytes for v in vars(eager).values() if isinstance(v, np.ndarray))
+    for field in ('_filtered', '_energy', '_fir_state', '_energy_state'):
+        np.testing.assert_array_equal(getattr(deferred, field), getattr(eager, field))
+    wire, expected = transmitted(p)
+    x, _, _, _ = iq_record(wire, ppm=100, cfo=30000)
+    actual = deferred.feed(x) + deferred.finish()
+    reference = eager.feed(x) + eager.finish()
+    equal_events(reference, actual)
+    assert [e['frame']['payload'] for e in actual] == [expected]
+
+
+@pytest.mark.parametrize('window', [1, 4, 8, 16, 64])
+def test_deferred_filter_respects_original_cache_budget_and_falls_back_for_long_energy(window):
+    p = PSKReceiveProfile.ordinary(TxConfig(mcs_index=8, symbol_rate_mhz=4))
+    rng = np.random.default_rng(205016)
+    quiet = rng.normal(size=8192) + 1j*rng.normal(size=8192)
+    raw = .001*(rng.normal(size=4096+17) + 1j*rng.normal(size=4096+17))
+    eager = PSKStreamReceiver(p, quiet, defer_quiet_fir=False, energy_window_symbols=window)
+    deferred = PSKStreamReceiver(p, quiet, energy_window_symbols=window)
+    assert eager.feed(raw) == deferred.feed(raw) == []
+    assert deferred.buffered_samples <= eager.buffered_samples
+    if window != 8:
+        assert deferred.quiet_deferred_fir_samples == 0
+    for field in ('_filtered', '_energy', '_fir_state', '_energy_state', '_pending'):
+        np.testing.assert_array_equal(getattr(deferred, field), getattr(eager, field))
+    assert eager.finish() == deferred.finish() == []
+    with pytest.raises(ValueError, match='defer_quiet_fir'):
+        PSKStreamReceiver(p, quiet, defer_quiet_fir=1)
+
+
 def test_unready_true_sync_peak_is_deferred_without_substituting_an_earlier_phase():
     from scipy.signal import fftconvolve
 
