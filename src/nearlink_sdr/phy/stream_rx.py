@@ -11,7 +11,7 @@ import numpy as np
 
 from nearlink_sdr.phy.psk import rrc_filter
 from nearlink_sdr.phy.psk_fields import psk_field_layout
-from nearlink_sdr.phy.psk_sync import PSKCaptureConfig, search_psk_sync
+from nearlink_sdr.phy.psk_sync import PSKCaptureConfig, _RustIntegerScreen, search_psk_sync
 from nearlink_sdr.phy.rx_pipeline import payload_coded_length
 from nearlink_sdr.phy.strict_rx import PSKReceiveProfile, decode_psk_frame
 from nearlink_sdr.phy.timing import GardnerPIState, PSKTimingConfig
@@ -60,7 +60,8 @@ class PSKStreamReceiver:
                  timing_config: PSKTimingConfig | None = None,
                  carrier_method: str = "coherent", quiet_batching: bool = True,
                  capture_config: PSKCaptureConfig | None = None,
-                 timing_backend: str = "auto", defer_quiet_fir: bool = True):
+                 timing_backend: str = "auto", defer_quiet_fir: bool = True,
+                 integer_screen_backend: str = 'auto'):
         if not isinstance(profile, PSKReceiveProfile):
             raise ValueError("Explicit PSKReceiveProfile required")
         self.profile = replace(profile, config=replace(profile.config))
@@ -95,6 +96,14 @@ class PSKStreamReceiver:
         self.capture_config = capture_config or PSKCaptureConfig()
         if not isinstance(self.capture_config, PSKCaptureConfig):
             raise ValueError("Need PSKCaptureConfig")
+        if integer_screen_backend not in ('auto', 'python', 'rust'):
+            raise ValueError('integer_screen_backend must be auto, python or rust')
+        if integer_screen_backend == 'rust' and _RustIntegerScreen is None:
+            raise RuntimeError('Rust integer sync screen is not installed')
+        self.integer_screen_backend = ('rust' if integer_screen_backend != 'python' and
+                                       _RustIntegerScreen is not None else 'python')
+        if self.capture_config.integer_screen is None or self.subdivisions == 1:
+            self.integer_screen_backend = 'disabled'
         self.reference = profile.sync_symbols()
         self.h = rrc_filter(.4, self.sps)
         self.delay = (len(self.h)-1)//2
@@ -129,6 +138,10 @@ class PSKStreamReceiver:
                                   phase_hypotheses=0, scored_positions=0,
                                   integer_phase_hypotheses=0, integer_scored_positions=0,
                                   integer_screen_rejections=0, full_searches=0,
+                                  computed_phase_hypotheses=0, reused_phase_hypotheses=0,
+                                  computed_scored_positions=0, integer_evaluations=0,
+                                  integer_evaluated_positions=0, integer_native_screens=0,
+                                  integer_reference_fallbacks=0,
                                   correlation_qualifying_searches=0, maxima_needing_future=0,
                                   sync_candidates=0, header_crc_ok=0, header_crc_failed=0,
                                   data_crc_ok=0, data_crc_failed=0, truncated_header=0,
@@ -366,9 +379,14 @@ class PSKStreamReceiver:
         found = search_psk_sync(z, self.sps, self.reference, self.subdivisions,
                                  min_start=max(1., self._skip_until-origin), lookahead=4*self.sps,
                                  diagnostics=diagnostic,
-                                 integer_screen=self.capture_config.integer_screen)
+                                 integer_screen=self.capture_config.integer_screen,
+                                 integer_backend=('python' if self.integer_screen_backend == 'disabled'
+                                                  else self.integer_screen_backend))
         for key in ('phase_hypotheses', 'scored_positions', 'integer_phase_hypotheses',
-                    'integer_scored_positions'):
+                    'integer_scored_positions', 'computed_phase_hypotheses',
+                    'reused_phase_hypotheses', 'computed_scored_positions', 'integer_evaluations',
+                    'integer_evaluated_positions', 'integer_native_screens',
+                    'integer_reference_fallbacks'):
             self.capture_stats[key] += diagnostic[key]
         self.capture_stats['integer_screen_rejections'] += int(
             diagnostic['disposition'] == 'integer_screen_rejected')
@@ -464,6 +482,7 @@ class PSKStreamReceiver:
                          self._values[:len(self.reference)]-self.reference)**2))),
                      interpolation="four-point local cubic Lagrange after causal RRC",
                      timing_backend=self.timing_backend,
+                     integer_screen_backend=self.integer_screen_backend,
                      cfo_hz=a['slope']*self.profile.config.symbol_rate_mhz*1e6/(2*np.pi),
                      emitted_after_samples=min(self._processed, self.input_samples),
                      used_end_padding=end_padding or self._processed > self.input_samples,

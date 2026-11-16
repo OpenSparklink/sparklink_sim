@@ -75,6 +75,7 @@ def run(args):
     root = Path(__file__).resolve().parents[1]
     result = dict(python=platform.python_version(), rust_accel=_HAS_RUST_ACCEL,
                   timing_backend=rx.timing_backend,
+                  integer_screen_backend=rx.integer_screen_backend,
                   sources={str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
                            for p in (root/'src').rglob('*.py')},
                   input=row, quiet_inputs=quiets, parameters=dict(timing_subdivisions=8,

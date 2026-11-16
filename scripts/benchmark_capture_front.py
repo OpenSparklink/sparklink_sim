@@ -139,6 +139,7 @@ def run(args):
                         traces[f"{name}-{i}-{key}"] = event[key]
                 costs[name] = dict(
                     timing_backend=getattr(rx, "timing_backend", "python"),
+                    integer_screen_backend=getattr(rx, "integer_screen_backend", "python"),
                     stats=rx.capture_stats,
                     state_array_bytes=sum(
                         v.nbytes for v in vars(rx).values() if isinstance(v, np.ndarray)

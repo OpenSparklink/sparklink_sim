@@ -253,3 +253,35 @@ PYTHONPATH=src /tmp/rx-rust-env/bin/python scripts/audit_weak_hardware_derivativ
   --previous "$B/rx-chain-hardening/final-stream-python" --dataset "$D" \
   --output /tmp/weak-hardware-derivatives
 ```
+
+## 阶段7：原生整数预筛及精确边界回退
+
+新增`integer_screen_backend='auto'|'python'|'rust'`。原生函数只计算整数网格的归一化差分相关最大分数，
+完整分数搜索仍由同一组件选择答案。支持的同步长度至128符号时，若分数距既有门限不足1e-12，
+用原NumPy运算做精确判定；这不是降低门限。安装加速扩展的CI必须核验新函数实际存在。
+事件、性能基准和后端JSON分别标明定时环与整数预筛的实际后端。
+
+NumPy复核的整数相关数组供后续分数网格复用，正确排除最后原始样本对应的非法细搜索窗。
+新增反例证明不会把整数边缘完美峰当成可用细搜索最大值；原最大峰准备条件保持。
+区分逻辑相位假设与真正重算的相位/位置计数：最坏原生4+NumPy4+细网格28=36次，
+等于旧4+32上界。逻辑细网格仍32相位，不能将此步长当作定时精度。
+原生临时向量在现有32/128同步及搜索窗内至多约6KiB，不保存跨调用IQ；帧/历史上限不变。
+
+12个独立随机边界/SPS/尾长组合对精确参考复核，输出答案不变且满足工作量上界；
+完整冻结复现、原成功和静默回归通过，所有轨迹差值为0。全量Python3017通过、32明确跳过，
+Rust+SM3 3060通过，Rust单元22通过、覆盖率大于90%、clippy/ruff通过。
+同批次5次配对基准：
+
+| 环境 | 上阶段基线MS/s（057 / 065） | 本阶段MS/s（057 / 065） |
+|---|---|---|
+| Python | 6.941 / 7.800 | 7.037 / 7.918 |
+| Rust定时/预筛/Polar/CRC | 12.115 / 12.594 | 13.654 / 14.384 |
+
+较慢批次及所有CPU/墙钟记录同时保留，不能把最好批次当作实时保证；16MS/s仍未达。
+证据为`native-screen-final-{benchmark-python,benchmark-rust,reproduction}`、
+`native-screen-regression-comparison.json`和后端/依赖哈希。
+
+另外评估直接Rust卷积原型，2000个32采样块中位耗时约NumPy13.46ms、Rust7.54ms，
+但360组数组对照有352组未满足既有FIR状态逐值一致约定（误差为浮点舍入量级）。
+该候选**未接入接收器**，不把微基准收益计入整链吞吐，也没有放宽原状态断言。
+源码、锁定依赖、初始构建错误及全部差异记录在`fir-native-probe`；后续优先减少重复处理调度。

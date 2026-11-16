@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 
 from nearlink_sdr.common import crc, polar
+from nearlink_sdr.phy.psk_sync import _RustIntegerScreen
 from nearlink_sdr.phy.stream_rx import _RustStreamTiming
 
 
@@ -38,6 +39,7 @@ def run(args):
         polar_rust=polar._HAS_RUST_ACCEL,
         crc_rust=crc._HAS_RUST_CRC,
         stream_timing_rust=_RustStreamTiming is not None,
+        integer_sync_rust=_RustIntegerScreen is not None,
         gmssl_available=importlib.util.find_spec("gmssl") is not None,
         dependencies=versions,
         commit=subprocess.check_output(["git", "rev-parse", "HEAD"]).decode().strip(),
@@ -54,6 +56,7 @@ def run(args):
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     assert result["polar_rust"] == expected and result["crc_rust"] == expected, result
     assert result["stream_timing_rust"] == expected, result
+    assert result["integer_sync_rust"] == expected, result
     if args.require_sm3:
         assert result["gmssl_available"], "SM3 job must install gmssl; a skip is not verification"
     print(json.dumps(result, indent=2))
