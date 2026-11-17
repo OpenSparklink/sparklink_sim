@@ -29,6 +29,7 @@ __all__ = [
     "rrc_flow",
     "rrc_input",
     "rrc_pair",
+    "rrc_pair_flow",
     "rrc_word",
     "rx_pipeline",
     "sdr_backend",
