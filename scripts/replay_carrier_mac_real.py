@@ -16,6 +16,10 @@ from nearlink_sdr.phy.tone_notch import ToneNotchConfig
 
 
 def run(args):
+    mode = getattr(args,"experiment","carrier-weights")
+    fixed_nco = getattr(args,"fixed_nco",False)
+    if mode not in ("carrier-weights","coherent-sync") or (fixed_nco and mode != "coherent-sync"):
+        raise ValueError("Fixed sync NCO can run only in coherent-sync experiment")
     source = checked_manifest(args.frozen_reference, "results.jsonl")
     reference = [json.loads(line) for line in source.read_text().splitlines()]
     original = args.evidence_root / "rx-timing-tracking/final"
@@ -32,6 +36,9 @@ def run(args):
     write(args.output / "plan.json", dict(reference_sha256=sha(source),
           factory_plan_sha256=sha(plan_file), sources=sources, driver_sha256=sha(Path(__file__)),
           normalization="original ADC codes; explicit factory sync/CRC/pilot0; no unknown prefix stripping",
+          experiment=mode,
+          coherent_threshold=getattr(args,"coherent_threshold",.45) if mode == "coherent-sync" else None,
+          fixed_nco=fixed_nco,
           whole_system_accepted=False))
     rows, regressions = [], []
     for row in reference:
@@ -41,10 +48,17 @@ def run(args):
         x, q = frozen.load_input(meta, args.evidence_root / "rx-chain-hardening/parser-replay",
                                  original, args.dataset, args.quiet_dataset, old_quiet, quiet)
         arms = {}
-        for name, options in [("reference", {}), ("bounded", dict(carrier_weight_kappa=2))]:
+        common = {}
+        candidate = dict(carrier_weight_kappa=2)
+        if getattr(args,"experiment","carrier-weights") == "coherent-sync":
+            common = dict(sync_search_method="bounded-grid", normalized_coarse=True,
+                          sync_candidate_count=1)
+            candidate = dict(sync_coherent_threshold=getattr(args,"coherent_threshold",.45),
+                             sync_coherent_fixed_nco=getattr(args,"fixed_nco",False))
+        for name, options in [("reference", {}), ("bounded", candidate)]:
             rx = MacStreamReceiver(profile, q, quiet_batching=False, defer_quiet_fir=False,
                                    correlation_backend="scaled", correlation_mantissa_bits=10,
-                                   tone_notch=ToneNotchConfig(radius=31/32), **options)
+                                   tone_notch=ToneNotchConfig(radius=31/32), **common, **options)
             events, packets = [], []
             for start in range(0, len(x), 4096):
                 result = rx.feed(x[start:start + 4096])
@@ -55,6 +69,9 @@ def run(args):
             events += result.diagnostics["events"]
             packets += result.packets
             frames = frozen.score(meta, events)
+            for event, frame in zip(events,frames,strict=True):
+                if "sync_confirmation" in event:
+                    frame["sync_confirmation"] = event["sync_confirmation"]
             assert len(packets) == sum(f["status"] == "valid" for f in frames)
             evidence = f"{row['id']}-{name}.npz"
             np.savez_compressed(args.output / "evidence" / evidence, **{
@@ -72,6 +89,7 @@ def run(args):
         rows.append(dict(id=row["id"], input=meta, samples=len(x), arms=arms))
         write(args.output / "results.json", rows)
     report = dict(inputs=len(rows), original_success_losses=regressions,
+                  experiment=getattr(args,"experiment","carrier-weights"),
                   captured={arm: sum(len(r["arms"][arm]["frames"]) for r in rows)
                             for arm in ["reference", "bounded"]},
                   correct={arm: sum(f["whole_packet_ok"] for r in rows
@@ -94,4 +112,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     for key in ["evidence-root", "frozen-reference", "dataset", "quiet-dataset", "output"]:
         parser.add_argument("--" + key, type=Path, required=True)
+    parser.add_argument("--experiment",choices=["carrier-weights","coherent-sync"],
+                        default="carrier-weights")
+    parser.add_argument("--coherent-threshold",type=float,choices=[.45,.6,.75],default=.45)
+    parser.add_argument("--fixed-nco",action="store_true")
     raise SystemExit(run(parser.parse_args()))

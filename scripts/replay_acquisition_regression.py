@@ -225,6 +225,16 @@ class Replay:
         if (getattr(args,'carrier_weight_kappa',None) is None and
                 getattr(args,'carrier_weight_fixed',False)):
             raise ValueError('Fixed carrier weights require explicit kappa before replay/proofs')
+        coherent = getattr(args,'sync_coherent_threshold',None)
+        fixed_nco = getattr(args,'sync_coherent_fixed_nco',False)
+        if type(fixed_nco) is not bool or (fixed_nco and coherent is None):
+            raise ValueError('Fixed sync NCO requires explicit coherent threshold before proofs')
+        if coherent is not None and (
+                coherent not in (.45,.6,.75) or getattr(args,'backend',None) != 'scaled' or
+                getattr(args,'sync_method',None) != 'bounded-grid' or
+                not getattr(args,'normalized_coarse',False) or
+                getattr(args,'sync_candidate_count',1) != 1):
+            raise ValueError('Coherent replay needs frozen threshold and one scaled Q12 peak')
         self.args, self.rows, self.stream_index = args, [], 0
         self.selection = json.loads(args.selection.read_text())
         from nearlink_sdr.phy.tone_notch import ToneNotchConfig
@@ -253,6 +263,8 @@ class Replay:
             tone_radius=getattr(args, 'tone_radius', None),
             sync_search_method=getattr(args,'sync_method','reference'),
             sync_candidate_count=getattr(args,'sync_candidate_count',1),
+            sync_coherent_threshold=getattr(args,'sync_coherent_threshold',None),
+            sync_coherent_fixed_nco=getattr(args,'sync_coherent_fixed_nco',False),
             normalized_coarse=getattr(args,'normalized_coarse',False),
             rrc_backend=getattr(args,'rrc_backend','reference'),
             carrier_weight_kappa=getattr(args,'carrier_weight_kappa',None),
@@ -309,6 +321,8 @@ class Replay:
             tone_notch=self.tone_config,
             sync_search_method=getattr(self.args,'sync_method','reference'),
             sync_candidate_count=getattr(self.args,'sync_candidate_count',1),
+            sync_coherent_threshold=getattr(self.args,'sync_coherent_threshold',None),
+            sync_coherent_fixed_nco=getattr(self.args,'sync_coherent_fixed_nco',False),
             normalized_coarse=getattr(self.args,'normalized_coarse',False),
             correlation_backend=self.args.backend, correlation_input_bits=self.bits,
             correlation_mantissa_bits=self.bits if self.args.backend == 'scaled' else 10,
@@ -340,6 +354,9 @@ class Replay:
 
     def record(self, group, ident, meta, events, frames, cost, old_frames,
                old_file=None, old_prefix='', old_correct='correct', extra=None):
+        for event, frame in zip(events,frames,strict=True):
+            if 'sync_confirmation' in event:
+                frame['sync_confirmation'] = event['sync_confirmation']
         key = group+'-'+ident
         arrays = {f'{i}-{f}': e[f] for i, e in enumerate(events) for f in
                   ('symbols', 'symbol_centers_raw', 'timing_rate_ppm', 'timing_detector_error')}
@@ -573,6 +590,8 @@ if __name__ == '__main__':
     parser.add_argument('--sync-method',choices=['reference','local-parabolic','bounded-grid'],
                         default='reference')
     parser.add_argument('--sync-candidate-count',type=int,choices=[1,2],default=1)
+    parser.add_argument('--sync-coherent-threshold',type=float,choices=[.45,.6,.75])
+    parser.add_argument('--sync-coherent-fixed-nco',action='store_true')
     parser.add_argument('--normalized-coarse',action='store_true')
     parser.add_argument('--rrc-backend',choices=['reference','word-full12-c18'],default='reference')
     parser.add_argument('--carrier-weight-kappa',type=int,choices=[2,4,8])
