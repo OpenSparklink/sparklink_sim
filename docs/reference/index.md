@@ -102,6 +102,7 @@ sync-carrier-initialization
 capture-transport
 rrc-memory
 spline-preparation
+spline-fixed
 standard-sources
 psk-timing-tracking-results
 psk-noise-recovery-results

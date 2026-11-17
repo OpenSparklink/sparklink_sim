@@ -14,7 +14,8 @@ __all__ = ["search_candidate_grid"]
 
 def search_candidate_grid(
     filtered, sps, reference, subdivisions, *, min_start=0, lookahead=0,
-    diagnostics=None, candidate_count=1, coarse_starts=None, interpolator="reference", **kwargs,
+    diagnostics=None, candidate_count=1, coarse_starts=None, interpolator="reference",
+    spline_format=None, **kwargs,
 ):
     """Rank1/2 integer peaks, separate by4 samples, then evaluate9 phases each.
 
@@ -25,8 +26,14 @@ def search_candidate_grid(
     absent. The greatest evaluated score alone controls future-sample waiting.
     """
     z, ref = np.asarray(filtered), np.asarray(reference)
-    if interpolator not in ("reference", "uniform-eighth"):
+    if interpolator not in ("reference", "uniform-eighth", "word-eighth"):
         raise ValueError("Unsupported explicit interpolation backend")
+    if interpolator != "word-eighth" and spline_format is not None:
+        raise ValueError("A word spline format requires explicit word-eighth interpolation")
+    if interpolator == "word-eighth":
+        from nearlink_sdr.phy.spline_fixed import SplineFixedFormat
+        if not isinstance(spline_format, SplineFixedFormat):
+            raise ValueError("Need an explicit finite spline word format")
     if (sps != 4 or subdivisions != 8 or type(candidate_count) is not int
             or candidate_count not in (1, 2) or z.ndim != 1 or not 4 <= len(z) <= 640
             or ref.ndim != 1 or not 2 <= len(ref) <= 128
@@ -70,7 +77,15 @@ def search_candidate_grid(
     d["coarse_starts"] = peaks
     if not peaks:
         return None
-    if interpolator == "uniform-eighth":
+    if interpolator == "word-eighth":
+        from nearlink_sdr.phy.spline_fixed import FixedUniformCubicEighth
+        spline = FixedUniformCubicEighth(z, spline_format)
+        d.update(interpolation_word_stats=spline.stats,
+                 interpolation_common_exponent=spline.exponent)
+        if spline.stats['saturations']:
+            d['disposition'] = 'interpolation_overflow'
+            raise OverflowError("Fixed spline preparation saturated")
+    elif interpolator == "uniform-eighth":
         from nearlink_sdr.phy.uniform_spline import UniformCubicEighth
         spline = UniformCubicEighth(z)
     else:
@@ -86,6 +101,9 @@ def search_candidate_grid(
         if start < min_start or times[-1] >= len(z)-1:
             continue
         y = spline(times)
+        if interpolator == "word-eighth" and spline.stats['saturations']:
+            d['disposition'] = 'interpolation_overflow'
+            raise OverflowError("Fixed spline evaluation saturated")
         dy = y[1:]*y[:-1].conj()
         corr = np.correlate(dy, dr, "valid")[0]
         norm = np.sqrt(np.sum(abs(dy)**2)*coefficient_energy)

@@ -1,0 +1,17 @@
+{
+  "stage": "SYS-B3B",
+  "input_bits": 18,
+  "coefficient_fraction_bits": 14,
+  "work_guard_bits": 4,
+  "common_exponent_bits": 10,
+  "node_limit": 0.0002,
+  "score_limit": 0.005,
+  "start_limit": 0.125,
+  "center_limit": 0.25,
+  "datapath_ast_sha256": "8a0e1708639a19fbb6224115b63c71511f22f37ecedbcd7ac29326cf26a7882d",
+  "original_prevalidation_selection_sha256": "86af3225e40572ecc780a471e7f2fa37e4a01d92ec54e854c365401b7f3fdcfc",
+  "original_prevalidation_source_sha256": "e13be6ab1de8f4dc6be82edbfbbb8faeb06b40382575e81ab407c8efbc9a68cd",
+  "selection_provenance": "copied from selection.json written before first independent validation;later metadata/cost augmentation cannot select a different format or retune held data",
+  "default_rx_promotion": false,
+  "whole_system_accepted": false
+}
