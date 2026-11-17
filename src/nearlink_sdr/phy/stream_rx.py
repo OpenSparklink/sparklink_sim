@@ -66,7 +66,8 @@ class PSKStreamReceiver:
                  correlation_input_bits: int = 16, tone_notch=None,
                  correlation_mantissa_bits: int = 10,
                  sync_search_method: str = 'reference', normalized_coarse: bool = False,
-                 rrc_backend: str = 'reference'):
+                 rrc_backend: str = 'reference', carrier_weight_kappa: int | None = None,
+                 carrier_weight_fixed: bool = False):
         if not isinstance(profile, PSKReceiveProfile):
             raise ValueError("Explicit PSKReceiveProfile required")
         self.profile = replace(profile, config=replace(profile.config))
@@ -91,6 +92,16 @@ class PSKStreamReceiver:
             raise ValueError("Need integer SPS>=4, subdivisions1..32 and energy window1..64")
         if carrier_method not in ("coherent", "phase_regression"):
             raise ValueError("Unsupported carrier method")
+        if carrier_weight_kappa is not None:
+            from nearlink_sdr.phy.carrier_weights import BoundedCarrierWeights
+            BoundedCarrierWeights(carrier_weight_kappa, fixed=carrier_weight_fixed)
+            if carrier_method != "coherent":
+                raise ValueError("Experimental weights require coherent carrier search")
+        elif type(carrier_weight_fixed) is not bool or carrier_weight_fixed:
+            raise ValueError("Fixed carrier weights require explicit kappa")
+        self._carrier_weight_options = ({} if carrier_weight_kappa is None else
+                                       dict(carrier_weight_kappa=carrier_weight_kappa,
+                                            carrier_weight_fixed=carrier_weight_fixed))
         self.timing_config = timing_config or PSKTimingConfig()
         if not isinstance(self.timing_config, PSKTimingConfig):
             raise ValueError("Need PSKTimingConfig")
@@ -398,7 +409,8 @@ class PSKStreamReceiver:
             a = self._active
             status = "truncated_header" if a['count'] < self._head_required else "truncated_data"
             row = decode_psk_frame(self._values[:a['count']], self.profile,
-                                   carrier_method=self.carrier_method)
+                                   carrier_method=self.carrier_method,
+                                   **self._carrier_weight_options)
             row.update(status=status, payload=None)
             events.append(self._event(row, end_padding=True))
         self._closed = True
@@ -673,7 +685,8 @@ class PSKStreamReceiver:
                 a.update(count=count+1, previous=current, previous_t=t, next=t+step)
             if a['count'] == self._head_required:
                 row = decode_psk_frame(self._values[:a['count']], self.profile,
-                                       carrier_method=self.carrier_method)
+                                       carrier_method=self.carrier_method,
+                                       **self._carrier_weight_options)
                 self.capture_stats['header_crc_ok'] += int(row['header_crc'] is True)
                 self.capture_stats['header_crc_failed'] += int(row['header_crc'] is False)
                 if row['status'] != 'truncated_data':
@@ -684,7 +697,8 @@ class PSKStreamReceiver:
                     raise RuntimeError("Verified length exceeded frame bound")
             if a['end'] is not None and a['count'] == a['end']:
                 row = decode_psk_frame(self._values[:a['count']], self.profile,
-                                       carrier_method=self.carrier_method)
+                                       carrier_method=self.carrier_method,
+                                       **self._carrier_weight_options)
                 events.append(self._event(row))
                 break
         return events

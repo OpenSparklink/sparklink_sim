@@ -388,7 +388,8 @@ def acquire_psk_capture(signal: np.ndarray, quiet: np.ndarray, sample_hz: float,
 
 def refine_psk_carrier(symbols: np.ndarray, mod_type: str,
                        start_symbol_index: int, *,
-                       method: str = "coherent") -> tuple[np.ndarray, dict]:
+                       method: str = "coherent", carrier_weight_kappa: int | None = None,
+                       carrier_weight_fixed: bool = False) -> tuple[np.ndarray, dict]:
     """按星座M次方盲细化残余载波；不使用期待载荷、CRC或导频内容。
 
     去帧参考奇偶旋转，以M次方FFT选频，再作有界相干峰值细化和圆周相位平均。
@@ -397,6 +398,11 @@ def refine_psk_carrier(symbols: np.ndarray, mod_type: str,
     """
     if method not in ("coherent", "phase_regression"):
         raise ValueError("Carrier method must be coherent or phase_regression")
+    if type(carrier_weight_fixed) is not bool or (carrier_weight_kappa is None
+                                                and carrier_weight_fixed):
+        raise ValueError("Fixed carrier weights require explicit kappa")
+    if carrier_weight_kappa is not None and method != "coherent":
+        raise ValueError("Experimental weights only support the unchanged coherent search")
     y = np.asarray(symbols)
     if y.ndim != 1 or len(y) < 32 or not np.isfinite(y).all():
         raise ValueError("Need at least32 finite synchronized symbols")
@@ -407,7 +413,13 @@ def refine_psk_carrier(symbols: np.ndarray, mod_type: str,
     i = np.arange(len(y))
     base = y.copy()
     base[(i + start_symbol_index) % 2 == 1] *= np.conj(demod._rotation)
-    power = -(base / np.maximum(abs(base), 1e-12)) ** m * abs(base) ** 2
+    weights = abs(base) ** 2
+    weight_info = None
+    if carrier_weight_kappa is not None:
+        from nearlink_sdr.phy.carrier_weights import bounded_carrier_weights
+        weights, weight_info = bounded_carrier_weights(
+            weights, carrier_weight_kappa, fixed=carrier_weight_fixed)
+    power = -(base / np.maximum(abs(base), 1e-12)) ** m * weights
     nfft = 16 * 2 ** int(np.ceil(np.log2(len(y))))
     grid = np.fft.fftfreq(nfft)
     window = np.hanning(len(power))
@@ -438,11 +450,14 @@ def refine_psk_carrier(symbols: np.ndarray, mod_type: str,
         total = np.sum(power * window * np.exp(-2j * np.pi * refined * i))
         phase = float(np.angle(total))
         corrected = y * np.exp(-1j * (2 * np.pi * refined * i + phase) / m)
-        return corrected, dict(
+        result = dict(
             residual_cycles_per_symbol=float(refined / m), residual_phase_radians=phase / m,
             frequency_refinement_bins=float(offset * nfft / len(y)),
             coherence=float(abs(total) / max(float(np.sum(abs(power) * window)), 1e-30)),
             method="blind de-rotated Mth-power coherent FFT/Newton; no expected bits")
+        if weight_info is not None:
+            result["weights"] = weight_info
+        return corrected, result
     slope, phase = np.polyfit(i, np.unwrap(np.angle(power * np.exp(-2j * np.pi * freq * i))), 1)
     phase = (phase + np.pi) % (2 * np.pi) - np.pi
     corrected = y * np.exp(-1j * (2 * np.pi * freq * i + slope * i + phase) / m)

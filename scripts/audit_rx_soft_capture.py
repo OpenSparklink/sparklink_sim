@@ -37,7 +37,12 @@ def diagnostic_bits(e, profile):
         return None
     cfg = replace(profile.config, mcs_index=f["mcs"])
     start, end = f["data_start_symbol"], f["frame_end_symbol"]
-    y, _ = refine_psk_carrier(e["symbols"][start:end], cfg.mod_str, start)
+    info = f.get("carrier", {}).get("weights")
+    options = ({} if info is None else dict(carrier_weight_kappa=info["kappa"],
+                                           carrier_weight_fixed=info["fixed"]))
+    # Replay the actual selected algorithm for BER; never use a different
+    # carrier result or CRC outcome to pick an answer.
+    y, _ = refine_psk_carrier(e["symbols"][start:end], cfg.mod_str, start, **options)
     hard = demap_psk_field(y, cfg.mod_str, start, cfg.pilot_interval)[: f["coded_bits"]]
     llr = None
     if not cfg.is_uncoded and profile.soft_payload:

@@ -113,7 +113,8 @@ class PSKReceiveProfile:
 
 
 def decode_psk_frame(symbols: np.ndarray, profile: PSKReceiveProfile, *,
-                      carrier_method: str = "coherent") -> dict:
+                      carrier_method: str = "coherent", carrier_weight_kappa: int | None = None,
+                      carrier_weight_fixed: bool = False) -> dict:
     """Parse one already-selected sync candidate; deliver only after both real CRCs.
 
     No phase, header format, seed, MCS or decoder retry is driven by CRC. Length
@@ -123,6 +124,13 @@ def decode_psk_frame(symbols: np.ndarray, profile: PSKReceiveProfile, *,
 
     if carrier_method not in ("coherent", "phase_regression"):
         raise ValueError("Carrier method must be coherent or phase_regression")
+    if carrier_weight_kappa is not None:
+        from nearlink_sdr.phy.carrier_weights import BoundedCarrierWeights
+        BoundedCarrierWeights(carrier_weight_kappa, fixed=carrier_weight_fixed)
+        if carrier_method != "coherent":
+            raise ValueError("Experimental weights require coherent carrier search")
+    elif type(carrier_weight_fixed) is not bool or carrier_weight_fixed:
+        raise ValueError("Fixed carrier weights require explicit kappa")
     y = np.asarray(symbols)
     if y.ndim != 1 or not np.isfinite(y).all():
         raise ValueError("Expected finite synchronized symbols")
@@ -174,8 +182,11 @@ def decode_psk_frame(symbols: np.ndarray, profile: PSKReceiveProfile, *,
         return row
     data = y[start:end]
     if len(data) >= 32:
+        options = ({} if carrier_weight_kappa is None and not carrier_weight_fixed else
+                   dict(carrier_weight_kappa=carrier_weight_kappa,
+                        carrier_weight_fixed=carrier_weight_fixed))
         data, row["carrier"] = refine_psk_carrier(data, cfg.mod_str, start,
-                                                  method=carrier_method)
+                                                  method=carrier_method, **options)
     else:
         row["carrier"] = dict(method="sync estimate only; fewer than 32 payload wire symbols")
     bits = demap_psk_field(data, cfg.mod_str, start, cfg.pilot_interval)[:nbits]
