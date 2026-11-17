@@ -219,6 +219,9 @@ def checked_manifest(root, relative):
 
 class Replay:
     def __init__(self, args):
+        if (getattr(args,'carrier_weight_kappa',None) is None and
+                getattr(args,'carrier_weight_fixed',False)):
+            raise ValueError('Fixed carrier weights require explicit kappa before replay/proofs')
         self.args, self.rows, self.stream_index = args, [], 0
         self.selection = json.loads(args.selection.read_text())
         from nearlink_sdr.phy.tone_notch import ToneNotchConfig
@@ -248,6 +251,8 @@ class Replay:
             sync_search_method=getattr(args,'sync_method','reference'),
             normalized_coarse=getattr(args,'normalized_coarse',False),
             rrc_backend=getattr(args,'rrc_backend','reference'),
+            carrier_weight_kappa=getattr(args,'carrier_weight_kappa',None),
+            carrier_weight_fixed=getattr(args,'carrier_weight_fixed',False),
             quiet_certificate='only zero-target quiet controls; numeric bank work always charged',
             sources=self.sources, driver_sha256=sha(Path(__file__))))
         (self.out/'driver.executed.py').write_bytes(Path(__file__).read_bytes())
@@ -295,6 +300,8 @@ class Replay:
         diagnostic_file = self.out/'evidence'/f'stream{self.stream_index:04}-numeric-changes.jsonl'
         rx = DiagnosticReceiver(profile, q, quiet_batching=False, diagnostic_file=diagnostic_file,
             defer_quiet_fir=False, rrc_backend=getattr(self.args,'rrc_backend','reference'),
+            carrier_weight_kappa=getattr(self.args,'carrier_weight_kappa',None),
+            carrier_weight_fixed=getattr(self.args,'carrier_weight_fixed',False),
             tone_notch=self.tone_config,
             sync_search_method=getattr(self.args,'sync_method','reference'),
             normalized_coarse=getattr(self.args,'normalized_coarse',False),
@@ -443,12 +450,16 @@ class Replay:
                 frames, selected_events = [], []
                 selected = replace(p, soft_payload=soft)
                 for e in events:
-                    event = dict(e, frame=decode_psk_frame(e['symbols'], selected))
+                    kappa = getattr(self.args,'carrier_weight_kappa',None)
+                    options = ({} if kappa is None else dict(carrier_weight_kappa=kappa,
+                               carrier_weight_fixed=getattr(self.args,'carrier_weight_fixed',False)))
+                    event = dict(e, frame=decode_psk_frame(e['symbols'], selected, **options))
                     f = event['frame']
                     bits = diagnostic_bits(event, selected)
                     frames.append(dict(status=f['status'], correct=f['status'] == 'valid' and f['payload'] == expected and
                         f.get('header', {}).get('data_length') == 255 and f.get('mcs') == r['mcs'],
                         header_crc=f['header_crc'], data_crc=f['data_crc'], length_ok=f['length_ok'],
+                        carrier=f.get('carrier'), soft_information=f.get('soft_information'),
                         mcs=f.get('mcs'), sync_start=e['sync_start_raw'],
                         bit_errors=None if bits is None else int(np.sum(bits != np.unpackbits(
                             np.frombuffer(expected, np.uint8))))))
@@ -557,6 +568,8 @@ if __name__ == '__main__':
     parser.add_argument('--sync-method',choices=['reference','local-parabolic'],default='reference')
     parser.add_argument('--normalized-coarse',action='store_true')
     parser.add_argument('--rrc-backend',choices=['reference','word-full12-c18'],default='reference')
+    parser.add_argument('--carrier-weight-kappa',type=int,choices=[2,4,8])
+    parser.add_argument('--carrier-weight-fixed',action='store_true')
     parser.add_argument('--group', choices=['original', 'uncoded', 'held', 'coded', 'weak', 'negatives'],
                         action='append')
     args = parser.parse_args()
