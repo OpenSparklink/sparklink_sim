@@ -92,6 +92,7 @@ rx-scope
 rx-rrc-model
 rx-rrc-stream-results
 rx-resource-budget
+system-feasibility
 standard-sources
 psk-timing-tracking-results
 psk-noise-recovery-results

@@ -1,0 +1,475 @@
+{
+  "schema_version": 1,
+  "status": "planning;not frozen system acceptance",
+  "scope": "single-radio narrowband SLE;4Msym/s QPSK/8PSK16MS/s primary;FT1 separate",
+  "items": [
+    {
+      "id": "rf_interface_cdc_axi",
+      "placement": "FPGA",
+      "function": "continuous ADC/DAC, clocks/reset/CDC/AXI",
+      "baseline_relationship": "included_baseline_group",
+      "concurrency": "RX+TX clocks; one RX/one TX stream",
+      "word_and_ports": "12bit converters,32bit complex containers",
+      "clock_ii_latency": "100MHz SYS + source-synchronous radio;16MS/s target",
+      "overflow_policy": "ADC cannot backpressure; bounded loss counters; DAC underrun abort",
+      "resources": {
+        "lut": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "ff": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "dsp": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "bram36": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        }
+      },
+      "ports_verified": false,
+      "deadline_verified": false
+    },
+    {
+      "id": "dma",
+      "placement": "FPGA + ARM kernel",
+      "function": "bounded DDR transport and ownership",
+      "baseline_relationship": "absent_baseline",
+      "concurrency": "competes with RX/TX/crypto buffers",
+      "word_and_ports": "AXI width/burst/QoS not frozen",
+      "clock_ii_latency": "minimum64MB/s per direction for32bit IQ16MS/s",
+      "overflow_policy": "admit only bounded descriptors; target DDR worst service unknown",
+      "resources": {
+        "lut": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "ff": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "dsp": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "bram36": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        }
+      },
+      "ports_verified": false,
+      "deadline_verified": false
+    },
+    {
+      "id": "rx_front",
+      "placement": "FPGA",
+      "function": "RRC/detection/notch/two coarse banks",
+      "baseline_relationship": "target_increment",
+      "concurrency": "continuous with previous decoder/TX preparation",
+      "word_and_ports": "RRC12/C18/19;scaled10;notch still float",
+      "clock_ii_latency": "RRCII12 at200MHz isolated;100/160MHz insufficient",
+      "overflow_policy": "raw sample expiry/drop recorded",
+      "resources": {
+        "lut": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "ff": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "dsp": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "bram36": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        }
+      },
+      "ports_verified": false,
+      "deadline_verified": false
+    },
+    {
+      "id": "rx_fine_timing_carrier",
+      "placement": "FPGA candidate",
+      "function": "bounded fine/interpolation/Gardner-PI/carrier/demap",
+      "baseline_relationship": "target_increment",
+      "concurrency": "continuous frontend and decoder",
+      "word_and_ports": "fine/loop/LLR fixed formats pending",
+      "clock_ii_latency": "full search work exceeds original module18DSP; packet FFT schedule pending",
+      "overflow_policy": "bounded candidates/windows; no CRC retry",
+      "resources": {
+        "lut": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "ff": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "dsp": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "bram36": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        }
+      },
+      "ports_verified": false,
+      "deadline_verified": false
+    },
+    {
+      "id": "head_crc_scrambler_bch",
+      "placement": "FPGA for deadline path",
+      "function": "head CRC/decode/length;CRC/whitening/BCH",
+      "baseline_relationship": "target_increment",
+      "concurrency": "next capture/previous payload processing",
+      "word_and_ports": "actual profile contexts;BCH target usage to audit",
+      "clock_ii_latency": "head deadline and MCS-specific stage service pending",
+      "overflow_policy": "invalid/truncated head prevents length/payload delivery",
+      "resources": {
+        "lut": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "ff": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "dsp": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "bram36": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        }
+      },
+      "ports_verified": false,
+      "deadline_verified": false
+    },
+    {
+      "id": "polar_rate_match",
+      "placement": "FPGA candidate or proven bounded ARM service",
+      "function": "SC/Fast-SSC/code blocks/rate matching",
+      "baseline_relationship": "target_increment",
+      "concurrency": "previous decode overlaps next capture and TX prep",
+      "word_and_ports": "current hardwareNmax512/LLR16 is separate reference; model format not frozen",
+      "clock_ii_latency": "worst cycles/ports per target MCS unresolved; average CPU time insufficient",
+      "overflow_policy": "finite codeblock buffers; no overwrite",
+      "resources": {
+        "lut": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "ff": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "dsp": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "bram36": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        }
+      },
+      "ports_verified": false,
+      "deadline_verified": false
+    },
+    {
+      "id": "tx_prepare",
+      "placement": "FPGA candidate + ARM payload producer",
+      "function": "CRC/coding/scramble/frame/map",
+      "baseline_relationship": "target_increment",
+      "concurrency": "RX tail/decoder/CCM/DMA may overlap",
+      "word_and_ports": "TxConfig locked per packet;unknown factory coding excluded",
+      "clock_ii_latency": "prepare before TX release;coding cycles unresolved",
+      "overflow_policy": "reserve complete frame/block resources before start",
+      "resources": {
+        "lut": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "ff": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "dsp": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "bram36": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        }
+      },
+      "ports_verified": false,
+      "deadline_verified": false
+    },
+    {
+      "id": "tx_rrc_output",
+      "placement": "FPGA",
+      "function": "causal polyphase shaping/scaling/FIFO",
+      "baseline_relationship": "target_increment",
+      "concurrency": "TX prep and real-time execution",
+      "word_and_ports": "currentTx float;symmetric/polyphase fixed format pending",
+      "clock_ii_latency": "16MS/s deterministic output;shared RX DSP not credited",
+      "overflow_policy": "no silent zero insertion;underrun abort/counter",
+      "resources": {
+        "lut": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "ff": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "dsp": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "bram36": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        }
+      },
+      "ports_verified": false,
+      "deadline_verified": false
+    },
+    {
+      "id": "realtime_mac",
+      "placement": "FPGA deadline path + ARM policy",
+      "function": "TDD/event/time/hop triggers/immediate response/ARQ execution",
+      "baseline_relationship": "partly_baseline",
+      "concurrency": "RX tail/authentication/reply prep and DMA",
+      "word_and_ports": "immutable context/identity/generation;register widths pending",
+      "clock_ii_latency": "100MHz existing SYS;response interval null in draft profile",
+      "overflow_policy": "completion capacity reserved;retry/accounting cannot be silently lost",
+      "resources": {
+        "lut": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "ff": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "dsp": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "bram36": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        }
+      },
+      "ports_verified": false,
+      "deadline_verified": false
+    },
+    {
+      "id": "security",
+      "placement": "conditional FPGA accelerator + ARM key policy",
+      "function": "per actual profile AES-CCM nonce/AAD/MIC",
+      "baseline_relationship": "absent_baseline",
+      "concurrency": "RX auth+TX prepare+DMA competition",
+      "word_and_ports": "AES128;CCM packet/context requirements not yet frozen",
+      "clock_ii_latency": "worst authenticated reply deadline unknown",
+      "overflow_policy": "isolated RX/TX contexts and references;no unproven sharing",
+      "resources": {
+        "lut": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "ff": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "dsp": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "bram36": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        }
+      },
+      "ports_verified": false,
+      "deadline_verified": false
+    },
+    {
+      "id": "packet_queues",
+      "placement": "FPGA + ARM kernel",
+      "function": "packet/descriptor/candidate/output/completion queues",
+      "baseline_relationship": "partly_baseline",
+      "concurrency": "all producers/consumers",
+      "word_and_ports": "draft2TX+2RX+1reply×2048B not qualified",
+      "clock_ii_latency": "port arbitration and downstream maximum stall unknown",
+      "overflow_policy": "bounded queues;admission/drop/abort explicit",
+      "resources": {
+        "lut": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "ff": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "dsp": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "bram36": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        }
+      },
+      "ports_verified": false,
+      "deadline_verified": false
+    },
+    {
+      "id": "statistics_debug",
+      "placement": "FPGA bounded counters + ARM collection",
+      "function": "telemetry/ILA/IQ observation",
+      "baseline_relationship": "included_baseline_group",
+      "concurrency": "must not block real-time datapath",
+      "word_and_ports": "baselineIQ observationBRAM included;new counters separate",
+      "clock_ii_latency": "lossy diagnostic queue;optional capture bandwidth cost charged",
+      "overflow_policy": "disable/drop diagnostics before mandatory datapath",
+      "resources": {
+        "lut": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "ff": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "dsp": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "bram36": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        }
+      },
+      "ports_verified": false,
+      "deadline_verified": false
+    },
+    {
+      "id": "management",
+      "placement": "ARM user/kernel",
+      "function": "discovery/link negotiation/pairing/policy/ordinary management",
+      "baseline_relationship": "software",
+      "concurrency": "can overlap radio work, no hard per-packet deadlines assigned",
+      "word_and_ports": "exclusive kernel controlsMMIO/SPI/DMA;user negotiates",
+      "clock_ii_latency": "software service/jitter not substituted for FPGA deadline",
+      "overflow_policy": "pending versions cannot alter in-flight packet",
+      "resources": {
+        "lut": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "ff": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "dsp": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        },
+        "bram36": {
+          "lower": null,
+          "upper": null,
+          "basis": "not reliably attributed/estimated; unknown is not zero"
+        }
+      },
+      "ports_verified": false,
+      "deadline_verified": false
+    }
+  ],
+  "optional": [
+    "AES-CCM only actual negotiated security profile",
+    "debug IQ/ILA with charged capacity",
+    "FT1 and PSK separate configurable modes; no unsupported resource credit"
+  ],
+  "outside": [
+    "UWB",
+    "multitone",
+    "unknown factory encoded prefix",
+    "unbounded multi-link claims"
+  ],
+  "sharing_proven": [
+    {
+      "item": "single causal RRC output reused by original/tone branches; bank difference/energy and overlapping windows reused",
+      "evidence": "existing frozen floating/structure evidence",
+      "scope": "algorithmic computation reuse only; whole FPGA arbitration unverified"
+    }
+  ],
+  "sharing_unproven": [
+    "RX/TX RRC multipliers",
+    "RX Polar decode/TX encode",
+    "RX auth/TX CCM",
+    "packet RAM ports",
+    "DMA/FFT/codeblock DDR"
+  ],
+  "qualification": false
+}
