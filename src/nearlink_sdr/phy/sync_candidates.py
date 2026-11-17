@@ -1,6 +1,6 @@
 """Experimental bounded search set with the unchanged spline/differential score.
 
-This isolates search geometry (§6.5/6.6) from interpolation and carrier changes.
+This isolates search geometry (§6.2.3) from interpolation and carrier changes.
 The reference remains the full-grid search; this module makes no recall claim.
 """
 
@@ -14,17 +14,19 @@ __all__ = ["search_candidate_grid"]
 
 def search_candidate_grid(
     filtered, sps, reference, subdivisions, *, min_start=0, lookahead=0,
-    diagnostics=None, candidate_count=1, coarse_starts=None, **kwargs,
+    diagnostics=None, candidate_count=1, coarse_starts=None, interpolator="reference", **kwargs,
 ):
     """Rank1/2 integer peaks, separate by4 samples, then evaluate9 phases each.
 
     Optional starts come from the existing bounded normalized-score ring. The
     floating diagnostic path reuses the reference integer-search cache instead.
-    Both use the same normalized differential fine score and CubicSpline as the
-    reference, not the rejected Lagrange/parabolic experiment. CRC/data/truth are
+    Both use the same normalized differential fine score and global spline as
+    the reference (explicit finite preparation is optional). CRC/data/truth are
     absent. The greatest evaluated score alone controls future-sample waiting.
     """
     z, ref = np.asarray(filtered), np.asarray(reference)
+    if interpolator not in ("reference", "uniform-eighth"):
+        raise ValueError("Unsupported explicit interpolation backend")
     if (sps != 4 or subdivisions != 8 or type(candidate_count) is not int
             or candidate_count not in (1, 2) or z.ndim != 1 or not 4 <= len(z) <= 640
             or ref.ndim != 1 or not 2 <= len(ref) <= 128
@@ -68,7 +70,11 @@ def search_candidate_grid(
     d["coarse_starts"] = peaks
     if not peaks:
         return None
-    spline = CubicSpline(np.arange(len(z)), z)
+    if interpolator == "uniform-eighth":
+        from nearlink_sdr.phy.uniform_spline import UniformCubicEighth
+        spline = UniformCubicEighth(z)
+    else:
+        spline = CubicSpline(np.arange(len(z)), z)
     dr = ref[1:] * ref[:-1].conj()
     coefficient_energy = np.sum(abs(dr)**2)
     # Merge repeated local positions before scoring, preserving reference ties.

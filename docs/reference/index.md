@@ -101,6 +101,7 @@ rx-failure-controls
 sync-carrier-initialization
 capture-transport
 rrc-memory
+spline-preparation
 standard-sources
 psk-timing-tracking-results
 psk-noise-recovery-results
