@@ -120,6 +120,13 @@ jobs:
           uv run --frozen --no-sync python scripts/model_sync_carrier_work.py --output receiver-diagnostics/sync-carrier-work >sync-carrier-work.log 2>&1 || status=$?
           test "$status" -eq 1
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/sync-carrier-work/model.json")); assert len(d["scenarios"]) == 6 and d["whole_system_accepted"] is False; assert all(r["known_partial_lower_bits"] > r["budget_bits"] for r in d["scenarios"]); assert not d["coefficient_calendar"]["incomplete"]'
+      - name: Preserve bounded capture transport and system resource gap
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_capture_transport.py --output receiver-diagnostics/capture-transport >capture-transport.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/capture-transport/model.json")); assert len(d["scenarios"]) == 36 and d["whole_system_accepted"] is False; assert d["original_capture_budget_still_failed"]; assert d["rrc_word_control"]["additional_word_errors"] == 0; assert all(r["result"]["peak_owned"] <= 3 and r["result"]["peak_source_operations_per_primitive"] <= 2 for r in d["scenarios"])'
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -134,6 +141,7 @@ jobs:
             sync-candidate-work.log
             sync-coherent-work.log
             sync-carrier-work.log
+            capture-transport.log
             receiver-diagnostics/
 
   optional-sm3:
