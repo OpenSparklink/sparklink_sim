@@ -9,6 +9,7 @@ import pytest
 from nearlink_sdr.sim.system_resources import (
     bram36_layout,
     calendar_conflicts,
+    parse_z7020_distributed_memory,
     parse_z7020_utilization,
     system_headroom,
 )
@@ -19,6 +20,28 @@ REPORT = """| Device       : xc7z020clg400-1
 | Block RAM Tile | 73 | 0 | 0 | 140 | 52.14 |
 | DSPs           | 29 | 0 | 0 | 220 | 13.18 |
 """
+
+MEMORY_REPORT = REPORT + """| LUT as Memory | 538 | 0 | 0 | 17400 | 3.09 |
+| LUT as Distributed RAM | 50 | 0 | | | |
+| LUT as Shift Register | 488 | 0 | | | |
+| SLICEM | 2732 | 0 | | | |
+"""
+
+
+def test_memory_lut_capacity_does_not_make_occupied_logic_slicem_freely_available():
+    d = parse_z7020_distributed_memory(MEMORY_REPORT)
+    assert d["slicem_unoccupied_count"] == 1618 and d["memory_lut_used"] == 538
+    assert d["freely_placeable_memory_luts"] is None and not d["placement_verified"]
+
+
+@pytest.mark.parametrize("text", [REPORT, MEMORY_REPORT.replace("538", "539"),
+    MEMORY_REPORT.replace("17400", "21700"), MEMORY_REPORT.replace("2732", "5000"),
+    MEMORY_REPORT+"| SLICEM | 2733 | 0 | | | |\n",
+    MEMORY_REPORT+"| LUT as Memory | 538 | 0 | 0 | 17401 | 3.09 |\n",
+    MEMORY_REPORT+"| LUT as Memory | 538.5 | 0 | 0 | 17400 | 3.09 |\n"])
+def test_missing_inconsistent_or_wrong_capacity_is_not_a_free_lutram_budget(text):
+    with pytest.raises(ValueError):
+        parse_z7020_distributed_memory(text)
 
 
 def test_physical_remaining_differs_from_unapproved_reserve_scenario():

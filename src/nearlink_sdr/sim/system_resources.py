@@ -8,7 +8,8 @@ import math
 import re
 from dataclasses import dataclass
 
-__all__ = ["bram36_layout", "calendar_conflicts", "parse_z7020_utilization", "system_headroom"]
+__all__ = ["bram36_layout", "calendar_conflicts", "parse_z7020_distributed_memory",
+           "parse_z7020_utilization", "system_headroom"]
 
 
 def parse_z7020_utilization(text):
@@ -50,6 +51,38 @@ def system_headroom(report):
     return dict(resources=rows, reserve_approved=False, system_budget_frozen=False,
                 target_increment_fully_estimated=False, whole_system_accepted=False,
                 timing_200mhz_verified=False)
+
+
+def parse_z7020_distributed_memory(text):
+    """Keep SLICEM occupancy distinct from memory-LUT usage and total LUTs.
+
+    Unoccupied slice count is a packing estimate, not placement/timing proof.
+    Logic also occupies SLICEM:17400minus memory-LUT usage is not free RAM.
+    """
+    parse_z7020_utilization(text)
+
+    def value(label, available=None):
+        rows = re.findall(rf"^\|\s*{re.escape(label)}\s*\|([^\n]*)$", text, re.M)
+        fields = [[v.strip() for v in row.split("|")] for row in rows]
+        if (not fields or any(not row[0].isdecimal() for row in fields)
+                or len({row[0] for row in fields}) != 1):
+            raise ValueError("Missing/conflicting distributed-memory report row")
+        if available is not None and any(
+            len(row) < 4 or row[3] != str(available) for row in fields
+        ):
+            raise ValueError("Wrong SLICEM memory-LUT capacity")
+        return int(fields[0][0])
+
+    used = value("LUT as Memory", 17400)
+    distributed, shifts, occupied = (value(label) for label in
+        ["LUT as Distributed RAM", "LUT as Shift Register", "SLICEM"])
+    if used != distributed+shifts or not 0 <= occupied <= 4350 or used > occupied*4:
+        raise ValueError("Inconsistent SLICEM/memory-LUT totals")
+    return dict(memory_lut_physical=17400, memory_lut_used=used,
+                distributed_lut_used=distributed, shift_lut_used=shifts,
+                slicem_physical=4350, slicem_occupied=occupied,
+                slicem_unoccupied_count=4350-occupied,
+                freely_placeable_memory_luts=None, placement_verified=False)
 
 
 def bram36_layout(width, depth, *, simultaneous_reads=1, simultaneous_writes=1):

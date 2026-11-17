@@ -193,9 +193,17 @@ class PairRRCFlow:
             scope="allocated module estimate + executable dependency/lifetime schedule; 1cycle ALU/encoder, mux/fanout/RAM granularity/synthesis and whole-RX sharing unverified",
         )
 
-    def simulate(self, samples, *, downstream_stalls=(), trace=False):
+    def simulate(self, samples, *, downstream_stalls=(), trace=False, access_sink=None):
+        """Run the existing schedule, optionally emit bounded memory accesses.
+
+        The observer cannot stall, change ownership or select outputs. A port
+        observer finding conflicts rejects its mapping, not silently rewrites
+        this schedule. Diagnostic retention belongs to the observer/caller.
+        """
         if type(samples) is not int or not 0 <= samples <= 1_000_000:
             raise ValueError("Need0..1000000 scheduled source samples")
+        if access_sink is not None and not callable(access_sink):
+            raise ValueError("Need a callable access observer")
         stalls = list(downstream_stalls)
         if any(
             len(s) != 2 or any(type(v) is not int for v in s) or not 0 <= s[0] < s[1] <= 10_000_000
@@ -245,6 +253,8 @@ class PairRRCFlow:
 
         while next_source < samples or incoming or fir or ready or sums or merges or output:
             raw_reads = product_writes = product_reads = enqueues = 0
+            source_write, raw_access, product_write_access, product_read_access = None, [], [], []
+            raw_samples = []
             if cycle > limit:
                 raise RuntimeError("Finite native-product schedule failed to drain")
             # Registered output FIFO: no same-cycle enqueue fallthrough.
@@ -265,6 +275,7 @@ class PairRRCFlow:
                 and cycle == (next_source * a.clock_hz + a.input_hz - 1) // a.input_hz
             ):
                 raw[next_source % a.history_samples] = next_source
+                source_write = next_source
                 counts["source_history_writes"] += 1
                 job = dict(sample=next_source, arrived=cycle, invalid=False)
                 if len(incoming) == a.fifo_depth:
@@ -286,6 +297,8 @@ class PairRRCFlow:
                             versions[job["slot"]][j] = job["sample"]
                             counts["product_writes"] += 1
                             product_writes += 1
+                            if access_sink is not None:
+                                product_write_access.append((job["slot"], j, job["sample"]))
             for job in fir[:]:
                 if cycle >= job["start"] + self.fir_latency:
                     ready.append(job)
@@ -346,6 +359,9 @@ class PairRRCFlow:
                             index = job["sample"] - lag
                             counts["history_reads"] += 1
                             raw_reads += 1
+                            if access_sink is not None:
+                                raw_access.append(index)
+                                raw_samples.append(job["sample"])
                             if index >= 0 and raw[index % a.history_samples] != index:
                                 if not job["invalid"]:
                                     record("history_gap", job, operand=index)
@@ -361,6 +377,8 @@ class PairRRCFlow:
                             raise AssertionError("Read unprepared or overwritten product")
                         counts["product_reads"] += 1
                         product_reads += 1
+                        if access_sink is not None:
+                            product_read_access.append((job["slot"], j, job["sample"]))
             if (
                 raw_reads > a.history_read_ports
                 or product_writes > a.product_write_ports
@@ -393,6 +411,10 @@ class PairRRCFlow:
                 owners=sum(v is not None for v in owners),
             ).items():
                 peak[k] = max(peak[k], v)
+            if access_sink is not None:
+                access_sink(dict(cycle=cycle, source_write=source_write,
+                    raw_reads=tuple(raw_access), product_writes=tuple(product_write_access),
+                    product_reads=tuple(product_read_access), raw_samples=tuple(raw_samples)))
             cycle += 1
         assert counts["emitted"] + counts["dropped"] == samples
         return dict(

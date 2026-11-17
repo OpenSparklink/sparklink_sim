@@ -100,6 +100,7 @@ sync-coherent-confirmation
 rx-failure-controls
 sync-carrier-initialization
 capture-transport
+rrc-memory
 standard-sources
 psk-timing-tracking-results
 psk-noise-recovery-results
