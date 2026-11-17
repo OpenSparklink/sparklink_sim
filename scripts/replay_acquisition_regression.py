@@ -247,6 +247,7 @@ class Replay:
             tone_radius=getattr(args, 'tone_radius', None),
             sync_search_method=getattr(args,'sync_method','reference'),
             normalized_coarse=getattr(args,'normalized_coarse',False),
+            rrc_backend=getattr(args,'rrc_backend','reference'),
             quiet_certificate='only zero-target quiet controls; numeric bank work always charged',
             sources=self.sources, driver_sha256=sha(Path(__file__))))
         (self.out/'driver.executed.py').write_bytes(Path(__file__).read_bytes())
@@ -256,7 +257,11 @@ class Replay:
 
     def receive(self, x, q, profile, *, quiet=False):
         self.stream_index += 1
-        certificate = closed_gate_certificate(x, q, profile.config.sps) if quiet else None
+        # Existing floating tone/RRC bounds do not prove finite-word internal
+        # behavior. Process every quiet sample on the experimental word path.
+        certificate = (closed_gate_certificate(x, q, profile.config.sps)
+                       if quiet and getattr(self.args,'rrc_backend','reference') == 'reference'
+                       else None)
         if certificate is not None:
             proof = tone_closed_certificate(x, self.tone_config)
             if proof is None:
@@ -281,12 +286,15 @@ class Replay:
                 certificate['format_scope'] = (
                     'Closed search gate only; no scaled internal-state or range proof')
             return [], dict(certificate=certificate, numerically_processed_samples=0,
+                rrc_backend=getattr(self.args,'rrc_backend','reference'),
+                rrc_state_observed=False,
                 continuous_work_charged_samples=len(x), eof_virtual_padding_samples=42,
                 continuous_bank_instances=1 if self.tone_config is None else 2,
                 cost_scope='per-bank estimate; detector/notch/RRC/fine/loop work is separate',
                 operations_per_charged_sample=bank.worst_operations_per_sample())
         diagnostic_file = self.out/'evidence'/f'stream{self.stream_index:04}-numeric-changes.jsonl'
         rx = DiagnosticReceiver(profile, q, quiet_batching=False, diagnostic_file=diagnostic_file,
+            defer_quiet_fir=False, rrc_backend=getattr(self.args,'rrc_backend','reference'),
             tone_notch=self.tone_config,
             sync_search_method=getattr(self.args,'sync_method','reference'),
             normalized_coarse=getattr(self.args,'normalized_coarse',False),
@@ -299,6 +307,9 @@ class Replay:
         events.extend(rx.finish())
         bank = rx.correlation_bank
         return events, dict(certificate=None, numerically_processed_samples=len(x),
+            rrc_backend=rx.rrc_backend, fir_array_bytes=rx.fir_array_bytes,
+            rrc_state_observed=rx._rrc_word_model is not None,
+            rrc_stats=None if rx._rrc_word_model is None else dict(rx._rrc_word_model.stats),
             continuous_work_charged_samples=len(x), eof_virtual_padding_samples=rx.future_samples,
             capture_stats=rx.capture_stats, bank_stats=bank.stats,
             numeric_diagnostics=rx.numeric,
@@ -515,6 +526,10 @@ class Replay:
             (r['known_packets'] is not None and r['correct'] < r['known_packets']) or
             (not r['frames'] and r['group'] == 'weak-hardware')])
         acceptance = dict(
+            numerical_scope='coarse correlation bank; RRC format gate is separate',
+            rrc_numeric_gate_passed=(None if getattr(self.args,'rrc_backend','reference')
+                                    == 'reference' else False),
+            receiver_promotion=False,
             functional_budget_passed=not any(r['lost_success_positions'] or
                 r['max_matched_center_delta'] > .25 or r['unexpected_zero_target_candidates'] or
                 (r['extra'] or {}).get('negative_candidates', 0) for r in self.rows),
@@ -529,7 +544,8 @@ class Replay:
         write(self.out/'manifest.json', {str(p.relative_to(self.out)): sha(p) for p in
                                         self.out.rglob('*') if p.is_file()})
         print(json.dumps(summary, indent=2), flush=True)
-        return not all((acceptance['functional_budget_passed'], acceptance['numerical_budget_passed']))
+        return (not all((acceptance['functional_budget_passed'], acceptance['numerical_budget_passed']))
+                or acceptance['rrc_numeric_gate_passed'] is False)
 
 
 if __name__ == '__main__':
@@ -540,6 +556,7 @@ if __name__ == '__main__':
     parser.add_argument('--backend', choices=['structure', 'fixed', 'scaled'], default='fixed')
     parser.add_argument('--sync-method',choices=['reference','local-parabolic'],default='reference')
     parser.add_argument('--normalized-coarse',action='store_true')
+    parser.add_argument('--rrc-backend',choices=['reference','word-full12-c18'],default='reference')
     parser.add_argument('--group', choices=['original', 'uncoded', 'held', 'coded', 'weak', 'negatives'],
                         action='append')
     args = parser.parse_args()

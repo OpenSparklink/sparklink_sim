@@ -13,7 +13,7 @@
 - 构建: hatchling (Python, src layout), maturin + PyO3 (Rust 扩展), Vivado 2025.2 (FPGA)
 - 测试: pytest + pytest-cov (Python), cocotb + iverilog (RTL 仿真)
 - Lint: ruff (Python), Verible (SystemVerilog)
-- 标准文档: `../Summary-of-Sparkling-Information/Standard/TXS-10002-2025.md`
+- 标准文档: 独立 `sparklink-standards/10_接入层/` 的 T-XS-10002-2025 原始 PDF；版本、SHA及已核对范围见 `docs/reference/standard-sources.md`。原 `../Summary-of-Sparkling-Information/Standard/TXS-10002-2025.md` 路径在当前环境缺失。
 
 ## 目录结构
 

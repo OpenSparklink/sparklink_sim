@@ -90,6 +90,8 @@ rx-interference-capture
 sle-transceiver-model
 rx-scope
 rx-rrc-model
+rx-rrc-stream-results
+standard-sources
 psk-timing-tracking-results
 psk-noise-recovery-results
 /apidocs/nearlink_sdr/nearlink_sdr

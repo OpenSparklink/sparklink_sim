@@ -79,15 +79,27 @@ jobs:
       - name: Run tests
         env:
           SPARKLINK_TEST_DIAGNOSTICS: receiver-diagnostics
-        run: uv run --frozen --no-sync pytest tests/ -v --tb=short --junitxml=report.xml 2>&1 | tee test.log
+        run: |
+          # Keep every case; run the long finite-word integration suite beside
+          # the remaining suite to meet the test-duration budget on two cores.
+          uv run --frozen --no-sync pytest tests/ --ignore=tests/test_stream_rrc_word.py -v --tb=short --junitxml=report-core.xml >test-core.log 2>&1 &
+          core_pid=$!
+          uv run --frozen --no-sync pytest tests/test_stream_rrc_word.py -v --tb=short --junitxml=report-front.xml >test-front.log 2>&1 &
+          front_pid=$!
+          core_status=0
+          front_status=0
+          wait "$core_pid" || core_status=$?
+          wait "$front_pid" || front_status=$?
+          cat test-core.log test-front.log
+          test "$core_status" -eq 0 && test "$front_status" -eq 0
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results-${{ matrix.backend }}
           path: |
-            report.xml
-            test.log
+            report-*.xml
+            test-*.log
             build.log
             backend.json
             receiver-diagnostics/
