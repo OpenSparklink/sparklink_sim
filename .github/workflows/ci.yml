@@ -152,6 +152,14 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/spline-fixed/model.json")); assert d["node_candidate_accepted"]; assert d["selected_format"] == {"input_bits":18,"coefficient_fraction_bits":14}; assert not d["whole_system_accepted"] and not d["complete_capture_cycle_verified"] and not d["main_rx_default_changed"]; assert d["original_16kib_failure_preserved"] and d["original_rrc_2percent_failure_preserved"]; assert all(r["result"]["queue_drops"] > 0 for r in d["resources"]["scenarios"] if r["request_interval_samples"] == 32)'
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/spline-fixed/model.json")); r=d["resources"]; assert r["combined_information_lower_bits"] > r["original16kib_budget_bits"]; assert r["fourth_owned_raw_slot_bram36"] == 2 and r["four_engine_system_subtotal"] == 103; assert len(d["all_remaining_new_stream_failures"]) == 6'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/spline-fixed"); m=json.loads((p/"manifest.json").read_text()); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in m.items())'
+      - name: Preserve value-carrying spline flow and system failures
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_spline_flow.py --output receiver-diagnostics/spline-flow >spline-flow.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/spline-flow/model.json")); assert d["preparation_node_accepted"] and d["development_cases"] == 337 and d["validation_cases"] == 36; assert not d["whole_system_accepted"] and not d["main_rx_default_changed"] and not d["full_interpolation_score_and_feedback_cycle_verified"]; assert all(r["bitexact_arrays"] for r in d["packet_regressions"]); assert d["resources"]["four_engine_ft2_bram36_subtotal"] == 91; assert all(r["result"]["queue_drops"] > 0 for r in d["resources"]["scenarios"] if r["interval"] == 32)'
+          uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/spline-flow"); m=json.loads((p/"manifest.json").read_text()); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in m.items())'
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -170,6 +178,7 @@ jobs:
             rrc-memory.log
             spline-preparation.log
             spline-fixed.log
+            spline-flow.log
             receiver-diagnostics/
 
   optional-sm3:

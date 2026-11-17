@@ -103,6 +103,7 @@ capture-transport
 rrc-memory
 spline-preparation
 spline-fixed
+spline-flow
 standard-sources
 psk-timing-tracking-results
 psk-noise-recovery-results
