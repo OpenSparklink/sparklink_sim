@@ -144,3 +144,44 @@ def test_held_harness_refuses_unfrozen_steps_or_generic_regression_bypass(tmp_pa
     with pytest.raises(ValueError, match="original"):
         audit.run(args)
     assert not args.output.exists()
+
+
+@pytest.mark.parametrize("chunks", ["whole", "random"])
+def test_rejected_initializer_cannot_regress_existing_raw_iq_mac_success(chunks):
+    import hashlib
+    import json
+
+    from nearlink_sdr.phy.mac_interface import MacStreamReceiver
+    from nearlink_sdr.phy.strict_rx import PSKReceiveProfile
+    from nearlink_sdr.phy.tone_notch import ToneNotchConfig
+    from nearlink_sdr.phy.tx_pipeline import TxConfig
+
+    folder = Path(__file__).parent / "data"
+    path = folder / "sync_carrier_tone_success.npz"
+    meta = json.loads((folder / "sync_carrier_tone_success.json").read_text())
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == meta["derived_npz_sha256"]
+    with np.load(path) as data:
+        iq, quiet, wanted = data["iq"], data["quiet"], data["expected"].tobytes()
+    assert hashlib.sha256(iq.tobytes()).hexdigest() == meta["iq_bytes_sha256"]
+    cfg = TxConfig(mcs_index=6, pid=0, symbol_rate_mhz=4,
+                   whitening_seed=0x52, crc_seed=0x123456)
+    rx = MacStreamReceiver(PSKReceiveProfile.ordinary(cfg), quiet,
+        quiet_batching=False, defer_quiet_fir=False, correlation_backend="scaled",
+        normalized_coarse=True, tone_notch=ToneNotchConfig(radius=31/32),
+        sync_search_method="bounded-grid", sync_candidate_count=1, sync_coherent_threshold=.45)
+    packets, frames, offset = [], [], 0
+    rng = np.random.default_rng(600120)
+    while offset < len(iq):
+        size = len(iq) if chunks == "whole" else int(rng.integers(1, 1001))
+        result = rx.feed(iq[offset:offset+size])
+        packets.extend(result.packets)
+        frames.extend(result.diagnostics["frames"])
+        offset += size
+    result = rx.finish()
+    packets.extend(result.packets)
+    frames.extend(result.diagnostics["frames"])
+    assert [p.mac_payload for p in packets] == [wanted]
+    assert len(frames) == 1
+    frame = frames[0]
+    assert frame["header_crc"] and frame["data_crc"] and frame["length_ok"]
+    assert frame["header"]["data_length"] == len(wanted) == 511 and frame["mcs"] == 6

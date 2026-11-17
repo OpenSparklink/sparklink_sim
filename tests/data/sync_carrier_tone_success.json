@@ -1,0 +1,42 @@
+{
+  "description": "synthetic floating-IQ old success;rejected coherent initializer loses head CRC;not realRF/ADC precision proof",
+  "source_input": {
+    "id": "tone-1-2",
+    "path": "/home/sanchuanhehe/.codex/visualizations/2026/11/15/01a1dfe8-f1ae-7233-a63e-c31ffad2d428/sync-carrier-initialization/held-base-inputs/tone-1-2.npz",
+    "sha256": "8be769266cc50571a833d8a76b0e151a1a72cd49361b68c3e8c1cefe4a5fe1ef",
+    "samples": 15481,
+    "iq_sha256": "a745e79d4ccfc09e9a936cb5a23a0a2df8270fa28c4670d8052b3d7d0783132f",
+    "burst_ranges": [],
+    "kind": "tone",
+    "positive": true,
+    "repeat": 2,
+    "mcs": 6,
+    "length": 511,
+    "amplitude": 0.5,
+    "noise_complex_variance": 25.0,
+    "packets": [
+      {
+        "sync_start": 1093.4123661912681,
+        "step": 3.9996,
+        "length": 511,
+        "mcs": 6,
+        "expected_hex": "d1ec200466d5cc93070ddb524014813d35d363951584b6774dca3dabea521155a84f1db7441087e80715bb44649fd96ce81339ef90e67c7296f3684285a9f7065e695a5fac86eec0bf8aca411b951ce2fd70709eee5283d107779ddc7b0559b85a765ede3a0532d7efba130ea56b1590e1e04e646183bdb68e7371ba331b332e355b1664ca9fbcb5c68f574c77e6b14160b050560d988d45c74ecc409f4edf5bad8460969e67da277ca80f22b3c5f3b23ce5d7cc8af5573b6ca7026846798e1eb1f71feca13a45471f8a9afa056b7a61d2c4402c45c393d9c8bd6bd2e5e340f509a23af9049af6721d0b564d3caea3a80414ff9c3d08037109125db86b054cbc06bf3ab2a48e66a7384adfbf12f61563a3dd19040db4390b4cc75ce181d078fb88d9f297daf75c73f24db8b855ccdb8a28d6e7a78412317daec416b7d308332bddcca21bf16c7a1432dfd7b933f044460ea63a5a3b65e8b08deb9f0cecc66c62ef13948ff93ac99a174ec37b6af0467fab23c397afe47fc97df5b0d3157f92157b81601d80e0b85a1033e80c40b94c47a7849a7746f82721248f2fb6a161dc5b5773ed01715baa32f4bcd1310e1fa30d7c053650f27b7e218a4bc7a27f053af0857c95930a7f6e5210b9c7d2e7bb3f91b4657dadea7938850b2ce571fc897ecdafa45867d3ad231abc29270ee497c917def7ed88c27bac6320c7c4dab6c4f8",
+        "cfo_hz": -25000,
+        "ppm": -100,
+        "signal_window_power": 576.4747733216456,
+        "background_window_power": 425.09441320015054,
+        "measured_sinr_db": 1.3229490991986976
+      }
+    ],
+    "tone_frequency_cycles_per_sample": -0.13772554277917962,
+    "tone_phase_radians": 1.03
+  },
+  "source_npz_sha256": "8be769266cc50571a833d8a76b0e151a1a72cd49361b68c3e8c1cefe4a5fe1ef",
+  "derived_npz_sha256": "989dafd969e03f4ed8bee4389fd3a7f3f7addd9b6ee30f04635dc7f76ecf13c1",
+  "iq_bytes_sha256": "a745e79d4ccfc09e9a936cb5a23a0a2df8270fa28c4670d8052b3d7d0783132f",
+  "baseline_capture": "held-reference",
+  "source_algorithm_commit": "5cadb92b32ad2de0d7e4b112ad3a6b7d562b2b24",
+  "default_initializer": "existing differential seed plus local-sync unwrap/polyfit",
+  "rejected_initializer": "one Newton step,knownsync;no CRC selection",
+  "official_success_must_remain": true
+}
