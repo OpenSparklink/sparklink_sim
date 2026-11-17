@@ -58,7 +58,17 @@ def diagnostic_bits(e, profile):
         )
         # Replay only the actual selected method. CRC is checked afterwards,
         # never used to retry a different carrier interpretation.
-        y, _ = refine_psk_carrier(y, cfg.mod_str, start, method=method, **options)
+        if "prefix_symbols" in carrier:
+            from nearlink_sdr.phy.carrier_prefix import refine_psk_carrier_prefix
+
+            prefix = carrier["prefix_symbols"]
+            if carrier.get("estimation_symbols") != min(prefix, len(y)):
+                raise ValueError("Prefix carrier metadata does not match actual estimation count")
+            y, _ = refine_psk_carrier_prefix(
+                y, cfg.mod_str, start, prefix_symbols=prefix, method=method, **options
+            )
+        else:
+            y, _ = refine_psk_carrier(y, cfg.mod_str, start, method=method, **options)
     hard = demap_psk_field(y, cfg.mod_str, start, cfg.pilot_interval)[: f["coded_bits"]]
     llr = None
     if not cfg.is_uncoded and profile.soft_payload:

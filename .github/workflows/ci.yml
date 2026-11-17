@@ -168,6 +168,14 @@ jobs:
           test "$status" -eq 1
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/spline-score/model.json")); assert d["preparation_guard_pass"] and d["node_word_pass"] and d["development_pass"] and d["validation_pass"] and d["old_fixture_success_preserved"]; assert not d["whole_system_accepted"] and not d["resource_gate"] and not d["main_rx_default_changed"] and not d["float_all_range_compatibility_pass"]; assert d["representative_flow"]["cycles"] == 63119 and d["one_peak_service_upper_cycles"] == 63759; assert d["normalization_floor_failures"][-1]["score_error"] > .005; assert all(r["result"]["queue_drops"] == 118 for r in d["scenarios"]); assert len(d["failures"]) == 3'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/spline-score"); m=json.loads((p/"manifest.json").read_text()); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in m.items())'
+      - name: Preserve rejected bounded-prefix carrier choices
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/audit_carrier_prefix.py --output receiver-diagnostics/carrier-prefix >carrier-prefix.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/carrier-prefix/model.json")); assert d["rejected"] and not d["held_evaluated"] and not d["default_receiver_changed"]; assert d["summary"]["full"]["full"] == 7 and d["summary"]["prefix128"]["full"] == 6; assert d["summary"]["prefix256"]["bit_errors"] == 3377; assert len(d["original_fixture_success_losses"]) == 6; assert not d["fixedFFT_format_accepted"] and not d["complete16msps_verified"]; assert any(c["prefix_limit"] == 256 and c["complex_word_bits_assumed"] == 64 and c["clock_hz_assumed"] == 200000000 and c["total_bram36"] == 27 for c in d["costs"])'
+          uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/carrier-prefix"); m=json.loads((p/"manifest.json").read_text()); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in m.items())'
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -188,6 +196,7 @@ jobs:
             spline-fixed.log
             spline-flow.log
             spline-score.log
+            carrier-prefix.log
             receiver-diagnostics/
 
   optional-sm3:
