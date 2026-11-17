@@ -1,6 +1,8 @@
 """Independent rational score, exact words, finite-bank reuse and resource drops."""
 
+import json
 from fractions import Fraction
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -266,3 +268,27 @@ def test_aligned_boundary_output_stall_and_exact_threshold_boundary():
     ):
         with pytest.raises(ValueError):
             flow.run(source.source_words, tpl, [2], **kwargs)
+
+
+@pytest.mark.parametrize("aligned", [False, True])
+def test_preparation_saturation_rejects_before_any_score_or_selected_symbol(aligned):
+    frozen = json.loads((Path(__file__).parent / "data/spline_score_saturation.json").read_text())
+    raw = tuple(tuple(w) for w in frozen["words"])
+    words = tuple(w[:2] for w in raw) if aligned else raw
+    events = []
+    flow = SplineScoreFlow(SplineScoreAssumptions(8))
+    result = flow.run(
+        words, SyncSignTemplate(((1, 0),)), [1], exponent=0 if aligned else None, sink=events.append
+    )
+    assert result["aborted"] and result["reason"] == "preparation_saturated"
+    assert result["numerical_rejection"] and result["numerical_pass"] is False
+    assert not result["resource_drop"] and result["best"] is None
+    assert result["preparation_arithmetic"]["saturations"] == frozen["reference_saturations"]
+    assert result["preparation_arithmetic"]["saturation_by_node"] == {"second_rhs": 2}
+    assert result["scoring_reads"] == result["scoring_cycles"] == result["scores_evaluated"] == 0
+    assert [e["event"] for e in events] == ["numerical_reject"]
+    # Keep neighboring no-overflow inputs usable; do not reject every window.
+    safe = tuple((w[0] // 2, w[1] // 2) for w in raw)
+    accepted = flow.run(safe, SyncSignTemplate(((1, 0),)), [1], exponent=1)
+    assert not accepted["aborted"] and accepted["numerical_pass"]
+    assert accepted["preparation_arithmetic"]["saturations"] == 0 and accepted["best"] is not None

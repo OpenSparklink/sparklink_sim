@@ -1,0 +1,59 @@
+{
+  "baseline_commit": "44eaf01e6ee29c4c7504a7ceb975f71651f41be9",
+  "words": [
+    [
+      131071,
+      0,
+      0
+    ],
+    [
+      -131071,
+      0,
+      0
+    ],
+    [
+      131071,
+      0,
+      0
+    ],
+    [
+      -131071,
+      0,
+      0
+    ],
+    [
+      131071,
+      0,
+      0
+    ],
+    [
+      -131071,
+      0,
+      0
+    ],
+    [
+      131071,
+      0,
+      0
+    ],
+    [
+      -131071,
+      0,
+      0
+    ]
+  ],
+  "template": [
+    [
+      1,
+      0
+    ]
+  ],
+  "peaks": [
+    1
+  ],
+  "reference_saturations": 2,
+  "reference_node": "second_rhs",
+  "baseline_input_sha256": "5dab0f4ebcf5d824a7be0765a67a196dd07da00b040640088bf0899a14db644d",
+  "purpose": "prepared fixed-word overflow must not become a qualifying selected score;not an RF packet",
+  "word_array_sha256": "a44f79753c3c376b92e5b7cb2af58d68b92d69c6dd0ac870395ee3fbd2730c60"
+}

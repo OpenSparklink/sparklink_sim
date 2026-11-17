@@ -368,6 +368,10 @@ class SplineScoreFlow:
             return dict(
                 aborted=True,
                 reason="preparation_cycle_limit",
+                numerical_pass=None,
+                numerical_rejection=False,
+                resource_drop=True,
+                preparation_arithmetic=context.ops.stats,
                 cycles=context.cycle + 1,
                 best=None,
                 whole_rx_verified=False,
@@ -375,6 +379,25 @@ class SplineScoreFlow:
         cycle = context.cycle
         prep_cycles, prep_reads = cycle + 1, context.ram.reads
         context.ram.emit = emit
+        # Existing finite preparation already counts every saturating node.
+        # Clipped words are evidence, never a valid input to candidate ranking.
+        if context.ops.stats["saturations"]:
+            emit("numerical_reject", reason="preparation_saturated", arithmetic=context.ops.stats)
+            return dict(
+                aborted=True,
+                reason="preparation_saturated",
+                numerical_pass=False,
+                numerical_rejection=True,
+                resource_drop=False,
+                preparation_arithmetic=context.ops.stats,
+                cycles=prep_cycles,
+                preparation_cycles=prep_cycles,
+                scoring_cycles=0,
+                scoring_reads=0,
+                scores_evaluated=0,
+                best=None,
+                whole_rx_verified=False,
+            )
         emit("bank_handoff", n=len(words), exponent=context.exponent)
         program = _program(
             peaks,
@@ -490,6 +513,10 @@ class SplineScoreFlow:
         return dict(
             aborted=aborted,
             reason="cycle_limit" if aborted else None,
+            numerical_pass=None if aborted else True,
+            numerical_rejection=False,
+            resource_drop=aborted,
+            preparation_arithmetic=context.ops.stats,
             cycles=cycle + 1,
             preparation_cycles=prep_cycles,
             scoring_cycles=cycle + 1 - prep_cycles,
@@ -525,6 +552,7 @@ def spline_score_cost(assumptions=None):
         SplineFixedFormat(18, 14), SplineFlowAssumptions(a.capacity, read_latency=a.read_latency)
     )
     fields = dict(
+        preparation_saturation_guard=1,
         nine_previous=9 * 44,
         nine_correlations=9 * 2 * 53,
         nine_energies=9 * 98,

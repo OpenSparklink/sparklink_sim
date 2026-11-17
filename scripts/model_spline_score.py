@@ -2,6 +2,7 @@
 
 import argparse
 import gzip
+import hashlib
 import json
 import math
 from contextlib import nullcontext
@@ -354,6 +355,37 @@ def receive_case(output, meta, profile, x, quiet, payload, chunking="whole"):
     return base, row, comparison, adapter.results
 
 
+def saturation_guard_audit(output):
+    path = Path("tests/data/spline_score_saturation.json")
+    frozen = json.loads(path.read_text())
+    raw = tuple(tuple(w) for w in frozen["words"])
+    assert (
+        hashlib.sha256(np.asarray(raw, np.int64).tobytes()).hexdigest()
+        == frozen["word_array_sha256"]
+    )
+    rows = []
+    for aligned in (False, True):
+        words = tuple(w[:2] for w in raw) if aligned else raw
+        events = []
+        result = SplineScoreFlow(SplineScoreAssumptions(8)).run(
+            words,
+            SyncSignTemplate(((1, 0),)),
+            [1],
+            exponent=0 if aligned else None,
+            sink=events.append,
+        )
+        assert result["numerical_rejection"] and not result["resource_drop"]
+        assert result["best"] is None and result["scores_evaluated"] == 0
+        assert result["preparation_arithmetic"]["saturations"] == 2
+        assert [e["event"] for e in events] == ["numerical_reject"]
+        rows.append(dict(aligned=aligned, result=result, events=events))
+    write(
+        output / "preparation-saturation-rejections.json",
+        dict(fixture_sha256=sha(path), baseline_commit=frozen["baseline_commit"], cases=rows),
+    )
+    return True
+
+
 def floor_boundary(output):
     # Diagnostic compatibility counterexample, not RF capability or algorithm tuning.
     records = []
@@ -403,6 +435,7 @@ def run(output, frozen=None, manifest_sha=None):
             Path("scripts/audit_spline_fixed.py"),
             Path("tests/test_spline_score.py"),
             Path("tests/data/spline_fixed_format.json"),
+            Path("tests/data/spline_score_saturation.json"),
             Path("tests/data/sync_carrier_tone_success.npz"),
             Path("uv.lock"),
             *Path("src").rglob("*.py"),
@@ -422,6 +455,7 @@ def run(output, frozen=None, manifest_sha=None):
             adoption="reuse if exact word score and fewer reads;full-growth scorer experimental,resource and RF gates separate",
         ),
     )
+    guard_pass = saturation_guard_audit(output)
     floor = floor_boundary(output)
     nodes = node_cases(output, frozen=frozen)
     all_rows, comparisons, flows, bases = [], [], [], []
@@ -569,6 +603,7 @@ def run(output, frozen=None, manifest_sha=None):
     write(output / "failures.json", failures)
     model = dict(
         node_word_pass=True,
+        preparation_guard_pass=guard_pass,
         float_all_range_compatibility_pass=False,
         normalization_floor_failures=floor,
         development_pass=dev_pass,
