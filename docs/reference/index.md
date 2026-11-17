@@ -104,6 +104,7 @@ rrc-memory
 spline-preparation
 spline-fixed
 spline-flow
+spline-score
 standard-sources
 psk-timing-tracking-results
 psk-noise-recovery-results
