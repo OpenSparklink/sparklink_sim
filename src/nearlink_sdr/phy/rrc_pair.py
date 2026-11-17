@@ -8,9 +8,10 @@ that improves signal/interference power ratio. New-development budgets apply.
 import numpy as np
 
 from nearlink_sdr.phy.acquisition_rounding import split_rne_words
+from nearlink_sdr.phy.rrc_input import quantize_full_rrc_words
 from nearlink_sdr.phy.rrc_word import FixedRRC, FixedRRCFormat
 
-__all__ = ["PairProductRRC"]
+__all__ = ["FullMantissaRRC", "PairProductRRC"]
 
 
 def _zero_after_round(floor, increment):
@@ -121,5 +122,38 @@ class PairProductRRC(FixedRRC):
             product_bits=self.product_bits,
             input_rne_carry_in_proof="one member of each exponent-max pair is unshifted",
             scope="operation graph only; new physical buffers, queues, ports and cycle model not yet closed",
+        )
+        return result
+
+
+class FullMantissaRRC(PairProductRRC):
+    """Change only the floating input adapter; the finite integer port is identical.
+
+    No headroom bit is reserved on the12-bit input bus. Existing13-bit paired
+    preadd and full-growth product/accumulator bounds already cover the full
+    signed input range. This is a separate opt-in candidate, not a bank change.
+    """
+
+    def __init__(self, format):
+        super().__init__(format)
+        self.stats["input_renormalizations"] = 0
+
+    def _quantize(self, samples):
+        return quantize_full_rrc_words(samples, stats=self.stats)
+
+    @property
+    def logical_state_bits(self):
+        return super().logical_state_bits + 64
+
+    def operation_estimate(self):
+        result = super().operation_estimate()
+        result.update(
+            floating_adapter="signed12 with overflow renormalization from original input",
+            input_adapter_roundings_upper=4,
+            input_adapter_component_range_comparisons_upper=8,
+            input_adapter_peak_comparisons=1,
+            input_adapter_renormalization_exponent_increment=1,
+            input_adapter_state_bits_extra=64,
+            input_adapter_physical_structure_verified=False,
         )
         return result

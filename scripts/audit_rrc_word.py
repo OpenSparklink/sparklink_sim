@@ -13,7 +13,7 @@ from audit_capture_hardware import sha, write
 from scipy.signal import lfilter
 
 from nearlink_sdr.phy.rrc_flow import RRCFlow, RRCFlowAssumptions
-from nearlink_sdr.phy.rrc_pair import PairProductRRC
+from nearlink_sdr.phy.rrc_pair import FullMantissaRRC, PairProductRRC
 from nearlink_sdr.phy.rrc_word import FixedRRC, FixedRRCFormat, SymmetricRRC
 
 
@@ -138,6 +138,10 @@ class PairWordObserver(WordTrace, PairProductRRC):
     """New pair-product arm, traced without changing receiver decisions."""
 
 
+class FullWordObserver(WordTrace, FullMantissaRRC):
+    """Full signed-input representation, otherwise identical pair/product arm."""
+
+
 def relative_norm(error, reference):
     """Exact zero-reference rule; never hide a nonzero error with an epsilon."""
     denominator = float(np.linalg.norm(reference))
@@ -146,7 +150,7 @@ def relative_norm(error, reference):
 
 
 def check_model_schedule(model, cycle):
-    if model == "pair" and cycle:
+    if model != "global" and cycle:
         raise ValueError("Pair-product physical cycle model not yet available; no reference reuse")
 
 
@@ -192,7 +196,9 @@ def evaluate(args):
             x = data["iq"]
         reference = lfilter(h, [1.0], np.r_[x, np.zeros(80)])
         floating = SymmetricRRC()
-        fixed = (PairWordObserver if args.model == "pair" else WordObserver)(format)
+        fixed = {"pair": PairWordObserver, "full": FullWordObserver, "global": WordObserver}[
+            args.model
+        ](format)
         structural = np.r_[floating.feed(x), floating.finish()]
         result = np.r_[fixed.feed(x), fixed.finish()]
         difference = result - reference
@@ -290,9 +296,11 @@ def evaluate(args):
                 r["max_64_sample_relative_rms_error"] for r in rows
             ),
             range_events=sum(r["range_events"] for r in rows),
-            operation_estimate=(PairProductRRC if args.model == "pair" else FixedRRC)(
-                format
-            ).operation_estimate(),
+            operation_estimate={
+                "pair": PairProductRRC,
+                "full": FullMantissaRRC,
+                "global": FixedRRC,
+            }[args.model](format).operation_estimate(),
             resource_estimate=estimate,
             cycles=cycles,
             isolated_schedule_under_assumptions_passed=cycle_passed,
@@ -332,7 +340,7 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--input-bits", type=int, default=12)
     parser.add_argument("--coefficient-bits", type=int, default=18)
-    parser.add_argument("--model", choices=["global", "pair"], default="global")
+    parser.add_argument("--model", choices=["global", "pair", "full"], default="global")
     parser.add_argument("--cycle", action="store_true")
     args = parser.parse_args()
     if args.generate:

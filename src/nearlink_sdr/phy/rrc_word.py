@@ -215,14 +215,15 @@ class FixedRRC:
             raise ValueError("Need finite complex stream")
         result = np.empty(len(x), complex)
         for start in range(0, len(x), 32):
-            words = quantize_scaled_words(
-                x[start : start + 32], self.input_format, stats=self.stats
-            )
+            words = self._quantize(x[start : start + 32])
             r, i, e = self.feed_words(*words)
             result[start : start + len(r)] = np.ldexp(
                 r.astype(float), e.astype(int)
             ) + 1j * np.ldexp(i.astype(float), e.astype(int))
         return result
+
+    def _quantize(self, samples):
+        return quantize_scaled_words(samples, self.input_format, stats=self.stats)
 
     def finish(self):
         if self.closed:

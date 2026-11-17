@@ -14,6 +14,7 @@ from audit_rrc_word import relative_norm
 from scipy.signal import lfilter
 
 from nearlink_sdr.phy.acquisition_scaled import ScaledBankFormat, quantize_scaled_words
+from nearlink_sdr.phy.rrc_input import quantize_full_rrc_words
 
 
 def diagnose(results, budget, output):
@@ -36,9 +37,13 @@ def diagnose(results, budget, output):
 
     h = pulse(np.arange(-40, 41) / 4)
     h /= np.linalg.norm(h)
-    r, i, e = quantize_scaled_words(
-        x, ScaledBankFormat(plan["format"]["input_mantissa_bits"]), stats={}
-    )
+    if plan.get("model") == "full":
+        words = [quantize_full_rrc_words(x[k : k + 32], stats={}) for k in range(0, len(x), 32)]
+        r, i, e = [np.concatenate([w[k] for w in words]) for k in range(3)]
+    else:
+        r, i, e = quantize_scaled_words(
+            x, ScaledBankFormat(plan["format"]["input_mantissa_bits"]), stats={}
+        )
     qx = np.ldexp(r.astype(float), e.astype(int)) + 1j * np.ldexp(i.astype(float), e.astype(int))
     coefficient_fraction = plan["format"]["coefficient_bits"] - 1
     controls = dict(

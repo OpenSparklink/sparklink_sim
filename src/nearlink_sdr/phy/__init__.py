@@ -27,6 +27,7 @@ __all__ = [
     "psk_sync",
     "rf_compliance",
     "rrc_flow",
+    "rrc_input",
     "rrc_pair",
     "rrc_word",
     "rx_pipeline",
