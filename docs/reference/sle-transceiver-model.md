@@ -84,3 +84,7 @@ AGENTS原Markdown标准路径仍缺失；已在独立`sparklink-standards`工程
 
 每阶段：基线证据→实现→针对性测试→ruff→全量/覆盖率→CHANGELOG/文档→原子提交推送→
 实际CI及制品核验。当前执行细节与失败索引见`rx-interference-capture`及冻结证据根。
+
+RX-D0先冻结[统一资源账本](rx-resource-budget.md)：已知当前图乘积需求7.1585G/秒，
+18路/200MHz不足；已知部分状态121104bit，尚有未分配块。该账本不改变接收算法，
+不把部分容量或孤立II当整链通过，继续按预算研究有界细搜索及两类干扰归因。

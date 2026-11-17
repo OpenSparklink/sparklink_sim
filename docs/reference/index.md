@@ -91,6 +91,7 @@ sle-transceiver-model
 rx-scope
 rx-rrc-model
 rx-rrc-stream-results
+rx-resource-budget
 standard-sources
 psk-timing-tracking-results
 psk-noise-recovery-results
