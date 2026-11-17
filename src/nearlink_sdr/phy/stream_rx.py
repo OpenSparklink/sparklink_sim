@@ -67,7 +67,7 @@ class PSKStreamReceiver:
                  correlation_mantissa_bits: int = 10,
                  sync_search_method: str = 'reference', normalized_coarse: bool = False,
                  rrc_backend: str = 'reference', carrier_weight_kappa: int | None = None,
-                 carrier_weight_fixed: bool = False):
+                 carrier_weight_fixed: bool = False, sync_candidate_count: int = 1):
         if not isinstance(profile, PSKReceiveProfile):
             raise ValueError("Explicit PSKReceiveProfile required")
         self.profile = replace(profile, config=replace(profile.config))
@@ -157,16 +157,20 @@ class PSKStreamReceiver:
         if correlation_backend not in ('reference', 'structure', 'fixed', 'scaled'):
             raise ValueError('correlation_backend must be reference, structure, fixed or scaled')
         self.correlation_backend = correlation_backend
-        if sync_search_method not in ('reference','local-parabolic'):
+        if sync_search_method not in ('reference','local-parabolic','bounded-grid'):
             raise ValueError('Unsupported explicit sync search method')
         if (sync_search_method != 'reference' and
                 (correlation_backend == 'reference' or self.sps != 4 or self.subdivisions != 8)):
             raise ValueError('Local sync needs an explicit SPS4/subdivision8 causal bank')
         if (type(normalized_coarse) is not bool or
                 (normalized_coarse and (correlation_backend != 'scaled' or
-                                       sync_search_method != 'local-parabolic'))):
+                                       sync_search_method not in ('local-parabolic','bounded-grid')))):
             raise ValueError('Q12 ranking needs the scaled local sync path')
+        if (type(sync_candidate_count) is not int or sync_candidate_count not in (1,2) or
+                (sync_candidate_count != 1 and sync_search_method != 'bounded-grid')):
+            raise ValueError('Candidate count1/2 requires explicit bounded-grid search')
         self.sync_search_method, self.normalized_coarse = sync_search_method,normalized_coarse
+        self.sync_candidate_count = sync_candidate_count
         self.correlation_bank = None
         if correlation_backend != 'reference':
             from nearlink_sdr.phy.acquisition_bank import DifferentialBank
@@ -584,10 +588,16 @@ class PSKStreamReceiver:
         self.sync_searches += 1
         diagnostic = {}
         lower = max(1., self._skip_until-origin)
-        enabled, queried, coarse_start = True, 0, None
+        enabled, queried, coarse_start, coarse_starts = True, 0, None, None
         if self.correlation_bank is not None:
             bounds = (origin+lower,origin+len(z)-1-(len(self.reference)-1)*self.sps)
-            if self.normalized_coarse:
+            if self.normalized_coarse and self.sync_search_method == 'bounded-grid':
+                enabled,queried,peaks = self.correlation_bank.query_peaks(
+                    *bounds,count=self.sync_candidate_count,phase_origin=origin)
+                coarse_starts = [peak-origin for peak in peaks]
+                if enabled and not coarse_starts:
+                    raise RuntimeError('Enabled normalized screen has no ranked peaks')
+            elif self.normalized_coarse:
                 enabled,queried,peak = self.correlation_bank.query_best(*bounds,phase_origin=origin)
                 if enabled and peak is None:
                     raise RuntimeError('Enabled normalized screen has no ranked position')
@@ -599,6 +609,10 @@ class PSKStreamReceiver:
             if self.sync_search_method == 'local-parabolic':
                 from nearlink_sdr.phy.sync_refine import refine_psk_sync
                 search,options = refine_psk_sync,dict(coarse_start=coarse_start)
+            elif self.sync_search_method == 'bounded-grid':
+                from nearlink_sdr.phy.sync_candidates import search_candidate_grid
+                search,options = search_candidate_grid,dict(
+                    coarse_starts=coarse_starts,candidate_count=self.sync_candidate_count)
             found = search(z, self.sps, self.reference, self.subdivisions,
                                      min_start=lower, lookahead=4*self.sps,
                                      diagnostics=diagnostic,

@@ -137,3 +137,41 @@ class RankedCoarseBank(ScaledDifferentialBank):
             scope="per bank; one-cycle arithmetic/ports assumed, no synthesis",
         )
         return result
+
+    def query_peaks(self, lower_start, upper_start, *, count=1, phase_origin=None):
+        """At most2 separated peaks, at most2 scans of the existing score ring.
+
+        Gate and normalized Q12 scores are unchanged. Selection is greedy with
+        four-sample suppression and reference phase-major tie order. Additional
+        peak registers and scan work must be charged separately by the caller.
+        """
+        if type(count) is not int or count not in (1, 2):
+            raise ValueError("Need1/2 bounded coarse peaks")
+        if phase_origin is None:
+            phase_origin = self.origin
+        try:
+            phase_origin = operator.index(phase_origin)
+        except TypeError as error:
+            raise ValueError("Need integer phase origin") from error
+        enabled, queried = super().gate(lower_start, upper_start)
+        chosen = []
+        if enabled:
+            hi = min(self.samples-1, math.floor(upper_start-self.origin)+self.k*self.sps)
+            lo = hi-queried+1
+            if queried > min(131, self.rank_history) or lo < self.samples-self.rank_history:
+                raise ValueError("Ranking query exceeds bounded receive window")
+            for _ in range(count):
+                best, position = 0, None
+                for phase in range(self.sps):
+                    first = lo+(phase-(self.origin+lo-self.k*self.sps-phase_origin)) % self.sps
+                    for index in range(first, hi+1, self.sps):
+                        start = self.origin+index-self.k*self.sps
+                        value = int(self._rank_scores[index % self.rank_history])
+                        self.stats["ranking_word_reads"] += 1
+                        if value > best and all(abs(start-p) >= 4 for p in chosen):
+                            position, best = start, value
+                if position is None:
+                    break
+                chosen.append(position)
+        self.last_rank_query = (lower_start, upper_start, tuple(chosen))
+        return enabled, queried, chosen

@@ -127,9 +127,12 @@ class DiagnosticReceiver(PSKStreamReceiver):
                             point_gate_changed=different, numeric_budget_failed=bool(violation)))+'\n')
         self.numeric['query_gate_disagreements'] += int(bool(ref_gate) != bool(model_gate))
         query = getattr(bank,'last_rank_query',None)
+        ranked = None if query is None else query[2]
+        if isinstance(ranked, tuple):
+            ranked = ranked[0] if ranked else None
         if (query is not None and query[0] == origin+lower and
-                query[1] == origin+len(z)-1-(len(self.reference)-1)*self.sps and query[2] is not None):
-            chosen_reference = reference_scores[query[2]]
+                query[1] == origin+len(z)-1-(len(self.reference)-1)*self.sps and ranked is not None):
+            chosen_reference = reference_scores[ranked]
         rank_loss = reference_best-chosen_reference
         self.numeric['unqualified_max_rank_loss'] = max(
             self.numeric['unqualified_max_rank_loss'], rank_loss)
@@ -249,6 +252,7 @@ class Replay:
             input_bits=self.bits, full_scale=self.full_scale, chunks=4096,
             tone_radius=getattr(args, 'tone_radius', None),
             sync_search_method=getattr(args,'sync_method','reference'),
+            sync_candidate_count=getattr(args,'sync_candidate_count',1),
             normalized_coarse=getattr(args,'normalized_coarse',False),
             rrc_backend=getattr(args,'rrc_backend','reference'),
             carrier_weight_kappa=getattr(args,'carrier_weight_kappa',None),
@@ -304,6 +308,7 @@ class Replay:
             carrier_weight_fixed=getattr(self.args,'carrier_weight_fixed',False),
             tone_notch=self.tone_config,
             sync_search_method=getattr(self.args,'sync_method','reference'),
+            sync_candidate_count=getattr(self.args,'sync_candidate_count',1),
             normalized_coarse=getattr(self.args,'normalized_coarse',False),
             correlation_backend=self.args.backend, correlation_input_bits=self.bits,
             correlation_mantissa_bits=self.bits if self.args.backend == 'scaled' else 10,
@@ -565,7 +570,9 @@ if __name__ == '__main__':
         parser.add_argument('--'+name, type=Path, required=True)
     parser.add_argument('--tone-radius', type=float, choices=[.9375, .96875])
     parser.add_argument('--backend', choices=['structure', 'fixed', 'scaled'], default='fixed')
-    parser.add_argument('--sync-method',choices=['reference','local-parabolic'],default='reference')
+    parser.add_argument('--sync-method',choices=['reference','local-parabolic','bounded-grid'],
+                        default='reference')
+    parser.add_argument('--sync-candidate-count',type=int,choices=[1,2],default=1)
     parser.add_argument('--normalized-coarse',action='store_true')
     parser.add_argument('--rrc-backend',choices=['reference','word-full12-c18'],default='reference')
     parser.add_argument('--carrier-weight-kappa',type=int,choices=[2,4,8])

@@ -95,6 +95,7 @@ rx-resource-budget
 system-feasibility
 carrier-bounded-weights
 carrier-bounded-results
+bounded-sync-candidates
 standard-sources
 psk-timing-tracking-results
 psk-noise-recovery-results

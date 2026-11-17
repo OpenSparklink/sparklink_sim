@@ -109,6 +109,17 @@
       "id": "rx_fine_timing_carrier",
       "placement": "FPGA candidate",
       "function": "bounded fine/interpolation/Gardner-PI/carrier/demap",
+      "partial_bounded_search_scenarios": {
+        "evidence": "RX-CAND2 direct-MAC allocation estimate plus inherited finite FCFS scenario; not synthesis or complete scheduling",
+        "sps": 4,
+        "ft2_local_trials_per_request": [9, 18],
+        "direct_mac_product_equivalents_per_request": [2949, 5898],
+        "two_bank_extra_peak_register_bits": [156, 312],
+        "known_partial_with_q12_and_peaks_bits": [128724, 128880],
+        "additional_fine_format_and_spline_state_known": false,
+        "system_schedule_verified": false,
+        "default_promote": false
+      },
       "partial_carrier_weight_allocation": {
         "evidence": "RX-CARRIER1B operation estimate + isolated executable cycle model; no synthesis",
         "logical_bits": 1581,
