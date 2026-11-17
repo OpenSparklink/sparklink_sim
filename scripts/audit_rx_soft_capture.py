@@ -44,6 +44,7 @@ def diagnostic_bits(e, profile):
         "sync estimate only; fewer than 32 payload wire symbols": "sync_only",
         "causal bounded phase-detector PI;sync-only initialization;no expected bits": "causal_pi",
         "integer causal carrier PI;actual header preroll;no expected bits": "fixed_pi",
+        "parallel raw-angle integer carrier PI;actual header preroll;no expected bits": "parallel_pi",
     }
     method = methods.get(carrier.get("method"))
     if method is None:
@@ -60,7 +61,7 @@ def diagnostic_bits(e, profile):
         )
         # Replay only the actual selected method. CRC is checked afterwards,
         # never used to retry a different carrier interpretation.
-        if method in ("causal_pi", "fixed_pi"):
+        if method in ("causal_pi", "fixed_pi", "parallel_pi"):
             from nearlink_sdr.phy.carrier_loop import track_psk_carrier
 
             if carrier.get("symbols") != len(y) or carrier.get("start_symbol_index") != start:
@@ -81,7 +82,13 @@ def diagnostic_bits(e, profile):
                     header_mod_type=carrier["header_modulation"],
                 )
             )
-            if method == "fixed_pi":
+            if method == "parallel_pi":
+                from nearlink_sdr.phy.carrier_parallel import track_parallel_carrier
+
+                y, _, _ = track_parallel_carrier(
+                    y, cfg.mod_str, start, fraction_bits=carrier["fraction_bits"], **options
+                )
+            elif method == "fixed_pi":
                 from nearlink_sdr.phy.carrier_fixed import track_fixed_carrier
 
                 y, _, _ = track_fixed_carrier(

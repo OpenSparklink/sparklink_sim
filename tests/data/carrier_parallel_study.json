@@ -1,0 +1,138 @@
+{
+  "stage": "RX-carrier-parallel-angle-B3A",
+  "parent": "61f19f9b12f3a99744ebb1565f23fe8c23ecfadf",
+  "single_change": "CORDIC on raw quantized18bitIQ in parallel with NCO;subtract current32bit NCO phase before same sector slicing;18iterations,Q10,mediumPI,power gate/header preroll/output rotation unchanged",
+  "candidate_count": 1,
+  "baseline": "B1float and B2Q10 rotated-word detector",
+  "budget": {
+    "angle_max_error_rad": 0.0002,
+    "phase_trajectory_rms_delta_rad": 0.005,
+    "phase_trajectory_peak_delta_rad": 0.02,
+    "mean_frequency_delta_hz": 2,
+    "normalized_output_rms_delta": 0.005,
+    "normalized_output_peak_delta": 0.02,
+    "backend_symbol_atol": 1e-12,
+    "backend_center_atol": 1e-10,
+    "integer_words_and_state": "bit exact across true Python/Rust environments",
+    "packet_adoption": "new dev then frozen held:zero float-success losses,matched BER nonincrease,negative candidates/deliveries nonincrease;all saturation and near-threshold changes reported;no saturation hidden by matchingCRC",
+    "module_study": "8DSP25x18,2BRAM36;nonlinear/normalizer/ports/FIFOs/pipeline charged;not an approved full-system budget",
+    "old2percent16KiB": "not changed"
+  },
+  "budget_sha256": "599f6fa096a6f5c52174f2eb65f8e026844bb32399fa77aa9ed87937030b4800",
+  "rules": "candidate must pass both B1float and B2Q10 packet/no-loss/BER/false-candidate gates and original numerical limits;no CRC retry;no14step candidate this stage;no new held if dev veto",
+  "development": {
+    "seed": 780117,
+    "pid": 3,
+    "configs": [
+      [
+        4,
+        12,
+        8,
+        7
+      ],
+      [
+        2,
+        8,
+        0,
+        71
+      ],
+      [
+        3,
+        6,
+        8,
+        239
+      ],
+      [
+        4,
+        8,
+        0,
+        557
+      ],
+      [
+        2,
+        0,
+        8,
+        991
+      ],
+      [
+        3,
+        12,
+        0,
+        71
+      ],
+      [
+        4,
+        6,
+        8,
+        991
+      ],
+      [
+        2,
+        12,
+        8,
+        239
+      ]
+    ],
+    "variation": "new payload polynomial/XOR/repeated pattern,beating-tone frequency offset,distinct wrong profile burst occupancy,7sample impulses+powerstep,CFO[-33000,57000],SRO[-100,50],fraction.319,amplitudes[.18,.46,.89];configs/content/interference changed not seed-only"
+  },
+  "held": {
+    "seed": 790117,
+    "pid": 5,
+    "configs": [
+      [
+        3,
+        8,
+        0,
+        17
+      ],
+      [
+        4,
+        6,
+        8,
+        101
+      ],
+      [
+        2,
+        12,
+        0,
+        347
+      ],
+      [
+        3,
+        12,
+        8,
+        727
+      ],
+      [
+        4,
+        0,
+        8,
+        1103
+      ],
+      [
+        2,
+        8,
+        8,
+        101
+      ],
+      [
+        3,
+        6,
+        0,
+        1103
+      ],
+      [
+        4,
+        12,
+        0,
+        347
+      ]
+    ],
+    "generated": false,
+    "rule": "generate only after dev qualifies and freeze source and recipe;no retune if fail"
+  },
+  "cost": "compare exact dependency calendars;raw CORDIC/NCO overlap;18steps retained;count subtraction/pipeline/state;6DSP/8DSP study cap and2BRAM36 unchanged,not a whole-system budget",
+  "existing_sets": "all previously viewed fixed regression only",
+  "default_changed": false,
+  "whole_receiver16msps": false
+}

@@ -1,0 +1,121 @@
+{
+  "stage": "RX-carrier-parallel-angle-B3A",
+  "eligible": true,
+  "selected": "raw18-Q10-medium-head",
+  "iterations": 18,
+  "policy_sha256": "4bc2abdf16b7750cd81cabfd86a40666bf7e1083369a15012d016d85c17fe3f2",
+  "source": {
+    "src/nearlink_sdr/phy/carrier_parallel.py": "f5ba56d7c82750467be4798feec8c4f1be26bc903d64e0649aa5003b1442dcaf",
+    "src/nearlink_sdr/phy/carrier_fixed.py": "c96980d9e9a2bc4faf0b49c600b2b7516f8106c3bb3656c74ce166e909465426",
+    "src/nearlink_sdr/phy/carrier_loop.py": "40aea83f50f8e46e28ce50b985ceb3a4bdc7e4d4b564748f807caf02a51a0fd8",
+    "src/nearlink_sdr/phy/carrier_weights.py": "2dbff3cafe99f623144ca5ba9eb562699e436975ae0725491f749e124fca8a9e",
+    "src/nearlink_sdr/phy/sync_coherent.py": "9cd068f90ad602076042dccdd3deee58725f37761812e0ac55f02c0a44bdcb80",
+    "src/nearlink_sdr/sim/carrier_parallel_flow.py": "0ea4a8ef07cbe722490b4e92c511ad1834af20a500fd51fddbd4811fdd2131ce",
+    "src/nearlink_sdr/sim/carrier_fixed_flow.py": "ab4be103c0003448525457e1f9f00209e0ef1db0cebf7a7f12caec88a8ecce42",
+    "scripts/audit_carrier_parallel.py": "9def790d3b9e436299b1dbc6fc6cb1e1f8de512426a02b24e8ac1ed503aab35c",
+    "scripts/audit_carrier_loop.py": "bd91739c156235d0bb1c4fa7df5ee04b16d8989546ff5de3d6aa8df359665be8",
+    "scripts/audit_carrier_fixed.py": "31fb002705e64725233c870a43fcbef946ffb433d2e4b0ab3b282351552ce01f",
+    "scripts/audit_rx_soft_capture.py": "a07f0abccd62b69fc5f69f6fb0eca15a9ba0842abe353c9219e463e041eb443b"
+  },
+  "development_manifest_sha256": "f51ca7db2dc69be3c18323b6f906f93682c658b52e546b3351b9729df101bfa6",
+  "reason": "single predeclared candidate passed both float and B2 packet/numeric/negative/saturation gates",
+  "development_summary": {
+    "float": {
+      "positive_streams": 8,
+      "negative_streams": 4,
+      "captures": 7,
+      "heads": 7,
+      "data_crc": 6,
+      "full": 6,
+      "bit_errors": 6,
+      "ber_bits": 20872,
+      "negative_samples": 29069,
+      "negative_seconds": 0.0018168125,
+      "negative_candidates": 0,
+      "false_deliveries": 0,
+      "total_samples": 243111,
+      "counters": {
+        "energy_triggers": 1284,
+        "integer_screen_rejections": 1266,
+        "full_searches": 18,
+        "sync_candidates": 7,
+        "header_crc_ok": 7,
+        "data_crc_ok": 6
+      },
+      "per_million_samples": {
+        "energy_triggers": 5281.538062860175,
+        "integer_screen_rejections": 5207.497809642509,
+        "full_searches": 74.040253217666,
+        "sync_candidates": 28.793431806870114,
+        "header_crc_ok": 28.793431806870114,
+        "data_crc_ok": 24.680084405888667
+      }
+    },
+    "q10": {
+      "positive_streams": 8,
+      "negative_streams": 4,
+      "captures": 7,
+      "heads": 7,
+      "data_crc": 6,
+      "full": 6,
+      "bit_errors": 6,
+      "ber_bits": 20872,
+      "negative_samples": 29069,
+      "negative_seconds": 0.0018168125,
+      "negative_candidates": 0,
+      "false_deliveries": 0,
+      "total_samples": 243111,
+      "counters": {
+        "energy_triggers": 1284,
+        "integer_screen_rejections": 1266,
+        "full_searches": 18,
+        "sync_candidates": 7,
+        "header_crc_ok": 7,
+        "data_crc_ok": 6
+      },
+      "per_million_samples": {
+        "energy_triggers": 5281.538062860175,
+        "integer_screen_rejections": 5207.497809642509,
+        "full_searches": 74.040253217666,
+        "sync_candidates": 28.793431806870114,
+        "header_crc_ok": 28.793431806870114,
+        "data_crc_ok": 24.680084405888667
+      }
+    },
+    "raw18": {
+      "positive_streams": 8,
+      "negative_streams": 4,
+      "captures": 7,
+      "heads": 7,
+      "data_crc": 6,
+      "full": 6,
+      "bit_errors": 6,
+      "ber_bits": 20872,
+      "negative_samples": 29069,
+      "negative_seconds": 0.0018168125,
+      "negative_candidates": 0,
+      "false_deliveries": 0,
+      "total_samples": 243111,
+      "counters": {
+        "energy_triggers": 1284,
+        "integer_screen_rejections": 1266,
+        "full_searches": 18,
+        "sync_candidates": 7,
+        "header_crc_ok": 7,
+        "data_crc_ok": 6
+      },
+      "per_million_samples": {
+        "energy_triggers": 5281.538062860175,
+        "integer_screen_rejections": 5207.497809642509,
+        "full_searches": 74.040253217666,
+        "sync_candidates": 28.793431806870114,
+        "header_crc_ok": 28.793431806870114,
+        "data_crc_ok": 24.680084405888667
+      }
+    }
+  },
+  "held_generated_at_freeze": false,
+  "no_retune_after_held": true,
+  "default_changed": false,
+  "whole_receiver16msps": false
+}

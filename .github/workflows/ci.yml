@@ -198,6 +198,17 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/carrier-fixed-development/model.json")); assert d["summary"]["float"]["full"] == d["summary"]["q10"]["full"] == 6; assert d["summary"]["q10"]["bit_errors"] == 4; assert d["gates"]["q10"]["eligible"] and not d["gates"]["q12"]["eligible"]; assert not d["gates"]["q12"]["numerical_passed"] and d["gates"]["q12"]["saturations"] == 0; assert any(n["phase_peak"] > .02 for n in d["numerical"]["q12"])'
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/carrier-fixed-validation/model.json")); assert d["gates"]["q10"]["eligible"] and d["summary"]["q10"]["full"] == d["summary"]["float"]["full"] == 7; assert d["summary"]["q10"]["bit_errors"] == 2 and not d["default_changed"] and not d["complete16msps"]; f=d["flow"]; assert f["cost"]["service_clocks"] == 41 and len(f["scenarios"]) == 10; assert f["depth8_cost"]["logical_bits"]-f["cost"]["logical_bits"] == 224; assert any(r.get("source_batch") == 8 and r.get("input_depth") == 4 and r["resource_packet_invalid"] for r in f["scenarios"]); assert any(r.get("source_batch") == 8 and r.get("input_depth") == 8 and not r["resource_packet_invalid"] for r in f["scenarios"])'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; ps=[Path("receiver-diagnostics/carrier-fixed-"+s) for s in ("development","validation")]; assert all(all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in json.loads((p/"manifest.json").read_text()).items()) for p in ps)'
+      - name: Preserve rejected parallel angle carrier and resource boundaries
+        if: always()
+        run: |
+          for split in development validation; do
+            status=0
+            uv run --frozen --no-sync python scripts/audit_carrier_parallel.py --split "$split" --output "receiver-diagnostics/carrier-parallel-$split" >"carrier-parallel-$split.log" 2>&1 || status=$?
+            test "$status" -eq 1
+          done
+          uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/carrier-parallel-development/model.json")); assert d["gate"]["eligible"]; assert all(s["full"] == 6 and s["bit_errors"] == 6 and s["captures"] == 7 for s in d["summary"].values())'
+          uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/carrier-parallel-validation/model.json")); assert not d["gate"]["eligible"] and not d["gate"]["success_losses"]; assert all(s["full"] == 7 and s["captures"] == 8 for s in d["summary"].values()); assert d["summary"]["raw18"]["bit_errors"] == 1737 and d["summary"]["q10"]["bit_errors"] == 1709 and d["summary"]["float"]["bit_errors"] == 1742; assert not any(d["gate"]["numerical_passed"].values()) and d["gate"]["saturations"] == 0; assert not d["default_changed"] and not d["whole16msps"]; f=d["flow"]; assert f["cost"]["service_clocks"] == 32; assert any(r["clock"] == 160000000 and r["batch"] == 1 and not r["blocked"] and r["dropped"] == 0 for r in f["scenarios"]); assert any(r["clock"] == 100000000 and r["dropped"] > 0 for r in f["scenarios"])'
+          uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; ps=[Path("receiver-diagnostics/carrier-parallel-"+s) for s in ("development","validation")]; assert all(all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in json.loads((p/"manifest.json").read_text()).items()) for p in ps)'
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -221,6 +232,7 @@ jobs:
             carrier-prefix.log
             carrier-loop-*.log
             carrier-fixed-*.log
+            carrier-parallel-*.log
             receiver-diagnostics/
 
   optional-sm3:

@@ -234,6 +234,40 @@ def simulate_carrier_words(
     source_batch=1,
     input_depth=4,
 ):
+    """Frozen B2 word calendar; arbitrary block boundaries are outside this node."""
+    return _simulate_carrier_words(
+        real,
+        imag,
+        modulation=modulation,
+        start=start,
+        header_symbols=header_symbols,
+        header_modulation=header_modulation,
+        clock_hz=clock_hz,
+        symbol_hz=symbol_hz,
+        stalls=stalls,
+        source_batch=source_batch,
+        input_depth=input_depth,
+        engine_type=CarrierWordEngine,
+        service_clocks=41,
+    )
+
+
+def _simulate_carrier_words(
+    real,
+    imag,
+    *,
+    modulation="QPSK",
+    start=0,
+    header_symbols=0,
+    header_modulation="QPSK",
+    clock_hz=200_000_000,
+    symbol_hz=4_000_401,
+    stalls=(),
+    source_batch=1,
+    input_depth=4,
+    engine_type,
+    service_clocks,
+):
     """One packet stream;ADC-like arrivals cannot pause,queue overflow invalidates packet."""
     if (
         len(real) != len(imag)
@@ -256,7 +290,7 @@ def simulate_carrier_words(
         if type(a) is not int or type(b) is not int or not 0 <= a < b <= 2**24 or a < stop:
             raise ValueError("Need ordered disjoint stalls")
         stop = b
-    engine = CarrierWordEngine(header_modulation if header_symbols else modulation, start)
+    engine = engine_type(header_modulation if header_symbols else modulation, start)
     pending, output = deque(), deque()
     emitted, dropped = [], []
     active_tag = active_arrival = None
@@ -266,7 +300,7 @@ def simulate_carrier_words(
     def source_arrival(tag):
         return (tag // source_batch) * source_batch * clock_hz // symbol_hz + tag % source_batch
 
-    horizon = max(source_arrival(len(real) - 1), stop) + 41 * (len(real) + 16)
+    horizon = max(source_arrival(len(real) - 1), stop) + service_clocks * (len(real) + 16)
     while index < len(real) or pending or output or engine.active is not None:
         if cycle > horizon:
             raise AssertionError("Finite carrier calendar failed to drain")
