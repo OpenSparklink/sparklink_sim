@@ -156,15 +156,36 @@ jobs:
       - run: uv sync --frozen
       - run: uv run --frozen --no-sync python scripts/check_receiver_backend.py --expected-rust no --output backend.json
       - name: Measure Python coverage
-        run: uv run --frozen --no-sync pytest tests/ --cov=nearlink_sdr --cov-report=xml --cov-fail-under=90.1 --junitxml=coverage-tests.xml 2>&1 | tee coverage.log
+        run: |
+          # Each partial suite has incomplete coverage. Enforce the unchanged
+          # 90.1% gate only after combining both real coverage data files.
+          COVERAGE_FILE=coverage-core.data uv run --frozen --no-sync pytest tests/ --ignore=tests/test_stream_rrc_word.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-core.xml >coverage-core.log 2>&1 &
+          core_pid=$!
+          COVERAGE_FILE=coverage-front.data uv run --frozen --no-sync pytest tests/test_stream_rrc_word.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-front.xml >coverage-front.log 2>&1 &
+          front_pid=$!
+          core_status=0
+          front_status=0
+          wait "$core_pid" || core_status=$?
+          wait "$front_pid" || front_status=$?
+          combine_status=0
+          xml_status=0
+          report_status=0
+          uv run --frozen --no-sync coverage combine --keep coverage-core.data coverage-front.data >coverage-combine.log 2>&1 || combine_status=$?
+          if test "$combine_status" -eq 0; then
+            uv run --frozen --no-sync coverage xml -o coverage.xml >coverage-xml.log 2>&1 || xml_status=$?
+            uv run --frozen --no-sync coverage report --fail-under=90.1 >coverage-report.log 2>&1 || report_status=$?
+          fi
+          cat coverage-*.log
+          test "$core_status" -eq 0 && test "$front_status" -eq 0 && test "$combine_status" -eq 0 && test "$xml_status" -eq 0 && test "$report_status" -eq 0
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: coverage-report
           path: |
             coverage.xml
-            coverage-tests.xml
-            coverage.log
+            coverage-tests-*.xml
+            coverage-*.log
+            coverage-*.data
             backend.json
 
   docs:
