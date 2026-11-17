@@ -98,6 +98,7 @@ carrier-bounded-results
 bounded-sync-candidates
 sync-coherent-confirmation
 rx-failure-controls
+sync-carrier-initialization
 standard-sources
 psk-timing-tracking-results
 psk-noise-recovery-results
