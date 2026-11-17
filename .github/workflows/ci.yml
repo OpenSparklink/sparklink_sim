@@ -176,6 +176,17 @@ jobs:
           test "$status" -eq 1
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/carrier-prefix/model.json")); assert d["rejected"] and not d["held_evaluated"] and not d["default_receiver_changed"]; assert d["summary"]["full"]["full"] == 7 and d["summary"]["prefix128"]["full"] == 6; assert d["summary"]["prefix256"]["bit_errors"] == 3377; assert len(d["original_fixture_success_losses"]) == 6; assert not d["fixedFFT_format_accepted"] and not d["complete16msps_verified"]; assert any(c["prefix_limit"] == 256 and c["complex_word_bits_assumed"] == 64 and c["clock_hz_assumed"] == 200000000 and c["total_bram36"] == 27 for c in d["costs"])'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/carrier-prefix"); m=json.loads((p/"manifest.json").read_text()); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in m.items())'
+      - name: Preserve frozen causal carrier validation and open hardware gates
+        if: always()
+        run: |
+          for split in development validation; do
+            status=0
+            uv run --frozen --no-sync python scripts/audit_carrier_loop.py --split "$split" --output "receiver-diagnostics/carrier-loop-$split" >"carrier-loop-$split.log" 2>&1 || status=$?
+            test "$status" -eq 1
+          done
+          uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/carrier-loop-development/model.json")); assert d["summary"]["full"]["full"] == d["summary"]["medium-head"]["full"] == 5; assert d["summary"]["full"]["bit_errors"] == d["summary"]["medium-head"]["bit_errors"] == 21; assert d["eligible"] == ["medium-head"]; assert not d["gates"]["slow"]["eligible"] and not d["gates"]["medium"]["eligible"] and not d["gates"]["slow-head"]["eligible"]'
+          uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/carrier-loop-validation/model.json")); assert d["float_validation_passed"] and d["selected"] == "medium-head"; assert d["summary"]["full"]["full"] == d["summary"]["medium-head"]["full"] == 6; assert d["summary"]["full"]["bit_errors"] == d["summary"]["medium-head"]["bit_errors"] == 7; assert d["independent_node_validation"]["passed"]; assert not d["default_changed"] and not d["complete16msps"] and not d["fixed_datapath_verified"]; assert not d["original_success_losses"] and len(d["failures"]) == 4'
+          uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; folders=[Path("receiver-diagnostics/carrier-loop-"+s) for s in ("development","validation")]; assert all(all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in json.loads((p/"manifest.json").read_text()).items()) for p in folders)'
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -197,6 +208,7 @@ jobs:
             spline-flow.log
             spline-score.log
             carrier-prefix.log
+            carrier-loop-*.log
             receiver-diagnostics/
 
   optional-sm3:

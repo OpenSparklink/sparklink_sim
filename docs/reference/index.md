@@ -95,6 +95,7 @@ rx-resource-budget
 system-feasibility
 carrier-bounded-weights
 carrier-prefix
+carrier-loop
 carrier-bounded-results
 bounded-sync-candidates
 sync-coherent-confirmation

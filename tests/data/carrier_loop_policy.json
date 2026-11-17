@@ -1,0 +1,96 @@
+{
+  "stage": "RX-carrier-continuous-B1",
+  "selected_arm": "medium-head",
+  "kp": "1/32",
+  "ki": "1/2048",
+  "kappa": 4,
+  "power_alpha": "1/64",
+  "power_update_cap": 2,
+  "power_gate": [
+    0.0625,
+    4
+  ],
+  "detector_clip": "pi/(2M)",
+  "frequency_clip": "2pi*.1/M",
+  "initialization": "zero residual;actual selected sync correction;actual header blind preroll;retain phase/frequency/power at payload modulation switch",
+  "adoption": "zero original successful packet losses;per-input BER domains match;aggregate BER no worse;negative candidates/deliveries no increase;no alternative arm on validation failure",
+  "loop_module_sha256": "40aea83f50f8e46e28ce50b985ceb3a4bdc7e4d4b564748f807caf02a51a0fd8",
+  "power_module_sha256": "2dbff3cafe99f623144ca5ba9eb562699e436975ae0725491f749e124fca8a9e",
+  "input_generator_ast_sha256": "12d9a0705d43ab5cb419dddd026f9901bf56a7c63a362d59d2c3acbcdb0322bc",
+  "development_manifest_sha256": "c7a238158182a646344210ac3c7b4b9a647f6f907057ac50ff1a1fa1dd1d1db3",
+  "development_result": {
+    "full": 5,
+    "medium_head": 5,
+    "errors_each": 21,
+    "bits_each": 21728,
+    "original_fixture_losses": 0
+  },
+  "validation_seed": 720117,
+  "validation_configs": [
+    [
+      4,
+      12,
+      0,
+      7
+    ],
+    [
+      2,
+      8,
+      8,
+      79
+    ],
+    [
+      3,
+      6,
+      8,
+      227
+    ],
+    [
+      4,
+      12,
+      8,
+      557
+    ],
+    [
+      2,
+      0,
+      0,
+      1021
+    ],
+    [
+      3,
+      8,
+      0,
+      227
+    ],
+    [
+      4,
+      6,
+      0,
+      1021
+    ],
+    [
+      2,
+      12,
+      8,
+      79
+    ]
+  ],
+  "independent_node_budget": {
+    "seed": 720119,
+    "symbols": 8000,
+    "phase_rms_rad": 0.08,
+    "phase_sector_changes": 0,
+    "convergence_symbols": 2000,
+    "mean_frequency_error_hz": 50
+  },
+  "hardware_study_ceiling": {
+    "DSP25x18": 8,
+    "BRAM36": 2
+  },
+  "fixed_datapath_verified": false,
+  "cycle_schedule_verified": false,
+  "default_promotion": false,
+  "old2percent16KiB_failures_changed": false,
+  "held_opened_at_freeze": false
+}

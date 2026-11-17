@@ -42,6 +42,7 @@ def diagnostic_bits(e, profile):
         "blind de-rotated Mth-power coherent FFT/Newton; no expected bits": "coherent",
         "blind de-rotated Mth-power FFT+phase regression; no expected bits": "phase_regression",
         "sync estimate only; fewer than 32 payload wire symbols": "sync_only",
+        "causal bounded phase-detector PI;sync-only initialization;no expected bits": "causal_pi",
     }
     method = methods.get(carrier.get("method"))
     if method is None:
@@ -58,7 +59,31 @@ def diagnostic_bits(e, profile):
         )
         # Replay only the actual selected method. CRC is checked afterwards,
         # never used to retry a different carrier interpretation.
-        if "prefix_symbols" in carrier:
+        if method == "causal_pi":
+            from nearlink_sdr.phy.carrier_loop import track_psk_carrier
+
+            if carrier.get("symbols") != len(y) or carrier.get("start_symbol_index") != start:
+                raise ValueError("Carrier PI metadata does not match actual field")
+            warm = carrier.get("header_symbols", 0)
+            if type(warm) is not int or not 0 <= warm <= start:
+                raise ValueError("Invalid actual header pre-roll metadata")
+            if warm and (
+                warm != start - len(profile.sync_symbols())
+                or carrier.get("header_modulation") != ("BPSK" if cfg.frame_type == 4 else "QPSK")
+            ):
+                raise ValueError("Carrier pre-roll does not match actual header profile")
+            options = (
+                {}
+                if not warm
+                else dict(
+                    header_symbols=e["symbols"][start - warm : start],
+                    header_mod_type=carrier["header_modulation"],
+                )
+            )
+            y, _, _ = track_psk_carrier(
+                y, cfg.mod_str, start, bandwidth=carrier["bandwidth"], **options
+            )
+        elif "prefix_symbols" in carrier:
             from nearlink_sdr.phy.carrier_prefix import refine_psk_carrier_prefix
 
             prefix = carrier["prefix_symbols"]
