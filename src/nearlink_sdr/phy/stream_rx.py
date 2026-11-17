@@ -67,7 +67,9 @@ class PSKStreamReceiver:
                  correlation_mantissa_bits: int = 10,
                  sync_search_method: str = 'reference', normalized_coarse: bool = False,
                  rrc_backend: str = 'reference', carrier_weight_kappa: int | None = None,
-                 carrier_weight_fixed: bool = False, sync_candidate_count: int = 1):
+                 carrier_weight_fixed: bool = False, sync_candidate_count: int = 1,
+                 sync_coherent_threshold: float | None = None,
+                 sync_coherent_fixed_nco: bool = False):
         if not isinstance(profile, PSKReceiveProfile):
             raise ValueError("Explicit PSKReceiveProfile required")
         self.profile = replace(profile, config=replace(profile.config))
@@ -171,6 +173,19 @@ class PSKStreamReceiver:
             raise ValueError('Candidate count1/2 requires explicit bounded-grid search')
         self.sync_search_method, self.normalized_coarse = sync_search_method,normalized_coarse
         self.sync_candidate_count = sync_candidate_count
+        if (type(sync_coherent_fixed_nco) is not bool or
+                (sync_coherent_threshold is None and sync_coherent_fixed_nco)):
+            raise ValueError('Fixed sync NCO requires an explicit coherent threshold')
+        if sync_coherent_threshold is not None and (
+                isinstance(sync_coherent_threshold,(bool,np.bool_)) or
+                not isinstance(sync_coherent_threshold,(int,float,np.integer,np.floating)) or
+                not np.isfinite(sync_coherent_threshold) or
+                not 0 < sync_coherent_threshold <= 1 or
+                sync_search_method != 'bounded-grid' or not normalized_coarse or
+                sync_candidate_count != 1):
+            raise ValueError('Coherent Q requires explicit threshold and one Q12 bounded-grid peak')
+        self.sync_coherent_threshold = sync_coherent_threshold
+        self.sync_coherent_fixed_nco = sync_coherent_fixed_nco
         self.correlation_bank = None
         if correlation_backend != 'reference':
             from nearlink_sdr.phy.acquisition_bank import DifferentialBank
@@ -261,6 +276,9 @@ class PSKStreamReceiver:
             self.capture_stats.update(tone_fallback_searches=0, tone_candidates=0)
         if self.sync_search_method != 'reference':
             self.capture_stats.update(coarse_ranking_recomputed_positions=0)
+        if self.sync_coherent_threshold is not None:
+            self.capture_stats.update(coherent_evaluations=0, coherent_rejections=0,
+                                      coherent_accepted=0, coherent_zero_energy=0)
         self.max_frame_symbols = self._frame_bound()
         self._values = np.empty(self.max_frame_symbols, complex)
         self._centers = np.empty(self.max_frame_symbols)
@@ -649,7 +667,21 @@ class PSKStreamReceiver:
             diagnostic['disposition'] == 'maximum_needs_future')
         self.capture_stats['correlation_qualifying_searches'] += int(
             diagnostic['best_score'] is not None and diagnostic['best_score'] >= .85)
-        if found is None or found['score'] < .85:
+        if found is None:
+            return
+        confirmation = None
+        if self.sync_coherent_threshold is not None:
+            from nearlink_sdr.phy.sync_coherent import coherent_sync_confirmation
+            confirmation = coherent_sync_confirmation(
+                found['phase_symbols'],self.reference,found['delta'],
+                self.sync_coherent_threshold,fixed_nco=self.sync_coherent_fixed_nco)
+            self.capture_stats['coherent_evaluations'] += 1
+            self.capture_stats['coherent_zero_energy'] += int(confirmation['zero_energy'])
+            self.capture_stats['coherent_rejections'] += int(not confirmation['accepted'])
+            self.capture_stats['coherent_accepted'] += int(confirmation['accepted'])
+            if not confirmation['accepted']:
+                return
+        elif found['score'] < .85:
             return
         self.capture_stats['sync_candidates'] += 1
         start = origin+found['phase']+found['offset']*self.sps
@@ -663,6 +695,8 @@ class PSKStreamReceiver:
         self._active = dict(start=start, next=start, previous=raw[0], previous_t=start,
                             count=0, end=None, header=None, loop=loop,
                             slope=slope+found['delta'], phase=phase, gain=gain, score=found['score'])
+        if confirmation is not None:
+            self._active['sync_confirmation'] = confirmation
         self._active['native'] = None
         if self.timing_backend == 'rust':
             self._active['native'] = _RustStreamTiming(
@@ -750,5 +784,7 @@ class PSKStreamReceiver:
         if self.sync_search_method != 'reference':
             event['sync_search_method'] = self.sync_search_method
             event['normalized_coarse'] = self.normalized_coarse
+        if 'sync_confirmation' in a:
+            event['sync_confirmation'] = a['sync_confirmation']
         self._active = None
         return event

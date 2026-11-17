@@ -109,6 +109,21 @@
       "id": "rx_fine_timing_carrier",
       "placement": "FPGA candidate",
       "function": "bounded fine/interpolation/Gardner-PI/carrier/demap",
+      "partial_sync_coherent_addition": {
+        "evidence": "RX-CFO3 isolated NCO word/calendar;coherent sums stillfloat;direct graph estimate not synthesis",
+        "nco_logical_bits": 17610,
+        "nco_rom": "1024x17 logical;oneRAMB18 dual-read estimate",
+        "nco_rom_read_ports": 2,
+        "nco_ii": 1,
+        "nco_latency_cycles": 4,
+        "extra_symbol_alignment_and_monitor_template_reservations_bits": 536,
+        "partial_capture_total_including_shared_baseline_bits": 146870,
+        "do_not_add_partial_totals": "shared RRC/banks/history/snapshots overlap previous partial_capture subtotal",
+        "extra_coherent_real_products_direct_graph": 324,
+        "total_direct_graph_products_per_request": 3273,
+        "coherent_accumulator_format_verified": false,
+        "whole_system_accepted": false
+      },
       "partial_bounded_search_scenarios": {
         "evidence": "RX-CAND2 direct-MAC allocation estimate plus inherited finite FCFS scenario; not synthesis or complete scheduling",
         "sps": 4,

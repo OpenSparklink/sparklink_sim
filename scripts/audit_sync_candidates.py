@@ -9,7 +9,7 @@ from unittest.mock import patch
 import numpy as np
 from audit_capture_hardware import profile, score, sha, write
 
-from nearlink_sdr.phy import sync_candidates
+from nearlink_sdr.phy import sync_candidates, sync_coherent
 from nearlink_sdr.phy.mac_interface import MacStreamReceiver
 from nearlink_sdr.phy.psk_sync import search_psk_sync
 from nearlink_sdr.phy.tone_notch import ToneNotchConfig
@@ -23,6 +23,7 @@ def run(args):
         frozen = json.loads(args.selection.read_text())
         assert args.candidates == frozen["candidate_count"]
         assert args.normalized_coarse == frozen["normalized_coarse"]
+        assert getattr(args,"coherent_threshold",None) in [None,frozen.get("coherent_threshold")]
         assert all(sha(Path(f)) == h for f, h in frozen["sources"].items())
     args.output.mkdir(parents=True, exist_ok=False)
     (args.output / "evidence").mkdir()
@@ -32,6 +33,8 @@ def run(args):
         budget_sha256=sha(args.budget), source_commit=subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True).strip(), candidates=args.candidates,
         normalized_coarse=args.normalized_coarse, chunks=args.chunks, chunk_seed=550120,
+        coherent_threshold=getattr(args,"coherent_threshold",None),
+        coherent_fixed_nco=getattr(args,"fixed_nco",False),
         diagnostic_full_search="post-selection only; never modifies algorithm return or parameters",
         rrc_backend="reference", carrier_weights="default amplitude squared",
     ))
@@ -56,6 +59,18 @@ def run(args):
                           full_score=None if full is None else full["score"], full_ready=ready,
                           full_peak_in_local_set=full_start is not None and any(
                               abs(full_start-p) <= .5 for p in observed.get("coarse_starts", [])))
+            if chosen is not None and getattr(args,"coherent_threshold",None) is not None:
+                # Diagnostic copy: actual receiver invokes the same module only
+                # after this function returns. Neither result changes timing.
+                name = f"{meta['id']}-sync{len(windows)}.npz"
+                np.savez_compressed(args.output / "evidence" / name,
+                                    symbols=chosen["phase_symbols"], reference=a[2])
+                record.update(coherent=sync_coherent.coherent_sync_confirmation(
+                    chosen["phase_symbols"],a[2],chosen["delta"],args.coherent_threshold,
+                    fixed_nco=getattr(args,"fixed_nco",False)),
+                    sync_file=name, sync_sha256=sha(args.output / "evidence" / name),
+                    query_after_samples=rx.phy._processed,
+                    start_raw=rx.phy._origin+len(rx.phy._filtered)-len(a[0])+chosen["phase"])
             if full and full["score"] >= .85 and (
                     not record["full_peak_in_local_set"] or
                     abs(observed.get("best_start", -1000)-full_start) > .125):
@@ -69,7 +84,9 @@ def run(args):
                        correlation_backend="scaled", correlation_mantissa_bits=10,
                        tone_notch=ToneNotchConfig(radius=31/32),
                        sync_search_method="bounded-grid", sync_candidate_count=args.candidates,
-                       normalized_coarse=args.normalized_coarse)
+                       normalized_coarse=args.normalized_coarse,
+                       sync_coherent_threshold=getattr(args,"coherent_threshold",None),
+                       sync_coherent_fixed_nco=getattr(args,"fixed_nco",False))
         rx = MacStreamReceiver(profile(meta["mcs"]), q, **options)
         events, packets, start = [], [], 0
         rng = np.random.default_rng(550120)
@@ -93,6 +110,8 @@ def run(args):
                    bank_stats=rx.phy.correlation_bank.stats,
                    tone_bank_stats=rx.phy.tone_correlation_bank.stats,
                    windows=windows, history_limit=rx.phy.history_limit,
+                   confirmations=[e["sync_confirmation"] for e in events
+                                  if "sync_confirmation" in e],
                    peak_history_samples=rx.phy.peak_history_samples)
         rows.append(row)
         all_windows += windows
@@ -123,6 +142,8 @@ if __name__ == "__main__":
         parser.add_argument("--" + arg, type=Path, required=True)
     parser.add_argument("--candidates", type=int, choices=[1, 2], required=True)
     parser.add_argument("--normalized-coarse", action="store_true")
+    parser.add_argument("--coherent-threshold",type=float,choices=[.45,.6,.75])
+    parser.add_argument("--fixed-nco",action="store_true")
     parser.add_argument("--selection", type=Path)
     parser.add_argument("--chunks", choices=["whole", "fixed", "random"], default="whole")
     run(parser.parse_args())

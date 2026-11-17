@@ -106,6 +106,13 @@ jobs:
           uv run --frozen --no-sync python scripts/model_sync_candidate_work.py --output receiver-diagnostics/sync-candidate-work >sync-candidate-work.log 2>&1 || status=$?
           test "$status" -eq 1
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/sync-candidate-work/model.json")); assert len(d["scenarios"]) == 6 and d["whole_system_accepted"] is False; assert all(r["queue"]["dropped_requests"] > 0 for r in d["scenarios"])'
+      - name: Preserve coherent confirmation and bounded NCO resource gaps
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_sync_coherent_work.py --output receiver-diagnostics/sync-coherent-work >sync-coherent-work.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/sync-coherent-work/model.json")); assert len(d["scenarios"]) == 3 and d["whole_system_accepted"] is False; assert d["nco_calendars"]["stopped"]["incomplete"]; assert all(r["known_capture_partial_total_bits"] > r["memory_budget_bits"] for r in d["scenarios"])'
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -118,6 +125,7 @@ jobs:
             backend.json
             carrier-workload.log
             sync-candidate-work.log
+            sync-coherent-work.log
             receiver-diagnostics/
 
   optional-sm3:
