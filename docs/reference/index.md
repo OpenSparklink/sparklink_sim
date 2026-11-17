@@ -94,6 +94,7 @@ rx-rrc-stream-results
 rx-resource-budget
 system-feasibility
 carrier-bounded-weights
+carrier-bounded-results
 standard-sources
 psk-timing-tracking-results
 psk-noise-recovery-results

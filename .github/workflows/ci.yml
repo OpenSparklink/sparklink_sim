@@ -92,6 +92,13 @@ jobs:
           wait "$front_pid" || front_status=$?
           cat test-core.log test-front.log
           test "$core_status" -eq 0 && test "$front_status" -eq 0
+      - name: Preserve carrier workload and explicit system resource gap
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_carrier_workload.py --output receiver-diagnostics/carrier-workload >carrier-workload.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/carrier-workload/workload.json")); assert len(d["cases"]) == 39 and d["whole_system_accepted"] is False and d["format_complex32_validated"] is False'
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -102,6 +109,7 @@ jobs:
             test-*.log
             build.log
             backend.json
+            carrier-workload.log
             receiver-diagnostics/
 
   optional-sm3:
