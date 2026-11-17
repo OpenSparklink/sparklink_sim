@@ -37,12 +37,28 @@ def diagnostic_bits(e, profile):
         return None
     cfg = replace(profile.config, mcs_index=f["mcs"])
     start, end = f["data_start_symbol"], f["frame_end_symbol"]
-    info = f.get("carrier", {}).get("weights")
-    options = ({} if info is None else dict(carrier_weight_kappa=info["kappa"],
-                                           carrier_weight_fixed=info["fixed"]))
-    # Replay the actual selected algorithm for BER; never use a different
-    # carrier result or CRC outcome to pick an answer.
-    y, _ = refine_psk_carrier(e["symbols"][start:end], cfg.mod_str, start, **options)
+    carrier = f.get("carrier", {})
+    methods = {
+        "blind de-rotated Mth-power coherent FFT/Newton; no expected bits": "coherent",
+        "blind de-rotated Mth-power FFT+phase regression; no expected bits": "phase_regression",
+        "sync estimate only; fewer than 32 payload wire symbols": "sync_only",
+    }
+    method = methods.get(carrier.get("method"))
+    if method is None:
+        raise ValueError("Missing or unknown actual carrier method; BER replay is unverified")
+    y = e["symbols"][start:end]
+    if (method == "sync_only") != (len(y) < 32):
+        raise ValueError("Carrier method is inconsistent with actual payload symbol count")
+    if method != "sync_only":
+        info = carrier.get("weights")
+        options = (
+            {}
+            if info is None
+            else dict(carrier_weight_kappa=info["kappa"], carrier_weight_fixed=info["fixed"])
+        )
+        # Replay only the actual selected method. CRC is checked afterwards,
+        # never used to retry a different carrier interpretation.
+        y, _ = refine_psk_carrier(y, cfg.mod_str, start, method=method, **options)
     hard = demap_psk_field(y, cfg.mod_str, start, cfg.pilot_interval)[: f["coded_bits"]]
     llr = None
     if not cfg.is_uncoded and profile.soft_payload:

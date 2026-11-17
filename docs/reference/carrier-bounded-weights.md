@@ -110,3 +110,18 @@ FIFO各1读/1写，状态功率1读/1写，计数银行1更新/周期；逻辑/�
 /apidocs/nearlink_sdr/nearlink_sdr.phy.carrier_weights
 /apidocs/nearlink_sdr/nearlink_sdr.phy.carrier_weight_flow
 ```
+
+## 诊断重放必须保持实际处理路径
+
+BER重放读取实际帧中的载波方法及权重信息，不能默认用coherent替代phase_regression。
+少于32个载荷线符号时，真实解析器只用同步区估计，诊断同样跳过盲载波细化。
+缺失、未知的方法或与符号数矛盾的元数据明确报错，不能将另一条处理路径的结果计入BER。
+CRC只用于核对重放与实际接收是否一致，不用于重试或选择算法。
+
+原短包CRC通过但诊断抛异常的IQ、SHA及错误模式转发记录保存在冻结证据根
+`carrier-prefix/diagnostic-baseline.*`；新反例包含短包正确/坏数据CRC、两种长包方法和未知元数据。
+这修复的是验收工具，不是新的接收增益。
+
+```sh
+PYTHONPATH=src uv run --frozen --no-sync pytest tests/test_carrier_diagnostic_replay.py -q
+```
