@@ -10,13 +10,35 @@ from collections import deque
 
 import numpy as np
 
-__all__ = ["SyncConfirmationNCO", "SyncConfirmationNCOFlow", "coherent_sync_confirmation"]
+__all__ = ["SyncConfirmationNCO", "SyncConfirmationNCOFlow", "coherent_sync_confirmation",
+           "phase_rotation_words"]
 
 _PHASE_BITS = 20
 _PHASE_MASK = (1 << _PHASE_BITS)-1
 _COEFFICIENT_SCALE = 1 << 16
 _COSINE_QUARTER = tuple(round(math.cos(math.pi*k/2048)*_COEFFICIENT_SCALE)
                        for k in range(1024))
+
+
+def phase_rotation_words(phase_word, *, phase_bits=32):
+    """Variable integer phase → existing signed18/Q16 compensation coefficients.
+
+    Reuse the exact1024-entry ROM and12-bit RNE address of sync confirmation.
+    This pure node consumes a supplied20/32-bit phase; it does not lift the
+    sync oscillator's128-output cap or assume a frequency feedback schedule.
+    """
+    if (type(phase_bits) is not int or phase_bits not in (20, 32)
+            or type(phase_word) is not int or not 0 <= phase_word < 2**phase_bits):
+        raise ValueError("Need unsigned20/32-bit phase word")
+    unit = 1 << (phase_bits-12)
+    address, remainder = divmod(phase_word, unit)
+    address += int(2*remainder > unit or (2*remainder == unit and address & 1))
+    quadrant, offset = divmod(address % 4096, 1024)
+    cosine = _COSINE_QUARTER[offset]
+    sine = 0 if offset == 0 else _COSINE_QUARTER[1024-offset]
+    c, s = [(cosine, sine), (-sine, cosine), (-cosine, -sine),
+            (sine, -cosine)][quadrant]
+    return c, -s
 
 
 class SyncConfirmationNCO:
@@ -38,14 +60,7 @@ class SyncConfirmationNCO:
             raise ValueError("Need1..128 total NCO outputs per candidate")
         real, imag = np.empty(count, np.int32), np.empty(count, np.int32)
         for k in range(count):
-            address, remainder = divmod(self.phase, 256)
-            address += int(remainder > 128 or (remainder == 128 and address & 1))
-            quadrant, offset = divmod(address % 4096, 1024)
-            cosine = _COSINE_QUARTER[offset]
-            sine = 0 if offset == 0 else _COSINE_QUARTER[1024-offset]
-            c, s = [(cosine, sine), (-sine, cosine), (-cosine, -sine),
-                    (sine, -cosine)][quadrant]
-            real[k], imag[k] = c, -s  # CFO compensation is exp(-j*omega*k).
+            real[k], imag[k] = phase_rotation_words(self.phase, phase_bits=20)
             self.phase = (self.phase+self.step) & _PHASE_MASK
         self.produced += count
         return real, imag

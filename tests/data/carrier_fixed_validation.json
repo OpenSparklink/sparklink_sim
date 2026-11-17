@@ -1,0 +1,61 @@
+{
+  "seed": 760117,
+  "pid": 4,
+  "configs": [
+    [
+      4,
+      8,
+      0,
+      13
+    ],
+    [
+      2,
+      12,
+      8,
+      89
+    ],
+    [
+      3,
+      6,
+      0,
+      293
+    ],
+    [
+      4,
+      12,
+      8,
+      631
+    ],
+    [
+      2,
+      0,
+      8,
+      1061
+    ],
+    [
+      3,
+      8,
+      8,
+      89
+    ],
+    [
+      4,
+      6,
+      0,
+      1061
+    ],
+    [
+      2,
+      12,
+      0,
+      293
+    ]
+  ],
+  "reason": "Original generator usedPID6 forFT3/4 whose actual m-sequence indices are0..5;it failed before fullset generation;partial firststream and error retained,viewed/development only. This replacement is frozen before generation;no receiver/format/budget/adoption changes.",
+  "selected_format_sha256": "0c362547a323e160b9863d74f5c18a0358255d7fc84068a9e7f4621f6b7de49d",
+  "budget_sha256": "599f6fa096a6f5c52174f2eb65f8e026844bb32399fa77aa9ed87937030b4800",
+  "invalid_generator_sha256": "48ce869f2edf46d6853780aa82cb4f9b15d4b6b9f3dc6302be02b8e8d8cdded4",
+  "invalid_error_log_sha256": "96f5e4c189c4440149b072dd70e0af671925da23c25d9f48607485ff8911632e",
+  "replacement_generated_at_freeze": false,
+  "retune_allowed": false
+}

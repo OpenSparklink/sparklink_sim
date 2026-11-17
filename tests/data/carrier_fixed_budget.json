@@ -1,0 +1,14 @@
+{
+  "angle_max_error_rad": 0.0002,
+  "phase_trajectory_rms_delta_rad": 0.005,
+  "phase_trajectory_peak_delta_rad": 0.02,
+  "mean_frequency_delta_hz": 2,
+  "normalized_output_rms_delta": 0.005,
+  "normalized_output_peak_delta": 0.02,
+  "backend_symbol_atol": 1e-12,
+  "backend_center_atol": 1e-10,
+  "integer_words_and_state": "bit exact across true Python/Rust environments",
+  "packet_adoption": "new dev then frozen held:zero float-success losses,matched BER nonincrease,negative candidates/deliveries nonincrease;all saturation and near-threshold changes reported;no saturation hidden by matchingCRC",
+  "module_study": "8DSP25x18,2BRAM36;nonlinear/normalizer/ports/FIFOs/pipeline charged;not an approved full-system budget",
+  "old2percent16KiB": "not changed"
+}

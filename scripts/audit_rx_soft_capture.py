@@ -43,6 +43,7 @@ def diagnostic_bits(e, profile):
         "blind de-rotated Mth-power FFT+phase regression; no expected bits": "phase_regression",
         "sync estimate only; fewer than 32 payload wire symbols": "sync_only",
         "causal bounded phase-detector PI;sync-only initialization;no expected bits": "causal_pi",
+        "integer causal carrier PI;actual header preroll;no expected bits": "fixed_pi",
     }
     method = methods.get(carrier.get("method"))
     if method is None:
@@ -59,7 +60,7 @@ def diagnostic_bits(e, profile):
         )
         # Replay only the actual selected method. CRC is checked afterwards,
         # never used to retry a different carrier interpretation.
-        if method == "causal_pi":
+        if method in ("causal_pi", "fixed_pi"):
             from nearlink_sdr.phy.carrier_loop import track_psk_carrier
 
             if carrier.get("symbols") != len(y) or carrier.get("start_symbol_index") != start:
@@ -80,9 +81,16 @@ def diagnostic_bits(e, profile):
                     header_mod_type=carrier["header_modulation"],
                 )
             )
-            y, _, _ = track_psk_carrier(
-                y, cfg.mod_str, start, bandwidth=carrier["bandwidth"], **options
-            )
+            if method == "fixed_pi":
+                from nearlink_sdr.phy.carrier_fixed import track_fixed_carrier
+
+                y, _, _ = track_fixed_carrier(
+                    y, cfg.mod_str, start, fraction_bits=carrier["fraction_bits"], **options
+                )
+            else:
+                y, _, _ = track_psk_carrier(
+                    y, cfg.mod_str, start, bandwidth=carrier["bandwidth"], **options
+                )
         elif "prefix_symbols" in carrier:
             from nearlink_sdr.phy.carrier_prefix import refine_psk_carrier_prefix
 

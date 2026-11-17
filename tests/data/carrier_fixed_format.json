@@ -1,0 +1,35 @@
+{
+  "fraction_bits": 10,
+  "phase_bits": 32,
+  "coefficient_bits": 18,
+  "coefficient_fraction_bits": 16,
+  "CORDIC_iterations": 18,
+  "CORDIC_xy_bits": 24,
+  "CORDIC_angle_bits": 34,
+  "kp": "1/32",
+  "ki": "1/2048",
+  "source_sha256": {
+    "src/nearlink_sdr/phy/carrier_fixed.py": "c96980d9e9a2bc4faf0b49c600b2b7516f8106c3bb3656c74ce166e909465426",
+    "src/nearlink_sdr/phy/sync_coherent.py": "9cd068f90ad602076042dccdd3deee58725f37761812e0ac55f02c0a44bdcb80",
+    "src/nearlink_sdr/phy/carrier_weights.py": "2dbff3cafe99f623144ca5ba9eb562699e436975ae0725491f749e124fca8a9e",
+    "src/nearlink_sdr/phy/carrier_loop.py": "40aea83f50f8e46e28ce50b985ceb3a4bdc7e4d4b564748f807caf02a51a0fd8"
+  },
+  "development_manifest_sha256": "bac37cfb8357ae674c2f1bb197a606f4e22c043a7ff5b9acb04cb97632dcabbd",
+  "Q12_rejection": "development6 phase peak .02504508673110739rad exceeds frozen .02 despite same CRC",
+  "selected_by": "only Q10 passed new development numerical/saturation/packet gates;no changes after held exposure",
+  "budgets_sha256": "599f6fa096a6f5c52174f2eb65f8e026844bb32399fa77aa9ed87937030b4800",
+  "independent_node_budget": {
+    "seed": 750119,
+    "symbols": 8000,
+    "phase_rms_rad": 0.08,
+    "phase_sector_changes": 0,
+    "convergence_symbols": 2000,
+    "mean_frequency_error_hz": 50
+  },
+  "held_seed": 740117,
+  "held_generated_at_freeze": false,
+  "held_rules": "only compare frozen Q10 with B1 float;no Q12 retry or tuning after failure",
+  "input_normalization_bridge_fixed": false,
+  "complete_receiver_fixed": false,
+  "default_changed": false
+}

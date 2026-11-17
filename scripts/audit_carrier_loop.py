@@ -177,7 +177,7 @@ def carrier_adapter(arm, profile):
             symbols, mod, start, bandwidth=arm.split("-")[0], **options
         )
         fits.append(info)
-        traces.append(trace)
+        traces.append({**trace, "corrected_symbols": out})
         return out, info
 
     with (
@@ -219,7 +219,10 @@ def run_arm(folder, meta, profile, x, quiet, payload, arm, chunking="whole"):
                         - frames[frame_index]["cfo_hz"] / 4e6 * np.arange(n)
                     )
                 )
-                error = raw_phase - (np.unwrap(trace["phase"]) - trace["phase"][0])
+                phase = (
+                    trace["phase"] if "phase" in trace else trace["phase_word"] * 2 * np.pi / 2**32
+                )
+                error = raw_phase - (np.unwrap(phase) - phase[0])
                 arrays[f"loop-{j}-truth-relative-carrier-drift"] = error
                 truth.append(
                     dict(

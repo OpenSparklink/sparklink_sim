@@ -2,12 +2,16 @@
 
 import argparse
 import json
+from contextlib import nullcontext
 from pathlib import Path
+from unittest.mock import patch
 
+import audit_carrier_loop as loop_audit
 import numpy as np
 from audit_capture_hardware import profile, score, sha, write
 from audit_carrier_loop import carrier_adapter
 
+from nearlink_sdr.phy.carrier_fixed import track_fixed_carrier
 from nearlink_sdr.phy.mac_interface import MacStreamReceiver
 from nearlink_sdr.phy.tone_notch import ToneNotchConfig
 
@@ -20,6 +24,17 @@ def run(args):
     policy = json.loads(Path("tests/data/carrier_loop_policy.json").read_text())
     assert policy["loop_module_sha256"] == sha(Path("src/nearlink_sdr/phy/carrier_loop.py"))
     assert policy["power_module_sha256"] == sha(Path("src/nearlink_sdr/phy/carrier_weights.py"))
+    word_fraction = getattr(args, "word_fraction_bits", None)
+    candidate = policy["selected_arm"] if word_fraction is None else "q10"
+    if word_fraction is not None:
+        selected = json.loads(Path("tests/data/carrier_fixed_format.json").read_text())
+        assert word_fraction == selected["fraction_bits"] == 10
+        assert all(sha(Path(p)) == v for p, v in selected["source_sha256"].items())
+
+    def fixed(y, mod, start, **kwargs):
+        kwargs.pop("bandwidth")
+        return track_fixed_carrier(y, mod, start, fraction_bits=word_fraction, **kwargs)
+
     out = args.output
     out.mkdir(parents=True, exist_ok=False)
     rows = []
@@ -31,7 +46,7 @@ def run(args):
             x, quiet = ar["iq"], ar["quiet"]
         arms = {}
         paths = {}
-        for arm in ("full", policy["selected_arm"]):
+        for arm in ("full", candidate):
             rx = MacStreamReceiver(
                 p,
                 quiet,
@@ -44,7 +59,15 @@ def run(args):
                 sync_candidate_count=1,
                 sync_coherent_threshold=0.45,
             )
-            with carrier_adapter(arm, p) as (fits, traces):
+            word_context = (
+                nullcontext()
+                if word_fraction is None
+                else patch.object(loop_audit, "track_psk_carrier", fixed)
+            )
+            with (
+                word_context,
+                carrier_adapter("full" if arm == "full" else "medium-head", p) as (fits, traces),
+            ):
                 a = rx.feed(x)
                 b = rx.finish()
             events = a.diagnostics["events"] + b.diagnostics["events"]
@@ -73,9 +96,7 @@ def run(args):
             and old["false_candidates"] == new["false_candidates"]
         )
         centers = [k for k in paths["full"] if k.endswith("symbol_centers_raw")]
-        assert all(
-            np.array_equal(paths["full"][k], paths[policy["selected_arm"]][k]) for k in centers
-        )
+        assert all(np.array_equal(paths["full"][k], paths[candidate][k]) for k in centers)
         assert len(old["frames"]) == len(new["frames"])
         lost = [
             i
@@ -113,7 +134,7 @@ def run(args):
                 "false_deliveries",
             )
         }
-        for arm in ("full", policy["selected_arm"])
+        for arm in ("full", candidate)
     }
     losses = [
         dict(
@@ -141,6 +162,7 @@ def run(args):
             negative_samples=sum(r["input"]["samples"] for r in rows if not r["input"]["positive"]),
             fixed_regression_only=True,
             parameter_tuning_allowed=False,
+            word_fraction_bits=word_fraction,
             default_changed=False,
             complete16msps=False,
         ),
@@ -168,4 +190,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input-index", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--word-fraction-bits", type=int, choices=(10,))
     raise SystemExit(run(parser.parse_args()))
