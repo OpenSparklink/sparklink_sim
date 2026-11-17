@@ -65,7 +65,8 @@ class PSKStreamReceiver:
                  correlation_backend: str = 'reference', correlation_input_full_scale: float = 1024.,
                  correlation_input_bits: int = 16, tone_notch=None,
                  correlation_mantissa_bits: int = 10,
-                 sync_search_method: str = 'reference', normalized_coarse: bool = False):
+                 sync_search_method: str = 'reference', normalized_coarse: bool = False,
+                 rrc_backend: str = 'reference'):
         if not isinstance(profile, PSKReceiveProfile):
             raise ValueError("Explicit PSKReceiveProfile required")
         self.profile = replace(profile, config=replace(profile.config))
@@ -103,6 +104,18 @@ class PSKStreamReceiver:
         if not isinstance(defer_quiet_fir, bool):
             raise ValueError("defer_quiet_fir must be boolean")
         self.defer_quiet_fir = defer_quiet_fir
+        if rrc_backend not in ('reference', 'word-full12-c18'):
+            raise ValueError('rrc_backend must be reference or word-full12-c18')
+        if rrc_backend != 'reference' and (
+                quiet_batching or defer_quiet_fir or cfg.sps != 4 or cfg.symbol_rate_mhz != 4):
+            raise ValueError('Word RRC requires SPS4/4Msym, quiet_batching=False and '
+                             'defer_quiet_fir=False')
+        self.rrc_backend = rrc_backend
+        self._rrc_word_model = None
+        if rrc_backend != 'reference':
+            from nearlink_sdr.phy.rrc_pair import FullMantissaRRC
+            from nearlink_sdr.phy.rrc_word import FixedRRCFormat
+            self._rrc_word_model = FullMantissaRRC(FixedRRCFormat(12, 18))
         self.quiet_deferred_fir_samples = 0
         self.quiet_fast_path_samples = 0
         self.carrier_method = carrier_method
@@ -189,7 +202,8 @@ class PSKStreamReceiver:
                 self.reference, self.sps, self.search_samples, self.capture_config.integer_screen,
                 origin=-self.delay, input_full_scale=correlation_input_full_scale, **tone_options)
         self.future_samples = self.delay+2
-        self._fir_state = np.zeros(len(self.h)-1, dtype=complex)
+        self._fir_state = np.zeros(0 if self._rrc_word_model is not None else len(self.h)-1,
+                                   dtype=complex)
         self._quiet_tail = None
         q = np.asarray(quiet)
         window = self.sps * energy_window_symbols
@@ -253,6 +267,8 @@ class PSKStreamReceiver:
         tail = self._quiet_tail
         if tail is None:
             return
+        if self._rrc_word_model is not None:
+            raise RuntimeError('Word RRC cannot reconstruct deferred floating FIR state')
         self._quiet_tail = None
         self._fir_state = np.zeros(len(self.h)-1, complex)
         self._energy_state = np.zeros(len(self._box)-1)
@@ -292,10 +308,21 @@ class PSKStreamReceiver:
         return len(self.reference)+head_wire+largest
 
     @property
+    def fir_array_bytes(self):
+        """Persistent NumPy FIR arrays only; Python objects/other RX caches separate."""
+        total = self.h.nbytes + self._fir_state.nbytes
+        word = self._rrc_word_model
+        if word is not None:
+            total += sum(a.nbytes for a in (word._r, word._i, word._e, word.coefficients))
+        return total
+
+    @property
     def buffered_samples(self):
         if self._quiet_tail is not None:
             return len(self._quiet_tail)+len(self._pending)
-        return (len(self._filtered)+len(self._pending)+len(self._fir_state)+
+        fir_history = (len(self._fir_state) if self._rrc_word_model is None
+                       else len(self._rrc_word_model._r))
+        return (len(self._filtered)+len(self._pending)+fir_history+
                 len(self._energy_state)+len(self._tone_filtered))
 
     @property
@@ -364,6 +391,8 @@ class PSKStreamReceiver:
         while remaining:
             n = min(self.quantum, remaining)
             events.extend(self._process(np.zeros(n, complex)))
+            if self._rrc_word_model is not None:
+                self._rrc_word_model.stats['zero_flush_samples'] += n
             remaining -= n
         if self._active is not None:
             a = self._active
@@ -373,6 +402,8 @@ class PSKStreamReceiver:
             row.update(status=status, payload=None)
             events.append(self._event(row, end_padding=True))
         self._closed = True
+        if self._rrc_word_model is not None:
+            self._rrc_word_model.seal()
         return events
 
     def _quiet_jump(self, block):
@@ -473,7 +504,10 @@ class PSKStreamReceiver:
         self._materialize_quiet()
         if not np.isfinite(block).all():
             raise ValueError("Need finite IQ samples")
-        filtered, self._fir_state = _fir_block(self.h, block, self._fir_state)
+        if self._rrc_word_model is None:
+            filtered, self._fir_state = _fir_block(self.h, block, self._fir_state)
+        else:
+            filtered = self._rrc_word_model.feed(block)
         if self.tone_notch is not None:
             tone = self.tone_notch.advance(filtered)
             self.tone_correlation_bank.advance(tone)

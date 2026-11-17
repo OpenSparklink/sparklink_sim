@@ -102,7 +102,9 @@ class FixedRRC:
             raise OverflowError("Coefficient does not fit selected signed format")
         self.coefficients.setflags(write=False)
         self.accumulator_bits = format.input_mantissa_bits + 1 + format.coefficient_bits + 6
-        self._r, self._i = np.zeros((2, 80), np.int64)
+        # Every allowed10/12/14-bit input fits signed16 storage. feed_words
+        # promotes joined operands to int64 before all FIR/rounding arithmetic.
+        self._r, self._i = np.zeros((2, 80), np.int16)
         self._e = np.zeros(80, np.int8)
         self.closed = False
         self.stats = dict(
@@ -230,8 +232,16 @@ class FixedRRC:
             return np.empty(0, complex)
         result = self.feed(np.zeros(80)) if self.stats["samples"] else np.empty(0, complex)
         self.stats["zero_flush_samples"] += len(result)
-        self.closed = True
+        self.seal()
         return result
+
+    def seal(self):
+        """Close without implicit padding; owner must supply its required tail.
+
+        Standalone finish still supplies80zeros. A centered stream receiver
+        supplies its own FIR/interpolation lookahead exactly once, then seals.
+        """
+        self.closed = True
 
     def operation_estimate(self):
         return dict(

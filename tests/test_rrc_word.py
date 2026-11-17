@@ -157,3 +157,13 @@ def test_extracted_quantizer_matches_scalar_binary_rounding_and_explicit_counter
             )
         np.testing.assert_array_equal(np.column_stack([r, i, e]), expected)
         assert stats["exponent_underflows"] > 0 and stats["exponent_overflows"] > 0
+
+
+def test_seal_after_owner_tail_does_not_add_implicit_samples():
+    f = FixedRRC(FixedRRCFormat(12, 18))
+    f.feed(np.ones(3))
+    before = dict(f.stats)
+    f.seal()
+    assert f.closed and f.stats == before and len(f.finish()) == 0
+    with pytest.raises(RuntimeError):
+        f.feed(np.ones(1))

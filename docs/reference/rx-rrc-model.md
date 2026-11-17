@@ -338,3 +338,49 @@ PYTHONPATH=src python scripts/audit_rrc_pair_flow.py \
 `receiver_promotion=false`固定保留。`failures.json`包含7个资源/阻塞反例，全部轨迹另存。
 前述数值实验的SHA重放须使用各自冻结源码提交（C2A3为`7a7a500`），
 新增模型或公共导出导致来源SHA不同会明确报错，不能关闭来源检查重新宣布通过。
+
+## 严格流式接收的实验前端（RX-C2A5A）
+
+`PSKStreamReceiver`及透传选项的`MacStreamReceiver`增加
+`rrc_backend='word-full12-c18'`，默认仍为`reference`。
+新模式只支持4Msym/s/SPS4，使用既有beta0.4、81抽头和12/C18/19有限字格式；
+它是测量量化损失的显式实验接口，**不是已通过RRC数值门或完整接收机验收的默认配置**。
+同步、定时、载波和星座相位仍只由输入/已知同步模板选择，头/数据CRC只用于解析及MAC交付。
+普通与WS63 profile的同步字、CRC种子、头格式、编码、导频及加扰仍由原profile明确提供。
+
+```python
+rx = MacStreamReceiver(
+    profile, quiet_samples,
+    rrc_backend="word-full12-c18",
+    quiet_batching=False,
+    defer_quiet_fir=False,
+)
+for result in rx.iter_feed(iq_chunk):
+    packets = result.packets
+final_result = rx.finish()
+```
+
+`profile`和`quiet_samples`由调用方提供，未知起点和载荷长度不由期待数据补充。
+未设置两个静默选项为False、SPS/符号率不符或未知后端会明确报错。
+整段及任意分块仍经过同一32采样量子，原生整数历史跨块/跨包持续，不因换包重置滤波器。
+`buffered_samples`计入80个有限字历史位置；原浮点`_fir_state`在新模式为空，避免并存两套历史。
+10/12/14位格式的历史均可存入有符号16位数组，验证后的输入合并仍提升至int64后执行全部运算；
+64条冻结旧范围输入的有限字及计数完全相同。FIR持久NumPy数组（含原系数和整数系数）
+从1928减为1696字节，不能据此代替物理流水/端口或整接收机缓存计账。
+原合法帧最大数组仍约3MB，尚未完成载荷/译码硬件缓冲收敛。
+
+接收器统一处理42个EOF零样本（FIR中心延迟40和插值前视2），随后调用新增`seal()`关闭模型，
+不再调用会额外冲洗80样本的原型`finish()`。
+单独使用`FixedRRC.finish()`仍保持80样本尾冲洗的原接口；`seal()`只用于所有者已处理所需尾部的情况。
+实际补零数单独计入`zero_flush_samples`，EOF之后禁止继续输入，重复finish无新增交付。
+没有凭补零虚构新的原始采样中心或用CRC重试同步。
+
+测试覆盖FT2/3/4×MCS0..12×导频0/8的78组合、未知起点/CFO/±100ppm SRO，
+整段/随机分块决策及轨迹逐值相同；另覆盖QPSK/8PSK的1/2047字节合法长度、
+坏头/坏数据CRC、EOF截断、密集包及静默。
+独立角度/脉冲参考仍共享原比特编码器，因此不能作为唯一标准互通证据。
+WS63单独使用显式厂测同步字/CRC上下文，测试调用者配置MCS8而实际头为MCS12，
+必须从已校验头读出12；没有剥除未知编码前缀或改变期待载荷。
+
+集成开发与新保留的实际捕获/整包结果、原哈希真实IQ、旧成功及完整失败归档由后续验证工具给出。
+现有数值失败2.348%仍超过2%，整链资源/监测/ADC转换仍未闭环，不推广新后端，也不据此转TX。
