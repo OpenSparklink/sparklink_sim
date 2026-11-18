@@ -1,0 +1,184 @@
+{
+  "stage": "SYS-C2E2B-G",
+  "reference_format": [
+    16,
+    2,
+    22
+  ],
+  "candidate": "same16/2/22,guard-before-alignment RNE only",
+  "budgets": {
+    "symbol_normalized_rms": 0.0001,
+    "symbol_normalized_peak": 0.001,
+    "center_peak_samples": 0.001,
+    "rate_peak_ppm": 0.1
+  },
+  "node_budget": {
+    "DSP25x18_max": 6,
+    "pipeline_register_bound_bits_max": 2057,
+    "alignment_RNE_width_max": 21,
+    "additional_source_ports": 0,
+    "II_max": 8,
+    "no_stall_latency_max": 32,
+    "synthesis_or_timing": false
+  },
+  "adoption": "all new-development and fixed original numeric/decision gates pass;zero prior success losses,zero added false deliveries;no node overrun;freeze single choice then independent fresh RF validation once;no default promotion or wholeRX acceptance",
+  "development": {
+    "seed": 944117,
+    "pid": 2,
+    "profiles": [
+      [
+        3,
+        10,
+        8,
+        13
+      ],
+      [
+        4,
+        6,
+        16,
+        227
+      ],
+      [
+        2,
+        12,
+        0,
+        607
+      ],
+      [
+        3,
+        0,
+        4,
+        1451
+      ],
+      [
+        4,
+        8,
+        8,
+        157
+      ],
+      [
+        2,
+        10,
+        16,
+        349
+      ]
+    ],
+    "kinds": [
+      "clean",
+      "burst",
+      "wrong_sync_tone",
+      "amplitude_step",
+      "two_tone",
+      "noise"
+    ],
+    "cfo_hz": [
+      47000,
+      -79000
+    ],
+    "sro_ppm": [
+      -175,
+      225
+    ],
+    "offset": 0.417
+  },
+  "validation": {
+    "seed": 944333,
+    "pid": 5,
+    "profiles": [
+      [
+        4,
+        12,
+        16,
+        31
+      ],
+      [
+        2,
+        8,
+        4,
+        761
+      ],
+      [
+        3,
+        6,
+        8,
+        97
+      ],
+      [
+        4,
+        0,
+        0,
+        1747
+      ],
+      [
+        2,
+        10,
+        4,
+        283
+      ],
+      [
+        3,
+        12,
+        16,
+        487
+      ]
+    ],
+    "kinds": [
+      "clean",
+      "double_burst",
+      "tone_burst",
+      "noise",
+      "amplitude_step",
+      "wrong_sync"
+    ],
+    "cfo_hz": [
+      -53000,
+      31000
+    ],
+    "sro_ppm": [
+      175,
+      -225
+    ],
+    "offset": 0.827
+  },
+  "negative_samples": {
+    "development": [
+      5120,
+      7424,
+      9984,
+      12544
+    ],
+    "validation": [
+      5632,
+      7936,
+      10496,
+      13056
+    ]
+  },
+  "negative_kinds": [
+    "silence",
+    "noise",
+    "tone",
+    "wrong_sync"
+  ],
+  "negative_templates": {
+    "development": {
+      "tone_frequency": -0.05383,
+      "phase": 1.317,
+      "wrong_pid": 6,
+      "wrong_payload": "alignment-guard-new-development-negative"
+    },
+    "validation": {
+      "tone_frequency": 0.08813,
+      "phase": -0.719,
+      "wrong_pid": 1,
+      "wrong_payload": "independent-guard-order-held-negative"
+    }
+  },
+  "node_seeds": {
+    "development": 945117,
+    "validation": 945333
+  },
+  "node_queries": 256,
+  "scope": "selected-candidate interpolation experiment;upstream whole-record maximum is a fixture;no streaming capture rate gain;timing/carrier/LLR/decoder remainfloat;fullRX gates stay open",
+  "old_failures": "retain old guard-after RMS .000150245>.0001;RRC .0234835255681227>.02;old16KiB;no budget relaxed"
+}

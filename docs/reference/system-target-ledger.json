@@ -394,6 +394,40 @@
         "other_control_LUTs": null,
         "synthesis_or_timing": false,
         "whole16MSps": false
+      },
+      "experimental_alignment_guard": {
+        "reference": "alignment-guard-order.md",
+        "target_adopted": false,
+        "reason": "fixed RMS worsened .000150245 to .000284283;new-development .000100124 exceeds .0001",
+        "placement": "FPGA candidate compile-time variant,not new parallel receiver path",
+        "input_word_bits": 46,
+        "state_bits": 25,
+        "output_word_bits": 52,
+        "alignment_RNE_lanes": 8,
+        "alignment_RNE_width_before_after": [
+          19,
+          21
+        ],
+        "data_selection_mux2_upper_estimate_before_after": [
+          760,
+          840
+        ],
+        "sticky_sign_RNE_control_LUT": null,
+        "additional_DSP": 0,
+        "existing_interpolator_DSP": 6,
+        "additional_state_or_ROM_bits": 0,
+        "same_existing_register_bound_bits": 2057,
+        "additional_source_read_ports": 0,
+        "alignment_RNE_assumed_cycles": 1,
+        "node_latency_II_cycles": [
+          32,
+          8
+        ],
+        "synthesis_or_timing": false,
+        "full_initial_fit_head_PI_decode_cycles": null,
+        "RX_TX_Polar_MAC_sharing_credit": 0,
+        "old16KiB_and2percent_failures_preserved": true,
+        "whole16MSps": false
       }
     },
     {

@@ -20,6 +20,7 @@ class LagrangeWordFormat:
     phase_bits: int = 16
     guard_bits: int = 0
     output_bits: int = 19
+    alignment_guard_first: bool = False
 
     def __post_init__(self):
         if (self.phase_bits, self.guard_bits, self.output_bits) not in (
@@ -29,6 +30,11 @@ class LagrangeWordFormat:
             (16, 2, 22),
         ) or any(type(v) is not int for v in (self.phase_bits, self.guard_bits, self.output_bits)):
             raise ValueError("Need compiled phase/guard/output:16/0/19,16/2/19,20/2/19,16/2/22")
+        if type(self.alignment_guard_first) is not bool or (
+            self.alignment_guard_first
+            and (self.phase_bits, self.guard_bits, self.output_bits) != (16, 2, 22)
+        ):
+            raise ValueError("Guard-before-alignment is a distinct16/2/22 compiled experiment")
 
     @property
     def state_bits(self):
@@ -68,7 +74,13 @@ def validate_query(words, phase, fmt):
 def aligned_components(triples, fmt):
     common = max((e for r, i, e in triples if r or i), default=0)
     components = tuple(
-        tuple(rne_shift(t[k], common - t[2]) << fmt.guard_bits for t in triples) for k in (0, 1)
+        tuple(
+            rne_shift(t[k] << fmt.guard_bits, common - t[2])
+            if fmt.alignment_guard_first
+            else rne_shift(t[k], common - t[2]) << fmt.guard_bits
+            for t in triples
+        )
+        for k in (0, 1)
     )
     erased = sum(
         t[k] != 0 and value == 0

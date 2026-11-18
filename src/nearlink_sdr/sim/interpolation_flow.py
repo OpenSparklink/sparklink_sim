@@ -92,7 +92,12 @@ class LagrangeInterpolationFlow:
         else:
             triples = job.pop("triples")
             values = tuple(
-                tuple(rne_shift(t[k], job["common"] - t[2]) << self.fmt.guard_bits for t in triples)
+                tuple(
+                    rne_shift(t[k] << self.fmt.guard_bits, job["common"] - t[2])
+                    if self.fmt.alignment_guard_first
+                    else rne_shift(t[k], job["common"] - t[2]) << self.fmt.guard_bits
+                    for t in triples
+                )
                 for k in (0, 1)
             )
             job["erased"] = sum(
@@ -244,7 +249,11 @@ class LagrangeInterpolationFlow:
             max_parallel_coefficient_adders25=12,
             horner_round_and_add_paths=6,
             wide_product_merge_adders46=6 if self.fmt.phase_bits == 20 else 0,
-            alignment_RNE_shifters19=8,
+            alignment_RNE_shifters19=0 if self.fmt.alignment_guard_first else 8,
+            alignment_RNE_shifters21=8 if self.fmt.alignment_guard_first else 0,
+            alignment_RNE_width=21 if self.fmt.alignment_guard_first else 19,
+            alignment_RNE_macro_cycles=1,
+            alignment_RNE_timing_verified=False,
             alignment_max_comparators8=3,
             division_ROM_bits=2 * 96 * 7,
             division_ROM_reads_per_clock=2,

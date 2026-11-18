@@ -113,6 +113,7 @@ selected-frame
 sliding-history
 interpolation-word
 initial-interpolant-reuse
+alignment-guard-order
 rrc-memory
 spline-preparation
 spline-fixed

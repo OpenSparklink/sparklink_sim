@@ -36,6 +36,8 @@ jobs:
           make lint
           uv run --frozen --no-sync ruff check scripts/check_test_shards.py
           uv run --frozen --no-sync ruff check scripts/model_initial_reuse.py
+          uv run --frozen --no-sync ruff check scripts/model_alignment_guard.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_alignment_guard.py tests/test_alignment_guard.py
           uv run --frozen --no-sync ruff check scripts/model_interpolation_word.py scripts/model_spline_power.py scripts/model_spline_geometry.py scripts/model_score_words.py scripts/model_capture_tail.py scripts/model_selected_frame.py scripts/model_sliding_history.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 \
             src/nearlink_sdr/sim/word_arithmetic.py \
@@ -453,6 +455,46 @@ jobs:
               assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v
                          for k,v in json.loads((p / "manifest.json").read_text()).items())
           PYCODE
+      - name: Verify guard placement with frozen numeric budgets and finite service
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_alignment_guard.py --split development --selected-root receiver-diagnostics/selected-frame --capture-root receiver-diagnostics/capture-fine --word-root receiver-diagnostics/interpolation-development --output receiver-diagnostics/alignment-development >alignment-development.log 2>&1 || status=$?
+          test "$status" -eq 1
+          status=0
+          uv run --frozen --no-sync python scripts/model_alignment_guard.py --split validation --freeze receiver-diagnostics/alignment-development/freeze.json --output receiver-diagnostics/alignment-validation >alignment-validation.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import hashlib, json
+          from pathlib import Path
+          root = Path("receiver-diagnostics")
+          dev = json.loads((root / "alignment-development/model.json").read_text())
+          assert not dev["eligible"]
+          assert dev["guard_numeric_failures"] == ["development-3", "development-development-4-fine-1"]
+          assert dev["new_old_full"] == dev["new_guard_full"] == 6
+          assert dev["fixed_old_full"] == dev["fixed_guard_full"] == 13
+          assert not dev["success_losses"] and not dev["added_false_deliveries"]
+          for split in ("development", "validation"):
+              p = root / ("alignment-" + split)
+              d = json.loads((p / "model.json").read_text())
+              assert d["node"]["independent_rational_bound"] and d["node"]["bitexact_value_cycle"]
+              assert d["node"]["queries"] == 256 and d["node"]["changed_outputs"] > 0
+              assert d["node"]["cost"]["alignment_RNE_shifters21"] == 8
+              assert d["node"]["cost"]["alignment_RNE_shifters19"] == 0
+              assert d["provisional_node_resource_gate"]
+              assert d["node"]["cost"]["DSP25x18"] == 6
+              assert d["node"]["cost"]["pipeline_register_bound_bits"] == 2057
+              assert not d["default_RX_changed"] and not any(d["full_RX_gates"].values())
+              if split == "validation":
+                  assert d["RF_evaluated"] == dev["eligible"]
+                  assert d["RF_validation_skipped_due_rejection"] != dev["eligible"]
+              calendars = json.loads((p / "calendars.json").read_text())
+              assert len(calendars) == 27
+              assert sum(r["overflow"] is not None for r in calendars) == 7
+              assert all(r["initial_fit_PI_head_decoder_cycles"] is None for r in calendars)
+              assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v
+                         for k,v in json.loads((p / "manifest.json").read_text()).items())
+          PYCODE
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -488,6 +530,7 @@ jobs:
             interpolation-development.log
             interpolation-node-validation.log
             initial-reuse-*.log
+            alignment-*.log
             receiver-diagnostics/
 
   optional-sm3:

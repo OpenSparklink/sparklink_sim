@@ -255,9 +255,9 @@ def fixed(out, args):
     return rows, parents
 
 
-def calendar(words, symbols, hz, *, retire=True, blocked=False):
+def calendar(words, symbols, hz, *, retire=True, blocked=False, fmt=FMT):
     source = ReceiveHistoryPort()
-    node = InitialStencilService(source, FMT, symbols, 1, 32768, retire_after_staging=retire)
+    node = InitialStencilService(source, fmt, symbols, 1, 32768, retire_after_staging=retire)
     cursor = 0
     activation = ((node.activation_end - 1) * hz + FS - 1) // FS
     status = None
@@ -285,7 +285,7 @@ def calendar(words, symbols, hz, *, retire=True, blocked=False):
         assert source.stats["read_returns"] == 4 * symbols
         for k in range(symbols):
             expected = interpolate_filter_word(
-                tuple(map(int, words[4 * k : 4 * k + 4])), 32768, FMT
+                tuple(map(int, words[4 * k : 4 * k + 4])), 32768, fmt
             )[0]
             assert node.output.cache.words[k] == expected
     free = source.capacity - source.live

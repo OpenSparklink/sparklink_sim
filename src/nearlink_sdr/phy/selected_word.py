@@ -121,6 +121,7 @@ class WordInterpolatedPSKReceiver(SelectedPSKReceiver):
             phase_bits=self.word_format.phase_bits,
             guard_bits=self.word_format.guard_bits,
             output_bits=self.word_format.output_bits,
+            alignment_guard_first=self.word_format.alignment_guard_first,
             statistics=self.interpolation_stats.copy(),
             other_nodes_fixed=False,
             service_cycles_verified=False,
