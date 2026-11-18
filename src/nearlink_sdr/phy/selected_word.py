@@ -1,7 +1,7 @@
 """Opt-in real filter-word interpolation with existing float tracking/parser.
 
-Only interpolation is fixed here. Initialization,Gardner/PI,carrier,head,LLR
-and decoding remain float. This is not a complete word receiver or cycle proof.
+Interpolation and optionally known-sync initialization use finite words.
+Gardner/PI,carrier,head,LLR and decoding remain float. No whole RX cycle proof.
 """
 
 import math
@@ -15,9 +15,21 @@ from nearlink_sdr.phy.interpolation_word import (
     unpack_interpolated_word,
 )
 from nearlink_sdr.phy.selected_rx import SelectedPSKReceiver
+from nearlink_sdr.phy.sync_fit_word import (
+    INPUT_FORMAT,
+    TURN,
+    SyncFitFormat,
+    WordSyncFit,
+    compile_sync_phases,
+    fit_as_floats,
+)
 from nearlink_sdr.sim.capture_fine import unpack_filter_word
 
 __all__ = ["WordInterpolatedPSKReceiver"]
+
+
+class _InvalidSyncFit(Exception):
+    """A selected candidate has undefined zero-vector phase; never retry an answer."""
 
 
 def physical_filter_word(word):
@@ -33,18 +45,34 @@ class WordInterpolatedPSKReceiver(SelectedPSKReceiver):
     required or free on hardware. Causal input batches contain at most32 words.
     """
 
-    def __init__(self, profile, *, word_format, reuse_sync_interpolants=False, **selection):
+    def __init__(
+        self,
+        profile,
+        *,
+        word_format,
+        reuse_sync_interpolants=False,
+        sync_fit_format=None,
+        **selection,
+    ):
         if not isinstance(word_format, LagrangeWordFormat):
             raise ValueError("Need explicit interpolation word format")
         if selection.get("timing_backend", "python") != "python":
             raise ValueError("Word interpolation currently has Python timing only;no native ABI")
         if selection.get("history_capacity", 512) != 512:
             raise ValueError("Word interpolation currently validates512 history")
+        if sync_fit_format is not None and (
+            not isinstance(sync_fit_format, SyncFitFormat)
+            or word_format != INPUT_FORMAT
+            or reuse_sync_interpolants is not True
+        ):
+            raise ValueError("Finite fit needs compiled format,52bit interpolation and sync reuse")
         selection.update(timing_backend="python", history_capacity=512)
         super().__init__(profile, **selection)
         if type(reuse_sync_interpolants) is not bool:
             raise ValueError("Need explicit boolean initial-interpolant reuse")
         self.word_format, self._words = word_format, [0] * 512
+        self.sync_fit_format = sync_fit_format
+        self._sync_fit = self._sync_fit_result = None
         self.initial_interpolants = (
             InitialInterpolantCache(word_format, len(self.reference))
             if reuse_sync_interpolants
@@ -78,12 +106,33 @@ class WordInterpolatedPSKReceiver(SelectedPSKReceiver):
                 raise ValueError("Need filter words,not booleans")
             value = physical_filter_word(word)
             self._words[self.input_samples % 512] = int(word)
-            events = super().feed_filtered(np.array([value]))
+            try:
+                events = super().feed_filtered(np.array([value]))
+            except _InvalidSyncFit:
+                events = [self._bare_event("invalid_sync_fit", "zero_sync_phase")]
             consumed += self.last_input_consumed
             self.last_input_consumed = consumed
             if events:
                 return events
         return []
+
+    def _activate_selected(self, start, delta, score, confirmation=None):
+        if self.sync_fit_format is not None:
+            self._sync_fit = WordSyncFit(
+                compile_sync_phases(self.reference),
+                round(delta * TURN / math.tau),
+                self.sync_fit_format,
+            )
+        super()._activate_selected(start, delta, score, confirmation)
+
+    def _fit_selected_sync(self, raw, delta):
+        if self._sync_fit is None:
+            return super()._fit_selected_sync(raw, delta)
+        self._sync_fit_result = self._sync_fit.finish()
+        if not self._sync_fit_result["valid"]:
+            raise _InvalidSyncFit
+        result = fit_as_floats(self._sync_fit_result)
+        return result["phase"], result["slope"], result["gain"], result["power"]
 
     def _sample(self, position):
         cell = math.floor(position)
@@ -104,6 +153,8 @@ class WordInterpolatedPSKReceiver(SelectedPSKReceiver):
         result, info = interpolate_filter_word(words, phase, self.word_format)
         if cache is not None and self._active is None:
             cache.store(cell, phase, result)
+            if self._sync_fit is not None:
+                self._sync_fit.feed_word(result)
         self.interpolation_stats["queries"] += 1
         for key in ("aligned_components_erased", "output_saturations"):
             self.interpolation_stats[key] += info[key]
@@ -131,6 +182,13 @@ class WordInterpolatedPSKReceiver(SelectedPSKReceiver):
                 else self.initial_interpolants.diagnostics()
             ),
         )
+        if self.sync_fit_format is not None:
+            event["word_sync_initialization"] = dict(
+                peak_bits=self.sync_fit_format.peak_bits,
+                result=self._sync_fit_result,
+                shared_interpolant_pass=True,
+                remaining_loop_carrier_and_decoder_float=True,
+            )
         return event
 
     def _event(self, row, *, end_padding=False):
@@ -145,7 +203,7 @@ class WordInterpolatedPSKReceiver(SelectedPSKReceiver):
             word_store_writes=self.input_samples,
             interpolation_quality_statistic_bits=4 * 64,
             Python_integer_object_overhead_included=False,
-            word_interpolation_only=True,
+            word_interpolation_only=self.sync_fit_format is None,
             interpolation_stats=self.interpolation_stats.copy(),
             all_other_receiver_nodes_fixed=False,
             native_word_interpolation=False,

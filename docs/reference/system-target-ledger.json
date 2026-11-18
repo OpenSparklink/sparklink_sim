@@ -428,6 +428,27 @@
         "RX_TX_Polar_MAC_sharing_credit": 0,
         "old16KiB_and2percent_failures_preserved": true,
         "whole16MSps": false
+      },
+      "experimental_known_sync_fit": {
+        "reference": "known-sync-word-fit.md",
+        "placement": "FPGA structural candidate;not whole word-RX adoption",
+        "additional_DSP25x18": 1,
+        "register_state_upper_bits": 3247,
+        "logical_template_and_constant_bits": 2281,
+        "existing_interpolator_DSP": 6,
+        "existing_cache_payload_bits": 6656,
+        "existing_source_cache_controller_bits": 841,
+        "additional_wrapper_bits": 1,
+        "source_ports": "borrowed1R1W;broadcast existing52bit output,no second pass",
+        "per_word_cycles": 40,
+        "source_overflow_cases": [
+          "FT4-100MHz",
+          "FT4-160MHz"
+        ],
+        "remaining_PI_carrier_head_decoder_cycles": null,
+        "sharing_with_other_RX_TX_decoder_credit": 0,
+        "whole_system_approved": false,
+        "synthesis_or_timing": false
       }
     },
     {

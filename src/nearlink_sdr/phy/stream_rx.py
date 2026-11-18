@@ -690,18 +690,23 @@ class PSKStreamReceiver:
     def _sample(self, position):
         return _cubic(self._filtered, self._origin, position)
 
-    def _activate_selected(self, start, delta, score, confirmation=None):
-        """Shared selected-candidate initialization; no search or CRC retry here."""
-        centers = start+np.arange(len(self.reference))*self.sps
-        raw = np.array([self._sample(t) for t in centers])
+    def _fit_selected_sync(self, raw, delta):
+        """Float initializer hook; candidate selection and the frame gate stay shared."""
         t = np.arange(len(raw))
         corrected = raw*np.exp(-1j*delta*t)
         slope, phase = np.polyfit(t, np.unwrap(np.angle(corrected*self.reference.conj())), 1)
         gain = max(float(np.mean(abs(corrected))), 1e-30)
-        loop = GardnerPIState(self.sps, float(np.mean(abs(raw)**2)), self.timing_config)
+        return phase, slope+delta, gain, float(np.mean(abs(raw)**2))
+
+    def _activate_selected(self, start, delta, score, confirmation=None):
+        """Shared selected-candidate initialization; no search or CRC retry here."""
+        centers = start+np.arange(len(self.reference))*self.sps
+        raw = np.array([self._sample(t) for t in centers])
+        phase, slope, gain, power = self._fit_selected_sync(raw, delta)
+        loop = GardnerPIState(self.sps, power, self.timing_config)
         self._active = dict(start=start, next=start, previous=raw[0], previous_t=start,
                             count=0, end=None, header=None, loop=loop,
-                            slope=slope+delta, phase=phase, gain=gain, score=score)
+                            slope=slope, phase=phase, gain=gain, score=score)
         if confirmation is not None:
             self._active['sync_confirmation'] = confirmation
         self._active['native'] = None

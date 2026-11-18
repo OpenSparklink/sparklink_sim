@@ -114,6 +114,7 @@ sliding-history
 interpolation-word
 initial-interpolant-reuse
 alignment-guard-order
+known-sync-word-fit
 rrc-memory
 spline-preparation
 spline-fixed

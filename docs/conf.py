@@ -43,6 +43,8 @@ autodoc2_packages = [
 autodoc2_render_plugin = "myst"
 autodoc2_module_all_regexes = [r"nearlink_sdr\..*"]
 autodoc2_skip_module_regexes = [
+    # Offline ROM literals,not a public API;formats/provenance are documented manually.
+    r"nearlink_sdr\.phy\.sync_fit_constants",
     r"nearlink_sdr\.phy\.modulator",
     r"nearlink_sdr\.phy\.demodulator",
 ]

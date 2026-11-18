@@ -1,0 +1,196 @@
+{
+  "stage": "SYS-C2E2C-FIT",
+  "phase_turn_fraction_bits": 40,
+  "CORDIC_steps": 32,
+  "CORDIC_peak_bits": [
+    30,
+    34
+  ],
+  "sum_mantissa_bits": 54,
+  "sum_exponent_bits": 10,
+  "input_word_bits": 52,
+  "supported_sync_N": [
+    32,
+    62,
+    126
+  ],
+  "budgets": {
+    "initial_phase_rad": 2e-07,
+    "initial_CFO_Hz": 0.001,
+    "gain_relative": 1e-06,
+    "power_relative": 1e-06
+  },
+  "receiver_delta_budgets": {
+    "symbol_normalized_rms": 0.0001,
+    "symbol_normalized_peak": 0.001,
+    "center_peak_samples": 0.001,
+    "rate_peak_ppm": 0.1
+  },
+  "provisional_node_budget": {
+    "additional_DSP_max": 1,
+    "state_register_bits_max": 4096,
+    "logical_template_and_constant_bits_max": 2560,
+    "additional_source_read_ports": 0,
+    "whole_system_approved": false
+  },
+  "adoption": "minimum CORDIC width passing all new development plus fixed original numeric/packet delta gates;zero original success losses or added false deliveries;freeze then fresh independent validation;does not clear old whole-word/RRC numeric rejection",
+  "development": {
+    "seed": 948117,
+    "pid": 4,
+    "profiles": [
+      [
+        4,
+        10,
+        4,
+        23
+      ],
+      [
+        2,
+        6,
+        8,
+        263
+      ],
+      [
+        3,
+        12,
+        16,
+        563
+      ],
+      [
+        4,
+        0,
+        4,
+        1297
+      ],
+      [
+        2,
+        8,
+        0,
+        193
+      ],
+      [
+        3,
+        10,
+        8,
+        379
+      ]
+    ],
+    "kinds": [
+      "clean",
+      "burst",
+      "wrong_sync_tone",
+      "noise",
+      "amplitude_step",
+      "two_tone"
+    ],
+    "cfo_hz": [
+      83000,
+      -49000
+    ],
+    "sro_ppm": [
+      -225,
+      175
+    ],
+    "offset": 0.633
+  },
+  "validation": {
+    "seed": 948333,
+    "pid": 0,
+    "profiles": [
+      [
+        2,
+        12,
+        8,
+        43
+      ],
+      [
+        3,
+        8,
+        16,
+        829
+      ],
+      [
+        4,
+        6,
+        0,
+        113
+      ],
+      [
+        2,
+        0,
+        8,
+        1553
+      ],
+      [
+        3,
+        10,
+        4,
+        317
+      ],
+      [
+        4,
+        12,
+        16,
+        509
+      ]
+    ],
+    "kinds": [
+      "clean",
+      "wrong_sync",
+      "double_burst",
+      "amplitude_step",
+      "tone_burst",
+      "noise"
+    ],
+    "cfo_hz": [
+      -67000,
+      37000
+    ],
+    "sro_ppm": [
+      225,
+      -175
+    ],
+    "offset": 0.193
+  },
+  "negative_samples": {
+    "development": [
+      6144,
+      8704,
+      11264,
+      13824
+    ],
+    "validation": [
+      6656,
+      9216,
+      11776,
+      14336
+    ]
+  },
+  "negative_kinds": [
+    "silence",
+    "noise",
+    "tone",
+    "wrong_sync"
+  ],
+  "negative_templates": {
+    "development": {
+      "tone_frequency": 0.07973,
+      "phase": -0.417,
+      "wrong_pid": 1,
+      "wrong_payload": "finite-fit-develop-new-wrong-sync"
+    },
+    "validation": {
+      "tone_frequency": -0.09137,
+      "phase": 0.967,
+      "wrong_pid": 6,
+      "wrong_payload": "separate-fit-held-negative-content"
+    }
+  },
+  "node_seeds": {
+    "development": 949117,
+    "validation": 949333
+  },
+  "zero_phase": "explicit invalid fit;no alternate sync/CFO answer;retain any receiver success regression",
+  "old_budgets": "whole-word .000150245>.0001,word-full12-c18 .0234835255681227>.02 and16KiB failures retained;new fit budgets do not rewrite these",
+  "scope": "initializer only;Gardner/PI/carrier/header/LLR/decoder stillfloat and their cycles unknown;ordinary4Msym/s/SPS4 FT2/3/4,not FT1/WS63 or whole16MSps"
+}

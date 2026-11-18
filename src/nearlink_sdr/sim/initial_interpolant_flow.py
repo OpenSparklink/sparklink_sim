@@ -116,6 +116,7 @@ class InitialStencilService:
             raise ValueError("Need explicit cache write readiness")
         if self.aborted:
             raise RuntimeError("Aborted candidate cannot resume or emit stale words")
+        committed = None
         cycle, source = self.cycle, self.history
         if not self.enabled and source.end >= self.activation_end:
             if source.head > self.first_cell - 1:
@@ -159,7 +160,9 @@ class InitialStencilService:
                     raise RuntimeError("Cache write credit was consumed twice")
                 if self.output.cache.written == self.symbols:
                     self.ready_cycle = cycle
+                committed = result | {"cache_write_cycle": cycle}
         self.interpolator.advance()
+        return committed
 
     def abort(self):
         """Explicit candidate invalidation,not silent ADC continuation or packet delivery."""

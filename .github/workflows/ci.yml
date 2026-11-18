@@ -35,6 +35,8 @@ jobs:
         run: |
           make lint
           uv run --frozen --no-sync ruff check scripts/check_test_shards.py
+          uv run --frozen --no-sync ruff check scripts/model_sync_initial_fit.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_sync_initial_fit.py tests/test_sync_fit_word.py tests/test_sync_fit_flow.py tests/test_selected_sync_fit.py tests/test_initial_sync_fit_flow.py src/nearlink_sdr/phy/sync_fit_word.py src/nearlink_sdr/sim/sync_fit_flow.py src/nearlink_sdr/sim/initial_sync_fit_flow.py
           uv run --frozen --no-sync ruff check scripts/model_initial_reuse.py
           uv run --frozen --no-sync ruff check scripts/model_alignment_guard.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_alignment_guard.py tests/test_alignment_guard.py
@@ -497,6 +499,45 @@ jobs:
               assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v
                          for k,v in json.loads((p / "manifest.json").read_text()).items())
           PYCODE
+      - name: Verify finite known-sync initialization and preserve source overflow
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_sync_initial_fit.py --split development --selected-root receiver-diagnostics/selected-frame --capture-root receiver-diagnostics/capture-fine --word-root receiver-diagnostics/interpolation-development --output receiver-diagnostics/fit-development >fit-development.log 2>&1 || status=$?
+          test "$status" -eq 1
+          status=0
+          uv run --frozen --no-sync python scripts/model_sync_initial_fit.py --split validation --freeze receiver-diagnostics/fit-development/freeze.json --output receiver-diagnostics/fit-validation >fit-validation.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import hashlib,json
+          from pathlib import Path
+          for split in ("development","validation"):
+              p=Path("receiver-diagnostics")/("fit-"+split)
+              d=json.loads((p/"model.json").read_text())
+              assert d["selected"] == 30 and d["RF_evaluated"]
+              assert d["reference_full"] == d["counts"]["p30"]["full"]
+              assert not d["default_RX_changed"] and not any(d["full_RX_gates"].values())
+              if split == "development":
+                  assert d["fixed_reference_full"] == d["counts"]["p30"]["fixed_full"] == 13
+              cost=d["costs"]["30"]
+              assert cost["additional_DSP25x18"] == 1
+              assert cost["register_state_upper_bits"] == 3247
+              assert cost["logical_template_and_constant_bits"] == 2281
+              assert cost["known_sync_hold_PI_head_decoder_cycles"] is None
+              rows=json.loads((p/"rows.json").read_text())
+              for row in rows:
+                  if "p30" not in row: continue
+                  assert not row["p30"]["success_loss"] and not row["p30"]["added_false_delivery"]
+                  assert row["p30"]["partitions_exact"] and row["p30"]["receiver_delta"]["passed"]
+              calendars=json.loads((p/"calendars.json").read_text())
+              normal=[c for c in calendars if not c["blocked"]]
+              assert len(calendars) == 18 and len(normal) == 9
+              assert [(c["symbols"],c["clock_Hz"]) for c in normal if c["overflow"]] == [(126,100000000),(126,160000000)]
+              assert all(c["overflow"] for c in calendars if c["blocked"])
+              assert all(c["remaining_PI_carrier_head_decoder_cycles"] is None for c in calendars)
+              assert all(hashlib.sha256((p/k).read_bytes()).hexdigest()==v
+                         for k,v in json.loads((p/"manifest.json").read_text()).items())
+          PYCODE
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -508,6 +549,8 @@ jobs:
             test-*.log
             build.log
             backend.json
+            fit-development.log
+            fit-validation.log
             carrier-workload.log
             sync-candidate-work.log
             sync-coherent-work.log

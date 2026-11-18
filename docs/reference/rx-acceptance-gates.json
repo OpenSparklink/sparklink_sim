@@ -1,5 +1,5 @@
 {
-  "stage": "SYS-C2E2B-G",
+  "stage": "SYS-C2E2C-FIT",
   "target": "4Msym/s QPSK/8PSK16MS/s;FT2/3/4 first;FT1 separate",
   "complete": false,
   "gates": {
@@ -14,7 +14,7 @@
     },
     "full_fixed_point": {
       "passed": false,
-      "evidence": "RRC/differential/scoring and isolated carrier nodes exist;integer localLagrange node and opt-in word sampler exist;receiver adoption rejected on fixed regression RMS .000150245>.0001;exact word-cache reuse does not change rejected RMS;guard-before-alignment candidate rejected:old RMS .000150245 to .000284283;no RF held generation;independent arithmetic validation only",
+      "evidence": "RRC/differential/scoring and isolated carrier nodes exist;integer localLagrange node and opt-in word sampler exist;receiver adoption rejected on fixed regression RMS .000150245>.0001;exact word-cache reuse does not change rejected RMS;guard-before-alignment candidate rejected:old RMS .000150245 to .000284283;no RF held generation;independent arithmetic validation only;finite known-sync initializer opt-in passes frozen per-node and delta gates;remaining loops/carrier/LLR/decoder float;old interpolation rejection unchanged",
       "gaps": [
         "word-full12-c18 .0234835255681227 exceeds original .02",
         "selected interpolation/timing/coherent/header/LLR/decoder chain not all finite words"
@@ -31,7 +31,7 @@
     },
     "continuous_16msps": {
       "passed": false,
-      "evidence": "isolated executable RRC/fine/word transport calendars;not whole receiver;registered history port tested only with pauseable replay source;isolated interpolation pipeline32/II8,paired feedback margin160MHz0/200MHz10 before raw reads/PI/head;initial source/cache transfer841controlbits modeled,fit/PI/head service unknown",
+      "evidence": "isolated executable RRC/fine/word transport calendars;not whole receiver;registered history port tested only with pauseable replay source;isolated interpolation pipeline32/II8,paired feedback margin160MHz0/200MHz10 before raw reads/PI/head;initial source/cache transfer841controlbits modeled,fit/PI/head service unknown;actual initial-source/cache/fit broadcast service modeled;FT4 overflows100/160MHz,initial fit only ready200MHz;known-sync replay power/PI/head/decoder stillunknown",
       "gaps": [
         "selected decoder/interpolator/head service unknown,not zero",
         "early stop not in actual transport scheduler",
