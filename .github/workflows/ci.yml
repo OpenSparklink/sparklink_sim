@@ -398,7 +398,9 @@ jobs:
           assert r["numeric_or_decision_failures"] == ["development-development-4-fine-1"]
           assert len(d["gates"]) == 4 and d["paired_query_scenarios"] == 24
           a = json.loads((p / "paired-calendars.json").read_text())
-          a = [r for r in a if r["format"] == {"phase_bits":16,"guard_bits":2,"output_bits":22}]
+          old_format = {"phase_bits":16,"guard_bits":2,"output_bits":22,
+                        "alignment_guard_first":False}
+          a = [r for r in a if r["format"] == old_format]
           assert len(a) == 6
           assert [r["minimum_interpolation_only_feedback_margin_cycles"]
                   for r in a if not r["blocked"]] == [-15,0,10]
