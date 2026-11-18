@@ -155,7 +155,11 @@ class CaptureFineWorker:
             ]["dsp25x18_product_tiles"],
             scoring_DSP25x18_estimate=cost["shared_DSP25x18_count"],
             multiplier_sharing_credit=0,
-            note="dedicated preparation and scoring estimate;row macro timing still assumed;do not claim one DSP for both phases without a shared datapath proof",
+            note=(
+                'dedicated preparation and scoring estimate;row macro timing still '
+                'assumed;do not claim one DSP for both phases without a shared datapath '
+                'proof'
+            ),
             selected_result_scalar_bits=32 + 13 + 4,
             no_claim_on_downstream_replay_ports=True,
             confirmation_required=self.confirmation_required,

@@ -100,7 +100,9 @@ class _Job:
         self.c, self.context, self.token = command, context, token
         self.extent = max(command.a_bits, command.b_bits, command.bits) + 2
         self.cursor = self.result = self.stage = 0
-        self.carry = int(command.code in ("sub", "neg") or (command.code == "abs" and command.a < 0))
+        self.carry = int(
+            command.code in ("sub", "neg") or (command.code == "abs" and command.a < 0)
+        )
         self.comparison = (command.a >= 0) - (command.b >= 0)
         self.low = self.quotient = self.remainder = 0
 
@@ -318,6 +320,9 @@ def word_fabric_cost(assumptions=None):
         max_operand_bits=208,
         extended_result_bits=210,
         RAM_copies=0,
-        LUT_FF_timing="register bit reservation only;decode,mux,rangecheck,monitor reduction not synthesized",
+        LUT_FF_timing=(
+            'register bit reservation only;decode,mux,rangecheck,monitor reduction '
+            'not synthesized'
+        ),
         synthesis_or_timing_evidence=False,
     )

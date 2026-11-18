@@ -108,6 +108,7 @@ capture-fine-integration
 spline-power
 spline-geometry
 score-word-arithmetic
+capture-tail
 rrc-memory
 spline-preparation
 spline-fixed

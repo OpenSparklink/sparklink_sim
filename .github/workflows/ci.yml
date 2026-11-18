@@ -34,7 +34,19 @@ jobs:
       - name: Ruff check
         run: |
           make lint
-          uv run --frozen --no-sync ruff check scripts/model_spline_power.py scripts/model_spline_geometry.py scripts/model_score_words.py
+          uv run --frozen --no-sync ruff check scripts/model_spline_power.py scripts/model_spline_geometry.py scripts/model_score_words.py scripts/model_capture_tail.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 \
+            src/nearlink_sdr/sim/word_arithmetic.py \
+            src/nearlink_sdr/sim/score_word_runtime.py \
+            src/nearlink_sdr/sim/spline_score.py \
+            src/nearlink_sdr/sim/capture_fine.py \
+            src/nearlink_sdr/sim/capture_transport.py \
+            src/nearlink_sdr/sim/capture_tail.py \
+            tests/test_word_arithmetic.py \
+            tests/test_score_word_runtime.py \
+            tests/test_capture_tail.py \
+            scripts/model_score_words.py \
+            scripts/model_capture_tail.py
 
   rust:
     name: Rust Quality
@@ -248,6 +260,39 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/score-words/model.json")); assert d["experimental_node_adopted"] and d["selected_ALU"] == 2 and d["all_scored_values_exact"]; assert len(d["development"]) == len(d["validation"]) == 6 and len(d["regressions"]) == 30; assert sum(r["cycles"]["0"] for r in d["regressions"]) == 2805974 and sum(r["cycles"]["2"] for r in d["regressions"]) == 1536752; assert not d["default_RX_changed"] and not d["whole_receiver16msps"] and not d["full_system_resources_accepted"]'
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/score-words/model.json")); assert all(c["2"]["fine"]["additional_word_and_context_bits"] == 20936 and c["2"]["fine"]["additional_query_state_upper_bits"] == 28155 for c in d["costs"].values()); assert all(sum(s["completed"] for s in d["schedules"] if s["ALU"] == a and s["clock"] == c) == 28 and sum(s["queue_drops"] for s in d["schedules"] if s["ALU"] == a and s["clock"] == c) == 2 and sum(s["potential_continuation_retention_lost"] for s in d["schedules"] if s["ALU"] == a and s["clock"] == c) == 17 for a in (0,2) for c in (100000000,160000000,200000000))'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/score-words"); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in json.loads((p/"manifest.json").read_text()).items())'
+      - name: Preserve bounded tail relay and capacity failures
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_capture_tail.py --capture-root receiver-diagnostics/capture-fine --score-root receiver-diagnostics/score-words --output receiver-diagnostics/capture-tail >capture-tail.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          p = Path("receiver-diagnostics/capture-tail")
+          d = json.loads((p / "model.json").read_text())
+          assert d["exact_word_node_pass"] and d["node_resource_cap_pass"]
+          assert not d["target_tail_configuration_adopted"]
+          assert not d["target_system_accepted"] and not d["whole_receiver16msps"]
+          assert not d["default_RX_changed"] and len(d["schedules"]) == 72
+          assert len(d["nodes"]["development"]) == len(d["nodes"]["validation"]) == 4
+          assert d["cost"]["tail_bram36"] == 24 and d["cost"]["register_bits"] == 3347
+          for clock, completed, dropped in ((100000000,6,11),(160000000,8,9),(200000000,8,9)):
+              rows = [r for r in d["schedules"] if r["clock"] == clock]
+              assert sum(r["replay_done"] for r in rows) == completed
+              assert sum(r["tail_drops"] for r in rows) == dropped
+              assert sum(r["queue_drops"] for r in rows) == 2
+          for clock, live, eof in ((100000000,0,6),(160000000,1,7),(200000000,2,6)):
+              rows = [r for r in d["schedules"] if r["clock"] == clock]
+              assert sum(r["replay_live"] for r in rows) == live
+              assert sum(r["replay_EOF"] for r in rows) == eof
+          continued = d["continuation_controls"]
+          assert len(continued) == 16 and sum(r["replay_live"] for r in continued) == 5
+          assert sum(r["tail_drops"] for r in continued) == 12
+          assert sum(r["replay_EOF"] for r in continued) == 0
+          manifest = json.loads((p / "manifest.json").read_text())
+          assert all(hashlib.sha256((p/k).read_bytes()).hexdigest()==v for k,v in manifest.items())
+          PY
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -276,6 +321,7 @@ jobs:
             spline-power.log
             spline-geometry.log
             score-words.log
+            capture-tail.log
             receiver-diagnostics/
 
   optional-sm3:

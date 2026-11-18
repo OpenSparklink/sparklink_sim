@@ -12,6 +12,8 @@ from collections import deque
 from dataclasses import dataclass
 from itertools import pairwise
 
+from nearlink_sdr.sim.capture_tail import CaptureTailReplay
+
 __all__ = ["CaptureRequest", "CaptureTransport", "CaptureTransportAssumptions", "FineService"]
 
 
@@ -205,14 +207,22 @@ class CaptureTransport:
             extra_dsp=0,
             lut_ff_synthesis=None,
             nonlinear_data_operations=0,
-            control_cost="absolute counters/expiry compare, constant-wrap pointers, admission/FCFS control; width/timing synthesis pending",
+            control_cost=(
+                "absolute counters/expiry compare, constant-wrap pointers, "
+                "admission/FCFS control; width/timing synthesis pending"
+            ),
             other_source_readers_permitted=False,
             fine_memory_ports_verified=False,
             full_chain_verified=False,
-            interpretation="concrete transport allocation; excludes all fine scratch/reads, RRC, banks, decoder, TX, MAC and interface buffers",
+            interpretation=(
+                "concrete transport allocation; excludes all fine scratch/reads, RRC, "
+                "banks, decoder, TX, MAC and interface buffers"
+            ),
         )
 
-    def simulate(self, words, requests, *, stalls=(), sink=None, fine_worker=None):
+    def simulate(
+        self, words, requests, *, stalls=(), sink=None, fine_worker=None, tail_replay=None
+    ):
         """Stream fixed-width path tuples and sorted(after_sample_count,path).
 
         At each edge: release old results, commit prior reads, write newly
@@ -224,6 +234,17 @@ class CaptureTransport:
         if fine_worker is not None and not callable(fine_worker):
             raise ValueError("Need a callable bounded fine microtrace provider")
         a = self.a
+        if tail_replay is not None and (
+            not isinstance(tail_replay, CaptureTailReplay)
+            or tail_replay.a.owned != a.owned
+            or tail_replay.a.paths != a.paths
+            or a.word_bits != 46
+            or a.mode != "tdp2"
+            or fine_worker is None
+            or tail_replay.input_count != 0
+            or tail_replay.cycle != -1
+        ):
+            raise ValueError("Need fresh matched46bit TDP tail replay and measured fine worker")
         n = len(words)
         if type(n) is not int or n < 1 or (n * a.clock_hz + a.input_hz - 1) // a.input_hz >= 2**63:
             raise ValueError("Need finite nonempty input inside signed64 cycle range")
@@ -238,6 +259,9 @@ class CaptureTransport:
         # Very long experiments fail explicitly rather than wrap timestamps.
         service_bound = a.fine_service_cycles if fine_worker is None else 2_000_000
         tail = (a.owned + 1) * (a.window + service_bound + 2)
+        if tail_replay is not None:
+            tail += (a.owned + 1) * (a.window + tail_replay.a.capacity + 3)
+            tail *= tail_replay.a.consumer_ii
         if max(n * a.clock_hz // a.input_hz, previous) + tail >= 2**60:
             raise OverflowError("Transport timestamp/access-counter horizon exhausted")
         source = [[0] * a.history for _ in range(a.paths)]
@@ -260,6 +284,8 @@ class CaptureTransport:
             completed_while_blocked=0,
             peak_owned=0,
         )
+        if tail_replay is not None:
+            stats["tail_drops"] = 0
         max_latency = max_copy_latency = peak_source_ports = peak_destination_ports = 0
         read_write_deferrals = 0
         minimum_slack = None
@@ -277,6 +303,9 @@ class CaptureTransport:
             confirm_pending_retention_lost=0,
             confirm_pending_retention_necessary_pass=0,
         )
+
+        if tail_replay is not None:
+            worker_stats = {k: v for k, v in worker_stats.items() if "retention" not in k}
 
         def notify(job, status, data=None):
             event = dict(
@@ -312,9 +341,19 @@ class CaptureTransport:
                 )
                 if status == "completed":
                     worker_stats[service.disposition] += 1
-                    if gap is not None:
+                    if gap is not None and tail_replay is None:
                         prefix = service.disposition + "_retention_"
                         worker_stats[prefix + ("lost" if gap else "necessary_pass")] += 1
+            if tail_replay is not None:
+                event.update(
+                    source_ring_only_gap_samples=event.get("continuation_gap_samples"),
+                    continuation_gap_samples=None,
+                    retention_necessary_pass=None,
+                    tail=None if "slot" not in job else tail_replay.report(job["slot"]),
+                    replay_started_cycle=job.get("replay_started"),
+                    replay_owns_raw_until_release=True,
+                    complete_frame_or_MAC_verified=False,
+                )
             if sink is not None:
                 sink(event, data)
 
@@ -326,13 +365,27 @@ class CaptureTransport:
                 and stalls[stall_index][0] <= cycle < stalls[stall_index][1]
             )
             if active is not None and cycle >= active["finish"]:
-                if not blocked:
+                replay_needed = tail_replay is not None and active["service"].disposition in (
+                    "ready",
+                    "confirm_pending",
+                )
+                if replay_needed:
+                    if (
+                        not blocked
+                        and "replay_started" not in active
+                        and not tail_replay.failed(active["slot"])
+                    ):
+                        tail_replay.begin(active["slot"], slots[active["slot"]], cycle)
+                        active["replay_started"] = cycle
+                elif not blocked:
                     stats["completed"] += 1
                     max_latency = max(max_latency, cycle - active["arrival"])
                     notify(active, "completed", slots[active["slot"]])
+                    if tail_replay is not None:
+                        tail_replay.close(active["slot"])
                     free.append(active["slot"])
                     active = None
-                elif not active.get("blocked", False):
+                if active is not None and blocked and not active.get("blocked", False):
                     active["blocked"] = True
                     stats["completed_while_blocked"] += 1
             writes = len(pipeline)
@@ -354,6 +407,7 @@ class CaptureTransport:
                     raise ValueError(
                         "Every input word must include every continuously advanced path"
                     )
+                live_values = []
                 for path, value in enumerate(row):
                     if isinstance(value, bool):
                         raise ValueError("Need unsigned fixed-width words, not booleans")
@@ -364,6 +418,9 @@ class CaptureTransport:
                     if not 0 <= value < 2**a.word_bits:
                         raise ValueError("Input word outside frozen format")
                     source[path][count % a.history] = value
+                    live_values.append(value)
+                if tail_replay is not None:
+                    tail_replay.input(count, live_values, cycle)
                 count += 1
                 input_write = True
                 stats["input_samples"] += 1
@@ -405,6 +462,8 @@ class CaptureTransport:
                     notify(job, "owned_queue_full")
                 else:
                     job["slot"] = free.popleft()
+                    if tail_replay is not None:
+                        tail_replay.admit(job["slot"], ident - 1, requested, path)
                     copying.append(job)
                     stats["peak_owned"] = max(stats["peak_owned"], a.owned - len(free))
                 pending = next(stream, None)
@@ -439,6 +498,8 @@ class CaptureTransport:
                     if index < count - a.history:
                         stats["history_drops"] += 1
                         notify(job, "source_expired")
+                        if tail_replay is not None:
+                            tail_replay.close(job["slot"])
                         free.append(job["slot"])
                         copying.popleft()
                         break
@@ -459,6 +520,25 @@ class CaptureTransport:
             assert peak_source_ports <= 2 and peak_destination_ports <= (
                 2 if a.mode == "tdp2" else 1
             )
+            if tail_replay is not None:
+                tail_replay.tick(cycle, blocked=blocked)
+                if (
+                    active is not None
+                    and cycle >= active["finish"]
+                    and not blocked
+                    and active["service"].disposition in ("ready", "confirm_pending")
+                ):
+                    slot = active["slot"]
+                    if tail_replay.failed(slot) or tail_replay.done(slot):
+                        status = (
+                            "tail_capacity_exceeded" if tail_replay.failed(slot) else "completed"
+                        )
+                        stats["tail_drops" if tail_replay.failed(slot) else "completed"] += 1
+                        max_latency = max(max_latency, cycle - active["arrival"])
+                        notify(active, status, slots[slot])
+                        tail_replay.close(slot)
+                        free.append(slot)
+                        active = None
             cycle += 1
         result = dict(
             **stats,
@@ -483,7 +563,21 @@ class CaptureTransport:
                 retention_is_necessary_only=True,
                 replay_read_ports_scheduled=False,
                 handoff_check_latency_modeled=False,
-                fine_memory_handoff="owned source immutable until result release;worker microtrace required",
+                fine_memory_handoff=(
+                    "owned source immutable until result release;worker microtrace required"
+                ),
                 resource_feedback_to_capture_algorithm=False,
+            )
+        if tail_replay is not None:
+            assert not any(tail_replay.leases) and tail_replay.active is None
+            result.update(
+                tail_statistics=dict(tail_replay.stats),
+                tail_cost=tail_replay.estimate(),
+                replay_read_ports_scheduled=True,
+                retention_is_necessary_only=False,
+                source_ring_check_excludes_tail=True,
+                raw_snapshot_held_through_replay=True,
+                fine_and_replay_serialized=True,
+                downstream_live_context_verified=False,
             )
         return result

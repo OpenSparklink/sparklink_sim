@@ -337,7 +337,16 @@ def _phase_symbol(cache, tick, state, template, k, cb, eb, reuse_power):
 
 
 def _program(
-    peaks, template, n, minimum, lookahead, reuse, threshold, emit, reuse_power=False, concurrent=False
+    peaks,
+    template,
+    n,
+    minimum,
+    lookahead,
+    reuse,
+    threshold,
+    emit,
+    reuse_power=False,
+    concurrent=False,
 ):
     """Nine contexts, no retained18x128 symbol vectors; replay the chosen phase."""
     count = len(template.words) + 1
@@ -435,7 +444,8 @@ class SplineScoreFlow:
             raise ValueError("Need explicit SplineScoreAssumptions")
         if word_fabric is not None and (
             not isinstance(word_fabric, WordFabricAssumptions)
-            or word_fabric.contexts != 9 or not self.a.reuse_stencil
+            or word_fabric.contexts != 9
+            or not self.a.reuse_stencil
         ):
             raise ValueError("Fine concurrency needs9 contexts and shared stencil")
         self.word_fabric = word_fabric
@@ -447,19 +457,36 @@ class SplineScoreFlow:
         if self.word_fabric is not None:
             fabric = word_fabric_cost(self.word_fabric)
             phase = dict(
-                current_word=44, four_products=180, differential=90, contribution=92,
-                power=44, magnitudes_partial=180, native_product=43, sign_cursors=10,
-                query_accumulator=33, query_cursor=9, program_indices_flags=57,
-                call_control=48, pending_command=480, entry_work_state=292,
-                contribution_negative_temporaries=90, allocation_spare=100,
+                current_word=44,
+                four_products=180,
+                differential=90,
+                contribution=92,
+                power=44,
+                magnitudes_partial=180,
+                native_product=43,
+                sign_cursors=10,
+                query_accumulator=33,
+                query_cursor=9,
+                program_indices_flags=57,
+                call_control=48,
+                pending_command=480,
+                entry_work_state=292,
+                contribution_negative_temporaries=90,
+                allocation_spare=100,
             )
             extra = fabric["state_bits"] + 9 * sum(phase.values())
             cost.update(
                 word_fabric=fabric,
                 phase_context_register_bits_each=phase,
                 additional_phase_context_bits=9 * sum(phase.values()),
-                wide_ALU_latency="actual32bit steps over max(input/output widths)+2;RNE33/10to22 four steps;registered feedback",
-                peak_monitor_update="one taken result per cycle;private mailboxes handle simultaneous unit completions;monitor decode/LUT timing unsynthesized",
+                wide_ALU_latency=(
+                    'actual32bit steps over max(input/output widths)+2;RNE33/10to22 four '
+                    'steps;registered feedback'
+                ),
+                peak_monitor_update=(
+                    'one taken result per cycle;private mailboxes handle simultaneous unit '
+                    'completions;monitor decode/LUT timing unsynthesized'
+                ),
                 additional_word_and_context_bits=extra,
                 additional_query_state_upper_bits=cost["additional_query_state_upper_bits"] + extra,
                 legacy_scratch_not_subtracted=True,
@@ -524,7 +551,10 @@ class SplineScoreFlow:
             or not 1 <= max_cycles <= 2_000_000
         ):
             raise ValueError(
-                "Need bounded integer RRC words,template,0..2 separated integer peaks and finite horizon"
+
+                    'Need bounded integer RRC words,template,0..2 separated integer peaks '
+                    'and finite horizon'
+
             )
         cycle, output_blocked = -1, 0
         geometry_cycle = None
@@ -607,6 +637,7 @@ class SplineScoreFlow:
         reply = None
         best, aborted, geometry = None, False, None
         cache_peak = pending_peak = 0
+
         def word_advance():
             nonlocal cycle
             if cycle + 1 >= max_cycles:
@@ -637,11 +668,15 @@ class SplineScoreFlow:
             observed_bits[tag] = max(observed_bits.get(tag, 0), width)
             emit("op_complete", tag=tag, result=value)
 
-        fabric = None if self.word_fabric is None else WordFabric(
-            self.word_fabric, initial_cycle=cycle
+        fabric = (
+            None if self.word_fabric is None else WordFabric(self.word_fabric, initial_cycle=cycle)
         )
-        runtime = None if fabric is None else ScoreWordRuntime(
-            fabric, word_advance, word_issue, word_complete, self.monitor_tags
+        runtime = (
+            None
+            if fabric is None
+            else ScoreWordRuntime(
+                fabric, word_advance, word_issue, word_complete, self.monitor_tags
+            )
         )
         try:
             command = next(program)
@@ -860,7 +895,11 @@ def spline_score_cost(assumptions=None):
         peak_bit_monitor_reserved_slots=80,
         peak_bit_monitor_slot_bits=8,
         peak_bit_monitor_tags=sorted(_monitor_tags(a.reuse_symbol_power, a.defer_all_future)),
-        peak_monitor_update="one completed op per cycle;reserved80x8bit registers hold bit counts,not node values;LZ/decode/max pipeline and LUT/FF not synthesized",
+        peak_monitor_update=(
+            'one completed op per cycle;reserved80x8bit registers hold bit '
+            'counts,not node values;LZ/decode/max pipeline and LUT/FF not '
+            'synthesized'
+        ),
         preparation_state_not_subtracted_as_free_sharing=True,
         shared_DSP25x18_count=1,
         serial_alu_segment_bits=32,
@@ -874,8 +913,14 @@ def spline_score_cost(assumptions=None):
         runtime_division=0,
         runtime_sqrt=0,
         runtime_trig=0,
-        sign_template_multiplication="0/+1 wiring;negative signs charged as ALU negations;counted real/imag adds",
-        threshold_products="compile-time constants;literal shift/add operations counted;denominator output is diagnostic only",
+        sign_template_multiplication=(
+            '0/+1 wiring;negative signs charged as ALU negations;counted real/imag '
+            'adds'
+        ),
+        threshold_products=(
+            'compile-time constants;literal shift/add operations '
+            'counted;denominator output is diagnostic only'
+        ),
         full_window_copies_added=0,
         selected_vectors_buffered=0,
         chosen_vector_replay_charged=True,

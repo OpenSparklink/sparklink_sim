@@ -89,6 +89,7 @@ class ScoreWordRuntime:
 
     def execute(self, command):
         """Use the same finite engine for scalar ranking/replay operations."""
+
         def scalar():
             return (yield command)
 

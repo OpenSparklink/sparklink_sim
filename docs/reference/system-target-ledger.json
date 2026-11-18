@@ -242,6 +242,40 @@
         "old_2percent_16KiB_failure_preserved": true,
         "whole16MSps": false,
         "synthesis_or_timing_evidence": false
+      },
+      "experimental_tail_replay": {
+        "stage": "SYS-C2D",
+        "reference": "capture-tail.md",
+        "adopted_for_target": false,
+        "reason": "fixed FT3/4 tail overflows;system deadlines/resources incomplete",
+        "tail_BRAM36": 24,
+        "tail_logical_bits": 565248,
+        "extra_register_reservation_bits": 3347,
+        "fine_replay_overlap_credit": false,
+        "global_read_credits": 1,
+        "snapshot_copies": 0,
+        "local_consumer_II": 4,
+        "input_rate_assumption": 16000000,
+        "transport_plus_tail_plus_base_BRAM36": 107,
+        "other_algorithms_decoder_TX_MAC_not_in_subtotal": true,
+        "fixed200MHz": {
+          "replay_complete": 8,
+          "live_handoff": 2,
+          "EOF_drain": 6,
+          "tail_capacity_failure": 9,
+          "owned_queue_drops": 2,
+          "wait_unscored": 11
+        },
+        "no_CRC_or_MAC_recovery_claim": true,
+        "synthesis_or_timing_evidence": false,
+        "old16KiB_failure_preserved": true,
+        "optimistic_continued_word_interface200MHz": {
+          "live_handoff": 5,
+          "tail_capacity_failure": 12,
+          "owned_queue_drops": 2,
+          "no_new_capture_demand": true,
+          "RF_waveform_verified": false
+        }
       }
     },
     {

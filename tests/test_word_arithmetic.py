@@ -50,7 +50,7 @@ def test_random_and_adversarial_operators_against_wide_independent_reference():
                 assert reply.value == (a > b) - (a < b) and not reply.overflow
     # Mixed signed/unsigned and narrower output expose assumptions hidden by
     # result-width-only latency; these inputs need carry into extra sign bits.
-    for a, b in ((2**208 - 1, -2**207), (0, -1), (2**207, 2**207 - 1)):
+    for a, b in ((2**208 - 1, -(2**207)), (0, -1), (2**207, 2**207 - 1)):
         for code in ("add", "sub", "cmp"):
             c = WordCommand(code, a, b, 208, 208, False, True, 3, True)
             _, reply = execute(c)
@@ -155,8 +155,15 @@ def test_compile_validation_and_explicit_cost():
             WordFabricAssumptions(**kw)
     valid = vars(command("mov", 0))
     for changes in (
-        dict(code="divide"), dict(a=True), dict(a=2**207), dict(a_bits=True),
-        dict(bits=209), dict(signed=1), dict(tag=128), dict(code="tile"), dict(code="rne"),
+        dict(code="divide"),
+        dict(a=True),
+        dict(a=2**207),
+        dict(a_bits=True),
+        dict(bits=209),
+        dict(signed=1),
+        dict(tag=128),
+        dict(code="tile"),
+        dict(code="rne"),
         dict(code="cmp", bits=1),
     ):
         with pytest.raises(ValueError):

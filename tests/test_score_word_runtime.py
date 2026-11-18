@@ -19,8 +19,11 @@ def test_real_fine_words_all_scores_selection_and_normalized_ranking(lanes):
         result = SplineScoreFlow(a, word_fabric=fabric).run(words, tpl, [2, 7], sink=events.append)
         results.append(result)
         traces.append(
-            [{k: v for k, v in e.items() if k != "cycle"} for e in events
-             if e["event"] in ("sample", "score", "selected_sample")]
+            [
+                {k: v for k, v in e.items() if k != "cycle"}
+                for e in events
+                if e["event"] in ("sample", "score", "selected_sample")
+            ]
         )
         # Every actual memory issue remains port-limited; no extra Y/M copy.
         ports = [(e["cycle"], e["bank"]) for e in events if e["event"] == "read_issue"]
@@ -56,7 +59,9 @@ def test_geometry_wait_empty_zero_and_finite_cycle_drop():
         with pytest.raises(ValueError):
             SplineScoreFlow(word_fabric=config)
     with pytest.raises(ValueError):
-        SplineScoreFlow(SplineScoreAssumptions(reuse_stencil=False), word_fabric=WordFabricAssumptions())
+        SplineScoreFlow(
+            SplineScoreAssumptions(reuse_stencil=False), word_fabric=WordFabricAssumptions()
+        )
 
 
 def test_static_signed_formats_and_runtime_overflow_are_not_success():
