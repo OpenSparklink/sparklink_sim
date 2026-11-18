@@ -77,6 +77,7 @@ class SplineScoreAssumptions:
     multiplier_latency: int = 3
     alu_segment_bits: int = 32
     reuse_symbol_power: bool = False
+    defer_all_future: bool = False
 
     def __post_init__(self):
         if (
@@ -90,6 +91,7 @@ class SplineScoreAssumptions:
             or self.alu_segment_bits != 32
             or type(self.alu_segment_bits) is not int
             or type(self.reuse_symbol_power) is not bool
+            or type(self.defer_all_future) is not bool
         ):
             raise ValueError("Need explicit capacity4..640,read1/2,DSP latency3,ALU32")
 
@@ -191,7 +193,7 @@ def _symbol_power(word):
     return (yield from _alu("add", real, imag, 44, "symbol_power", False))
 
 
-def _monitor_tags(reuse_power):
+def _monitor_tags(reuse_power, defer_future=False):
     """Compiled register slots for every score-node peak-width diagnostic."""
     products = (
         "difference_rr",
@@ -233,7 +235,73 @@ def _monitor_tags(reuse_power):
             "threshold_compare",
         )
     )
+    if defer_future:
+        tags.update(
+            "geometry_" + suffix for suffix in ("add", "sub", "cmp", "move", "count", "flags")
+        )
     return frozenset(tags)
+
+
+@dataclass(frozen=True)
+class _GeometryDecision:
+    """Host view of finite result metadata;no retained sample or score vectors."""
+
+    best: dict | None
+    positions: int
+    deferred: bool
+
+
+def _geometry(peaks, n, count, minimum, lookahead, emit):
+    """At most two inclusive intervals,using original strict end/ready rules."""
+    end = yield from _alu("sub", n, 1, 17, "geometry_sub")
+    command = _operation("sub", end << 3, 32 * (count - 1), 17, True, "geometry_sub")
+    command["constant_shifted_operand"] = True
+    horizon = yield command
+    upper = yield from _alu("sub", horizon, 1, 17, "geometry_sub")
+    ready_upper = yield from _alu("sub", horizon, lookahead, 17, "geometry_sub")
+    positions, ready = 0, False
+    for peak in peaks:
+        command = _operation("sub", peak << 3, 4, 17, True, "geometry_sub")
+        command["constant_shifted_operand"] = True
+        lo = yield command
+        command = _operation("add", peak << 3, 4, 17, True, "geometry_add")
+        command["constant_shifted_operand"] = True
+        hi = yield command
+        cmp = yield from _alu("cmp", lo, minimum, 17, "geometry_cmp")
+        lo = yield from _alu("mov", lo if cmp >= 0 else minimum, 0, 17, "geometry_move")
+        cmp = yield from _alu("cmp", hi, upper, 17, "geometry_cmp")
+        hi = yield from _alu("mov", hi if cmp <= 0 else upper, 0, 17, "geometry_move")
+        valid = (yield from _alu("cmp", lo, hi, 17, "geometry_cmp")) <= 0
+        if valid:
+            span = yield from _alu("sub", hi, lo, 17, "geometry_sub")
+            span = yield from _alu("add", span, 1, 5, "geometry_count", False)
+            positions = yield from _alu("add", positions, span, 5, "geometry_count", False)
+            cmp = yield from _alu("cmp", lo, ready_upper, 17, "geometry_cmp")
+            ready = bool(
+                (yield from _alu("mov", int(ready or cmp <= 0), 0, 1, "geometry_flags", False))
+            )
+        emit(
+            "geometry_interval", peak=peak, lower=lo, upper=hi, ready_upper=ready_upper, valid=valid
+        )
+    nonempty = (yield from _alu("cmp", positions, 0, 5, "geometry_cmp")) > 0
+    deferred = bool(
+        (yield from _alu("mov", int(nonempty and not ready), 0, 1, "geometry_flags", False))
+    )
+    emit("geometry_complete", positions=positions, any_ready=ready, deferred=deferred)
+    return positions, deferred
+
+
+def _guarded_program(peaks, template, n, minimum, lookahead, reuse, threshold, emit, reuse_power):
+    positions, deferred = yield from _geometry(
+        peaks, n, len(template.words) + 1, minimum, lookahead, emit
+    )
+    if deferred:
+        emit("geometry_wait", positions=positions, scoring_evaluated=False)
+        return _GeometryDecision(None, positions, True)
+    best = yield from _program(
+        peaks, template, n, minimum, lookahead, reuse, threshold, emit, reuse_power
+    )
+    return _GeometryDecision(best, positions, False)
 
 
 def _program(peaks, template, n, minimum, lookahead, reuse, threshold, emit, reuse_power=False):
@@ -340,7 +408,7 @@ class SplineScoreFlow:
         self.a = SplineScoreAssumptions() if assumptions is None else assumptions
         if not isinstance(self.a, SplineScoreAssumptions):
             raise ValueError("Need explicit SplineScoreAssumptions")
-        self.monitor_tags = _monitor_tags(self.a.reuse_symbol_power)
+        self.monitor_tags = _monitor_tags(self.a.reuse_symbol_power, self.a.defer_all_future)
 
     def run(
         self,
@@ -401,9 +469,12 @@ class SplineScoreFlow:
                 "Need bounded integer RRC words,template,0..2 separated integer peaks and finite horizon"
             )
         cycle, output_blocked = -1, 0
+        geometry_cycle = None
 
         def emit(event, **fields):
-            nonlocal cycle, output_blocked
+            nonlocal cycle, output_blocked, geometry_cycle
+            if event == "geometry_complete":
+                geometry_cycle = cycle
             if event == "selected_sample":
                 while any(lo <= cycle < hi for lo, hi in output_stalls):
                     if cycle + 1 >= max_cycles:
@@ -458,7 +529,7 @@ class SplineScoreFlow:
                 whole_rx_verified=False,
             )
         emit("bank_handoff", n=len(words), exponent=context.exponent)
-        program = _program(
+        program = (_guarded_program if self.a.defer_all_future else _program)(
             peaks,
             template,
             len(words),
@@ -472,7 +543,7 @@ class SplineScoreFlow:
         counts, peaks_bits, observed_bits = {}, {}, {}
         reads = 0
         reply = None
-        best, aborted = None, False
+        best, aborted, geometry = None, False, None
         cache_peak = pending_peak = 0
         try:
             command = next(program)
@@ -513,7 +584,9 @@ class SplineScoreFlow:
                     if command["tag"] not in self.monitor_tags or len(self.monitor_tags) > 80:
                         raise RuntimeError("Score node lacks a reserved monitor register")
                     counts[code] = counts.get(code, 0) + 1
-                    if command["tag"] == "phase_accumulator":
+                    if command["tag"] == "phase_accumulator" or command.get(
+                        "constant_shifted_operand"
+                    ):
                         counts["constant_shifted_operands"] = (
                             counts.get("constant_shifted_operands", 0) + 1
                         )
@@ -571,10 +644,12 @@ class SplineScoreFlow:
                 command = program.send(reply)
         except StopIteration as done:
             best = done.value
+            if isinstance(best, _GeometryDecision):
+                geometry, best = best, best.best
         except TimeoutError:
             aborted = True
             emit("resource_drop", reason="cycle_limit")
-        return dict(
+        result = dict(
             aborted=aborted,
             reason="cycle_limit" if aborted else None,
             numerical_pass=None if aborted else True,
@@ -605,6 +680,26 @@ class SplineScoreFlow:
             whole_rx_verified=False,
             synthesis_or_timing_verified=False,
         )
+        if self.a.defer_all_future:
+            deferred = geometry is not None and geometry.deferred
+            result.update(
+                geometry_wait=deferred,
+                geometry_positions=None if geometry is None else geometry.positions,
+                geometry_cycles=None
+                if geometry_cycle is None
+                else geometry_cycle + 1 - prep_cycles,
+                scoring_evaluated=best is not None and not aborted,
+                scores_evaluated=None
+                if geometry is None
+                else 0
+                if deferred
+                else geometry.positions,
+            )
+            if deferred:
+                result.update(reason="all_valid_positions_need_future", numerical_pass=None)
+            elif best is None and not aborted:
+                result["numerical_pass"] = None
+        return result
 
 
 def spline_score_cost(assumptions=None):
@@ -634,15 +729,22 @@ def spline_score_cost(assumptions=None):
     )
     if a.reuse_symbol_power:
         fields.update(nine_previous_powers=9 * 44, current_symbol_power=44, power_context_index=4)
+    if a.defer_all_future:
+        fields.update(
+            geometry_horizons=3 * 17,
+            geometry_interval_work=3 * 17,
+            geometry_positions_flags_index=5 + 1 + 2 + 2,
+            geometry_result_count_and_status=6,
+        )
     return dict(
         assumptions=vars(a),
         shared_preparation_banks=banks,
         additional_query_state_upper_bits=sum(fields.values()),
         state_components=fields,
-        peak_bit_monitor_slots=len(_monitor_tags(a.reuse_symbol_power)),
+        peak_bit_monitor_slots=len(_monitor_tags(a.reuse_symbol_power, a.defer_all_future)),
         peak_bit_monitor_reserved_slots=80,
         peak_bit_monitor_slot_bits=8,
-        peak_bit_monitor_tags=sorted(_monitor_tags(a.reuse_symbol_power)),
+        peak_bit_monitor_tags=sorted(_monitor_tags(a.reuse_symbol_power, a.defer_all_future)),
         peak_monitor_update="one completed op per cycle;reserved80x8bit registers hold bit counts,not node values;LZ/decode/max pipeline and LUT/FF not synthesized",
         preparation_state_not_subtracted_as_free_sharing=True,
         shared_DSP25x18_count=1,

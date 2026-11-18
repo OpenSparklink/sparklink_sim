@@ -49,6 +49,7 @@ class FineService:
 
     Scalar metadata only: the caller keeps diagnostic traces outside hardware.
     The selected time is in eighth-sample ticks within the owned window.
+    geometry_wait has no selected time or evaluated score;it is not a capture.
     """
 
     cycles: int
@@ -68,6 +69,7 @@ class FineService:
                 "below_threshold",
                 "no_candidate",
                 "numerical_reject",
+                "geometry_wait",
             )
             or (
                 self.start_tick is not None
@@ -75,7 +77,7 @@ class FineService:
             )
             or (
                 (self.start_tick is None)
-                != (self.disposition in ("no_candidate", "numerical_reject"))
+                != (self.disposition in ("no_candidate", "numerical_reject", "geometry_wait"))
             )
         ):
             raise ValueError("Need bounded fine cycles,disposition and selected tick")
@@ -151,7 +153,7 @@ class CaptureTransport:
         destination_tiles = a.owned * destination_banks * math.ceil(a.word_bits / width)
         destination_tiles *= math.ceil(math.ceil(a.window / destination_banks) / depth)
         # Explicit finite reservation: absolute/cycle counts, descriptors,
-        # one-cycle read data+destination index, control and ten64-bit counters.
+        # one-cycle read data+destination index,control and explicit64-bit counters.
         # id/count/arrival/copied/finish can coexist: five64-bit timestamps,
         # plus index/path/slot/flags. Do not reuse the old256-bit descriptor
         # allowance after adding the explicit copy/result lifetime calendar.
@@ -176,7 +178,7 @@ class CaptureTransport:
             statistics_counters_and_extrema=17 * 64,
         )
         if measured_worker:
-            registers.update(worker_join_and_retention_control=160, worker_statistics=10 * 64)
+            registers.update(worker_join_and_retention_control=160, worker_statistics=11 * 64)
         return dict(
             mode=a.mode,
             source_bram36=source_tiles,
@@ -269,6 +271,7 @@ class CaptureTransport:
             below_threshold=0,
             no_candidate=0,
             numerical_reject=0,
+            geometry_wait=0,
             ready_retention_lost=0,
             ready_retention_necessary_pass=0,
             confirm_pending_retention_lost=0,

@@ -34,7 +34,7 @@ jobs:
       - name: Ruff check
         run: |
           make lint
-          uv run --frozen --no-sync ruff check scripts/model_spline_power.py
+          uv run --frozen --no-sync ruff check scripts/model_spline_power.py scripts/model_spline_geometry.py
 
   rust:
     name: Rust Quality
@@ -230,6 +230,15 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/spline-power/model.json")); assert d["all_completed_node_values_exact"] and d["old_default_microtraces_exact"] and d["all_actual_candidate_scores_and_samples_exact"]; assert len(d["node_sets"]["development"]) == len(d["node_sets"]["validation"]) == 8 and len(d["regressions"]) == 30; assert d["initial444bit_gate_pass"] and d["actual_incremental_state_bits"] == [444]*3; assert len(d["node_numerical_rejections"]) == 1 and not d["node_numerical_rejections"][0]["independent_fraction_and_difference_square_checked"]; assert sum(r["baseline_cycles"] for r in d["regressions"]) == 4180197 and sum(r["reused_cycles"] for r in d["regressions"]) == 3872765; assert all(r["every_candidate_score_and_sample_exact"] for r in d["regressions"]); assert not d["whole_receiver16msps"] and not d["default_changed"]'
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/spline-power/model.json")); assert all(c["False"]["fine"]["additional_query_state_upper_bits"] == 6657 and c["True"]["fine"]["additional_query_state_upper_bits"] == 7101 and c["True"]["fine"]["peak_bit_monitor_reserved_slots"] == 80 for c in d["costs"].values()); assert all(sum(s["completed"] for s in d["schedules"] if s["reuse"] == v and s["clock"] == c) == 28 and sum(s["queue_drops"] for s in d["schedules"] if s["reuse"] == v and s["clock"] == c) == 2 and sum(s["potential_continuation_retention_lost"] for s in d["schedules"] if s["reuse"] == v and s["clock"] == c) == 17 for v in (False,True) for c in (100000000,160000000,200000000))'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/spline-power"); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in json.loads((p/"manifest.json").read_text()).items())'
+      - name: Preserve post-preparation geometry wait and resource failures
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_spline_geometry.py --capture-root receiver-diagnostics/capture-fine --output receiver-diagnostics/spline-geometry >spline-geometry.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/spline-geometry/model.json")); assert len(d["regressions"]) == 30 and sum(r["geometry_wait"] for r in d["regressions"]) == 11; assert sum(r["power_cycles"] for r in d["regressions"]) == 3872765 and sum(r["guarded_cycles"] for r in d["regressions"]) == 2805974; assert d["node_budget_pass"] and d["transport_budget_pass"] and d["guard_cycle_budget_pass"] and d["node_increment_bits"] == [118]*3 and d["transport_statistics_increment_bits"] == 64; assert d["fixed_saturation"]["numerical_rejection"] and not d["fixed_saturation"]["geometry_wait"]; assert not d["whole_receiver16msps"] and not d["default_changed"] and not d["resource_feedback_to_receiver"]'
+          uv run --frozen --no-sync python -c 'import json; from pathlib import Path; p=Path("receiver-diagnostics/spline-geometry"); waits=[json.loads(f.read_text()) for f in p.glob("*-fine-*-guarded.json") if json.loads(f.read_text())["service"]["disposition"] == "geometry_wait"]; assert len(waits) == 11 and all(x["service"]["start_tick"] is None and x["microtrace"]["best"] is None and x["microtrace"]["numerical_pass"] is None and x["microtrace"]["scores_evaluated"] == 0 for x in waits); d=json.loads((p/"model.json").read_text()); assert all(sum(s["completed"] for s in d["schedules"] if s["guard"] == v and s["clock"] == c) == 28 and sum(s["queue_drops"] for s in d["schedules"] if s["guard"] == v and s["clock"] == c) == 2 and sum(s["potential_continuation_retention_lost"] for s in d["schedules"] if s["guard"] == v and s["clock"] == c) == 17 for v in (False,True) for c in (100000000,160000000,200000000))'
+          uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/spline-geometry"); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in json.loads((p/"manifest.json").read_text()).items())'
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -256,6 +265,7 @@ jobs:
             carrier-parallel-*.log
             capture-fine.log
             spline-power.log
+            spline-geometry.log
             receiver-diagnostics/
 
   optional-sm3:

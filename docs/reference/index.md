@@ -106,6 +106,7 @@ sync-carrier-initialization
 capture-transport
 capture-fine-integration
 spline-power
+spline-geometry
 rrc-memory
 spline-preparation
 spline-fixed

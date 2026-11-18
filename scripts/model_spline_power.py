@@ -27,13 +27,14 @@ FIXTURE = Path("tests/data/spline_power_regression.json")
 class ObservedFlow(SplineScoreFlow):
     """Host-only borrowed trace;execute the same node exactly once."""
 
-    def __init__(self, assumptions, trace):
+    def __init__(self, assumptions, trace, *, events=("sample", "score", "selected_sample")):
         super().__init__(assumptions)
         self.trace = trace
+        self.events = frozenset(events)
 
     def run(self, *args, **kwargs):
         def sink(event):
-            if event["event"] in ("sample", "score", "selected_sample"):
+            if event["event"] in self.events:
                 self.trace.append({k: v for k, v in event.items() if k != "cycle"})
 
         return super().run(*args, sink=sink, **kwargs)

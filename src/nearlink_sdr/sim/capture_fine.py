@@ -68,7 +68,14 @@ class CaptureFineWorker:
     """
 
     def __init__(
-        self, template, window, *, confirmation_required, sink=None, reuse_symbol_power=False
+        self,
+        template,
+        window,
+        *,
+        confirmation_required,
+        sink=None,
+        reuse_symbol_power=False,
+        defer_all_future=False,
     ):
         if not isinstance(template, SyncSignTemplate) or (len(template.words) + 1, window) not in (
             (32, 256),
@@ -83,7 +90,11 @@ class CaptureFineWorker:
         self.template, self.window, self.sink = template, window, sink
         self.confirmation_required = confirmation_required
         self.engine = SplineScoreFlow(
-            SplineScoreAssumptions(capacity=window, reuse_symbol_power=reuse_symbol_power)
+            SplineScoreAssumptions(
+                capacity=window,
+                reuse_symbol_power=reuse_symbol_power,
+                defer_all_future=defer_all_future,
+            )
         )
 
     def __call__(self, event, owned_words):
@@ -111,6 +122,8 @@ class CaptureFineWorker:
         best = result["best"]
         if result.get("numerical_rejection"):
             disposition, tick = "numerical_reject", None
+        elif result.get("geometry_wait"):
+            disposition, tick = "geometry_wait", None
         elif best is None:
             disposition, tick = "no_candidate", None
         else:
