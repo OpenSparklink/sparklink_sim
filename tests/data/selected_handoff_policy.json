@@ -1,0 +1,185 @@
+{
+  "stage": "SYS-C2E2D-HANDOFF",
+  "parent_index_sha256": "7206db553e6958c894917957206beb45a3088dee19155ad5f16a7dd627cf7e49",
+  "source_capacity": 512,
+  "interpolant_bits": 52,
+  "fit_peak": 30,
+  "comparison": "same candidate/fit/interpolant words;exact frame decisions and arrays;no timing/loop/carrier/CRC selection changes",
+  "node_budget": {
+    "new_raw_RAM_bits": 0,
+    "staging_words_max": 4,
+    "pending_interpolants_max": 2,
+    "extra_DSP": 0,
+    "source_read_ports": 1,
+    "controller_state_upper_bits": 2048,
+    "compaction_data_mux2_upper": 368
+  },
+  "unknown_services": [
+    "symbol power/Gardner/PI/NCO/normalization",
+    "strict header carrier/BCH/Polar/CRC",
+    "payload carrier/demap/LLR/decoder/CRC"
+  ],
+  "cycle_rule": "stop explicitly at each missing service;functional resolution invalidates end-to-end cycle evidence;no zero-cycle callback",
+  "memory_rule": "borrow source and cache;retain last two sync raw words;on terminal retain unconsumed suffix;no private full tail",
+  "candidates": [
+    "reference current-then-midpoint8reads",
+    "midpoint-first rolling4word staging with overlap reuse"
+  ],
+  "adoption": "reuse only if per-symbol current/midpoint positions and actual words,frame decisions and arrays match all development/fixed cases;RAM read and role issue order deliberately differ;freeze before fresh held;no whole RX adoption",
+  "development": {
+    "seed": 953117,
+    "pid": 2,
+    "profiles": [
+      [
+        2,
+        12,
+        0,
+        29
+      ],
+      [
+        3,
+        10,
+        4,
+        311
+      ],
+      [
+        4,
+        8,
+        8,
+        617
+      ],
+      [
+        2,
+        0,
+        16,
+        1103
+      ],
+      [
+        3,
+        6,
+        0,
+        181
+      ],
+      [
+        4,
+        12,
+        4,
+        433
+      ]
+    ],
+    "kinds": [
+      "clean",
+      "two_tone",
+      "burst",
+      "noise",
+      "amplitude_step",
+      "wrong_sync"
+    ],
+    "cfo_hz": [
+      -73000,
+      43000
+    ],
+    "sro_ppm": [
+      250,
+      -200
+    ],
+    "offset": 0.457
+  },
+  "validation": {
+    "seed": 953333,
+    "pid": 5,
+    "profiles": [
+      [
+        3,
+        12,
+        16,
+        67
+      ],
+      [
+        4,
+        6,
+        8,
+        739
+      ],
+      [
+        2,
+        8,
+        4,
+        151
+      ],
+      [
+        3,
+        0,
+        0,
+        1409
+      ],
+      [
+        4,
+        10,
+        16,
+        293
+      ],
+      [
+        2,
+        12,
+        8,
+        547
+      ]
+    ],
+    "kinds": [
+      "clean",
+      "wrong_sync",
+      "amplitude_step",
+      "double_burst",
+      "noise",
+      "tone_burst"
+    ],
+    "cfo_hz": [
+      61000,
+      -31000
+    ],
+    "sro_ppm": [
+      -250,
+      200
+    ],
+    "offset": 0.817
+  },
+  "negative_samples": {
+    "development": [
+      6912,
+      9472,
+      12032,
+      14592
+    ],
+    "validation": [
+      7424,
+      9984,
+      12544,
+      15104
+    ]
+  },
+  "negative_kinds": [
+    "silence",
+    "noise",
+    "tone",
+    "wrong_sync"
+  ],
+  "negative_templates": {
+    "development": {
+      "tone_frequency": -0.06317,
+      "phase": 0.291,
+      "wrong_pid": 5,
+      "wrong_payload": "handoff-new-development-negative"
+    },
+    "validation": {
+      "tone_frequency": 0.08719,
+      "phase": -0.731,
+      "wrong_pid": 1,
+      "wrong_payload": "handoff-distinct-held-negative"
+    }
+  },
+  "old_budgets": "all previous interpolation/RRC/16KiB failures retained;no budget expansion or1024 adoption",
+  "scope": "ordinary FT2/3/4 4Msym/SPS4;FT1 and new WS63 word path remain unverified;no live16MSps claim",
+  "controller_model": "functional resolution of unknown service is explicit and permanently invalidates end-to-end clock evidence;known registered transport still carries actual values",
+  "absolute_indices": "source begins at selected floor(start)-1 with its real absolute index;no numerical rebasing of NCO coordinates,manufactured leading samples or extra raw copy"
+}

@@ -1,13 +1,13 @@
 {
-  "stage": "SYS-C2E2C-FIT",
+  "stage": "SYS-C2E2D-HANDOFF",
   "target": "4Msym/s QPSK/8PSK16MS/s;FT2/3/4 first;FT1 separate",
   "complete": false,
   "gates": {
     "complete_streaming": {
       "passed": false,
-      "evidence": "strict floating stream exists;selected port now stops at real frame boundary;optional512 ring retires actual interpolation dependencies;opt-in initial reuse preserves real frame boundary,physical source/cache node isolated",
+      "evidence": "strict floating stream exists;selected port now stops at real frame boundary;optional512 ring retires actual interpolation dependencies;opt-in initial reuse preserves real frame boundary,physical source/cache node isolated;actual prepared source/cache/fit now hands off through actual registered reads/kernel values to strict MAC and returns unconsumed source suffix;unknown compute is an explicit barrier",
       "gaps": [
-        "physical replay/actual service feedback",
+        "capture-slot/history producer and full live/multipacket arithmetic service scheduling",
         "FT1/GFSK complete arbitrary-block path",
         "target support matrix closure"
       ]
@@ -31,7 +31,7 @@
     },
     "continuous_16msps": {
       "passed": false,
-      "evidence": "isolated executable RRC/fine/word transport calendars;not whole receiver;registered history port tested only with pauseable replay source;isolated interpolation pipeline32/II8,paired feedback margin160MHz0/200MHz10 before raw reads/PI/head;initial source/cache transfer841controlbits modeled,fit/PI/head service unknown;actual initial-source/cache/fit broadcast service modeled;FT4 overflows100/160MHz,initial fit only ready200MHz;known-sync replay power/PI/head/decoder stillunknown",
+      "evidence": "isolated executable RRC/fine/word transport calendars;not whole receiver;registered history port tested only with pauseable replay source;isolated interpolation pipeline32/II8,paired feedback margin160MHz0/200MHz10 before raw reads/PI/head;initial source/cache transfer841controlbits modeled,fit/PI/head service unknown;actual initial-source/cache/fit broadcast service modeled;FT4 overflows100/160MHz,initial fit only ready200MHz;known-sync replay power/PI/head/decoder stillunknown;selected value consumer does not execute unknown services in step;off-clock functional resolution invalidates cycle evidence;all-ready source/kernel transaction45edges,read reuse no latency gain",
       "gaps": [
         "selected decoder/interpolator/head service unknown,not zero",
         "early stop not in actual transport scheduler",

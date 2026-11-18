@@ -77,15 +77,8 @@ class SelectedPSKReceiver(PSKStreamReceiver):
             defer_quiet_fir=False,
         )
         self.sample_limit = sample_limit
-        self._sample_history = (
-            None
-            if history_capacity is None
-            else RetainedSampleHistory(history_capacity, max(0, start_tick // 8 - 1))
-        )
-        self._retained = (
-            np.empty(sample_limit, complex)
-            if self._sample_history is None
-            else self._sample_history.storage
+        self._sample_history, self._retained = self._allocate_input_history(
+            history_capacity, start_tick
         )
         self._selected_sync = sync.copy()
         self.selected_start = start_tick / 8
@@ -107,6 +100,16 @@ class SelectedPSKReceiver(PSKStreamReceiver):
         self.header_decision_after_filtered_samples = None
         self._origin = 0 if self._sample_history is None else self._sample_history.origin
         self._filtered_values = self._retained[:0]
+
+    def _allocate_input_history(self, history_capacity, start_tick):
+        """Reference-storage hook;external interpolants need no private raw history."""
+        history = (
+            None
+            if history_capacity is None
+            else RetainedSampleHistory(history_capacity, max(0, start_tick // 8 - 1))
+        )
+        retained = np.empty(self.sample_limit, complex) if history is None else history.storage
+        return history, retained
 
     @property
     def done(self):
@@ -246,13 +249,20 @@ class SelectedPSKReceiver(PSKStreamReceiver):
     def _retire_sample_history(self):
         if self._sample_history is None or self._active is None:
             return
+        self._sample_history.retire_before(self.required_history_start)
+        self._refresh_history()
+
+    @property
+    def required_history_start(self):
+        """Earliest raw dependency of the next current/midpoint interpolation."""
+        if self._active is None:
+            return None
         a = self._active
         earliest = a["next"]
         if a["count"] >= len(self.reference):
             earliest = min(earliest, (a["previous_t"] + a["next"]) / 2)
         # Current and (when enabled) midpoint each use floor(t)-1..floor(t)+2.
-        self._sample_history.retire_before(max(0, int(np.floor(earliest)) - 1))
-        self._refresh_history()
+        return max(0, int(np.floor(earliest)) - 1)
 
     def finish(self, *, reason="eof"):
         """Seal observed data only; retain EOF and storage exhaustion separately."""

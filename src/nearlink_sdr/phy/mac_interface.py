@@ -21,6 +21,7 @@ __all__ = [
     "iq_to_mac",
     "iq_to_mac_capture",
     "iq_to_signaling",
+    "mac_result_from_events",
     "mac_to_iq",
     "roundtrip_data",
     "roundtrip_signaling",
@@ -158,6 +159,12 @@ def _verified_mac_packets(frames):
     return packets
 
 
+def mac_result_from_events(events) -> MacCaptureResult:
+    """Apply the existing strict delivery gate to actual receiver events."""
+    frames = [event["frame"] for event in events]
+    return MacCaptureResult(_verified_mac_packets(frames), dict(frames=frames, events=events))
+
+
 def iq_to_mac_capture(iq_signal: np.ndarray, quiet: np.ndarray, profile, **options) -> MacCaptureResult:
     """Receive unknown packet positions/lengths using an explicit strict PHY profile.
 
@@ -180,9 +187,7 @@ class MacStreamReceiver:
         self.phy = PSKStreamReceiver(profile, quiet, **options)
 
     def _wrap(self, events):
-        frames = [event["frame"] for event in events]
-        packets = _verified_mac_packets(frames)
-        return MacCaptureResult(packets, dict(frames=frames, events=events))
+        return mac_result_from_events(events)
 
     def feed(self, samples: np.ndarray) -> MacCaptureResult:
         """Return newly completed packets and all candidate diagnostics for this call."""

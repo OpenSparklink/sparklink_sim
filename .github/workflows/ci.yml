@@ -35,6 +35,8 @@ jobs:
         run: |
           make lint
           uv run --frozen --no-sync ruff check scripts/check_test_shards.py
+          uv run --frozen --no-sync ruff check scripts/model_selected_handoff.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_selected_handoff.py tests/test_selected_frame_replay.py tests/test_interpolant_rx.py src/nearlink_sdr/phy/interpolant_rx.py src/nearlink_sdr/sim/selected_frame_replay.py
           uv run --frozen --no-sync ruff check scripts/model_sync_initial_fit.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_sync_initial_fit.py tests/test_sync_fit_word.py tests/test_sync_fit_flow.py tests/test_selected_sync_fit.py tests/test_initial_sync_fit_flow.py src/nearlink_sdr/phy/sync_fit_word.py src/nearlink_sdr/sim/sync_fit_flow.py src/nearlink_sdr/sim/initial_sync_fit_flow.py
           uv run --frozen --no-sync ruff check scripts/model_initial_reuse.py
@@ -538,6 +540,46 @@ jobs:
               assert all(hashlib.sha256((p/k).read_bytes()).hexdigest()==v
                          for k,v in json.loads((p/"manifest.json").read_text()).items())
           PYCODE
+      - name: Verify actual selected-word handoff and explicit missing compute service
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_selected_handoff.py --split development --selected-root receiver-diagnostics/selected-frame --capture-root receiver-diagnostics/capture-fine --fit-root receiver-diagnostics/fit-development --output receiver-diagnostics/handoff-development >handoff-development.log 2>&1 || status=$?
+          test "$status" -eq 1
+          status=0
+          uv run --frozen --no-sync python scripts/model_selected_handoff.py --split validation --freeze receiver-diagnostics/handoff-development/freeze.json --output receiver-diagnostics/handoff-validation >handoff-validation.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import hashlib,json
+          from pathlib import Path
+          for split in ("development","validation"):
+              p=Path("receiver-diagnostics")/("handoff-"+split)
+              d=json.loads((p/"model.json").read_text())
+              assert d["reuse_eligible"] and d["resource_node_budget_passed"]
+              assert d["baseline_full"] == d["replay_full"] == 6
+              assert not d["successes_lost"] and not d["false_deliveries"]
+              assert not d["default_RX_changed"] and not any(d["full_RX_gates"].values())
+              if split == "development":
+                  assert d["fixed_baseline_full"] == d["fixed_replay_full"] == 13
+                  assert 0 < d["measured_same_rows_reuse_raw_reads"] < d["measured_reference_raw_reads"]
+              rows=json.loads((p/"rows.json").read_text())+json.loads((p/"fixed-regressions.json").read_text())
+              for row in rows:
+                  if not row.get("handoff_available"):continue
+                  assert row["numerical_and_frame_exact"] and row["partitions_exact"]
+                  assert row["complete_latency_cycles"] is None
+                  assert row["cost"]["new_controller_state_bits"] == 1446
+                  assert row["cost"]["new_raw_RAM_bits"] == row["cost"]["extra_DSP"] == 0
+                  assert row["cost"]["within_symbol_compaction_mux2_upper"] == 368
+                  assert row["remaining_arithmetic_service_cycles"] is None
+                  if row["reference_measured"] is not None:
+                      assert row["baseline_raw_reads"] == row["reuse_stats"]["raw_reads"]+row["reuse_stats"]["overlap_words_reused"]
+              live=json.loads((p/"live-barriers.json").read_text())
+              assert len(live) == 9 and all(not x["full_receiver16MSps"] for x in live)
+              assert sum(x["status"] == "initial_source_overflow" for x in live) == 2
+              assert all(x["counters"]["functional_resolutions"] == 0 for x in live if "counters" in x)
+              assert all(hashlib.sha256((p/k).read_bytes()).hexdigest()==v
+                         for k,v in json.loads((p/"manifest.json").read_text()).items())
+          PYCODE
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -549,6 +591,8 @@ jobs:
             test-*.log
             build.log
             backend.json
+            handoff-development.log
+            handoff-validation.log
             fit-development.log
             fit-validation.log
             carrier-workload.log

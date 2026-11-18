@@ -13,12 +13,14 @@ __all__ = ["ReceiveHistoryPort"]
 class ReceiveHistoryPort:
     """Bounded1R1W bank,registered read1,one held reply and explicit retirement."""
 
-    def __init__(self, capacity=512):
+    def __init__(self, capacity=512, *, first_index=0):
         if type(capacity) is not int or not 4 <= capacity <= 4096 or capacity & (capacity - 1):
             raise ValueError("Need power2 history capacity4..4096")
+        if type(first_index) is not int or not 0 <= first_index < 2**63 - capacity:
+            raise ValueError("Need bounded absolute first index,not manufactured prefix samples")
         self.capacity = capacity
         self.words = [0] * capacity
-        self.head = self.end = 0
+        self.head = self.end = first_index
         self.cycle = self.last_write_cycle = self.last_read_cycle = self.last_take_cycle = -1
         self.last_write_index = -1
         self.pending = None

@@ -449,6 +449,41 @@
         "sharing_with_other_RX_TX_decoder_credit": 0,
         "whole_system_approved": false,
         "synthesis_or_timing": false
+      },
+      "experimental_selected_handoff": {
+        "reference": "selected-symbol-handoff.md",
+        "placement": "one selected-candidate structural/functional consumer,not complete streaming adoption",
+        "new_controller_state_upper_bits": 1446,
+        "four_word_staging_bits": 184,
+        "two_interpolant_response_bits": 104,
+        "within_symbol_compaction_mux2_upper": 368,
+        "additional64bit_address_difference_paths": 1,
+        "additional64bit_range_comparison_paths": 2,
+        "additional_DSP": 0,
+        "additional_raw_RAM_bits": 0,
+        "borrowed_resources": "same512x46 source,128x52 registered cache,initial-fit result and6DSP/32cycle/II8 interpolator;no duplicate raw tail",
+        "source_ports": "1R1W,reply latency1",
+        "per_data_symbol_reference_typical_reads": 8,
+        "per_data_symbol_reuse_typical_reads": 6,
+        "isolated_all_ready_transport_call_edges": 45,
+        "isolated_response_offset_edges": 44,
+        "clock_assumptions_MHz": [
+          100,
+          160,
+          200
+        ],
+        "available_edges_per4Msymbol": [
+          25,
+          40,
+          50
+        ],
+        "remaining_PI_carrier_head_decoder_cycles": null,
+        "complete_controller_LUT_or_timing": null,
+        "RX_TX_Polar_MAC_sharing_credit": 0,
+        "reference_symbol_arrays_are_not_approved_fixed_RAM": true,
+        "default_RX_changed": false,
+        "whole_system_approved": false,
+        "synthesis_or_timing": false
       }
     },
     {

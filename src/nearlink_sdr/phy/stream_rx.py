@@ -703,8 +703,13 @@ class PSKStreamReceiver:
         centers = start+np.arange(len(self.reference))*self.sps
         raw = np.array([self._sample(t) for t in centers])
         phase, slope, gain, power = self._fit_selected_sync(raw, delta)
+        self._start_selected_state(start, phase, slope, gain, power, raw[0], score, confirmation)
+
+    def _start_selected_state(self, start, phase, slope, gain, power, previous, score,
+                              confirmation=None):
+        """Install one selected initialization; no raw history or answer retry required."""
         loop = GardnerPIState(self.sps, power, self.timing_config)
-        self._active = dict(start=start, next=start, previous=raw[0], previous_t=start,
+        self._active = dict(start=start, next=start, previous=previous, previous_t=start,
                             count=0, end=None, header=None, loop=loop,
                             slope=slope, phase=phase, gain=gain, score=score)
         if confirmation is not None:
@@ -712,9 +717,41 @@ class PSKStreamReceiver:
         self._active['native'] = None
         if self.timing_backend == 'rust':
             self._active['native'] = _RustStreamTiming(
-                sps=float(self.sps), start=start, previous=(float(raw[0].real), float(raw[0].imag)),
+                sps=float(self.sps), start=start,
+                previous=(float(previous.real), float(previous.imag)),
                 power=loop.power, kp=loop.kp, ki=loop.ki, lower=loop.lower, upper=loop.upper,
                 phase=phase, slope=self._active['slope'], gain=gain, hold=len(self.reference))
+
+    def _accept_selected_symbol(self, current, midpoint):
+        """Shared float Gardner/PI and normalization,including every sync power update."""
+        a = self._active
+        count, t, loop = a['count'], a['next'], a['loop']
+        step, error = loop.advance(current, a['previous'], midpoint)
+        self._values[count] = current*np.exp(-1j*(a['phase']+a['slope']*count))/a['gain']
+        self._centers[count], self._rates[count], self._errors[count] = (
+            t, (loop.omega/self.sps-1)*1e6, error)
+        a.update(count=count+1, previous=current, previous_t=t, next=t+step)
+
+    def _check_selected_boundary(self):
+        """Real header/length and payload gates shared with external word consumers."""
+        a = self._active
+        if a['count'] == self._head_required:
+            row = decode_psk_frame(self._values[:a['count']], self.profile,
+                                   carrier_method=self.carrier_method,
+                                   **self._carrier_weight_options)
+            self.capture_stats['header_crc_ok'] += int(row['header_crc'] is True)
+            self.capture_stats['header_crc_failed'] += int(row['header_crc'] is False)
+            if row['status'] != 'truncated_data':
+                return self._event(row)
+            a['end'], a['header'] = row['frame_end_symbol'], row
+            if a['end'] > self.max_frame_symbols:
+                raise RuntimeError("Verified length exceeded frame bound")
+        if a['end'] is not None and a['count'] == a['end']:
+            row = decode_psk_frame(self._values[:a['count']], self.profile,
+                                   carrier_method=self.carrier_method,
+                                   **self._carrier_weight_options)
+            return self._event(row)
+        return None
 
     def _track_native_batch(self, a, latest):
         target = self._head_required if a['end'] is None else a['end']
@@ -730,7 +767,7 @@ class PSKStreamReceiver:
         a, events = self._active, []
         latest = min(self.input_samples-1, self._origin+len(self._filtered)-3)
         while a['next'] <= latest:
-            count, t, loop = a['count'], a['next'], a['loop']
+            count, t = a['count'], a['next']
             if count >= self.max_frame_symbols:
                 raise RuntimeError("Frame exceeded configured legal bound")
             if a['native'] is not None:
@@ -739,27 +776,10 @@ class PSKStreamReceiver:
                 current = self._sample(t)
                 mid = (self._sample((a['previous_t']+t)/2)
                        if count >= len(self.reference) else None)
-                step, error = loop.advance(current, a['previous'], mid)
-                self._values[count] = current*np.exp(-1j*(a['phase']+a['slope']*count))/a['gain']
-                self._centers[count], self._rates[count], self._errors[count] = t, (loop.omega/self.sps-1)*1e6, error
-                a.update(count=count+1, previous=current, previous_t=t, next=t+step)
-            if a['count'] == self._head_required:
-                row = decode_psk_frame(self._values[:a['count']], self.profile,
-                                       carrier_method=self.carrier_method,
-                                       **self._carrier_weight_options)
-                self.capture_stats['header_crc_ok'] += int(row['header_crc'] is True)
-                self.capture_stats['header_crc_failed'] += int(row['header_crc'] is False)
-                if row['status'] != 'truncated_data':
-                    events.append(self._event(row))
-                    break
-                a['end'], a['header'] = row['frame_end_symbol'], row
-                if a['end'] > self.max_frame_symbols:
-                    raise RuntimeError("Verified length exceeded frame bound")
-            if a['end'] is not None and a['count'] == a['end']:
-                row = decode_psk_frame(self._values[:a['count']], self.profile,
-                                       carrier_method=self.carrier_method,
-                                       **self._carrier_weight_options)
-                events.append(self._event(row))
+                self._accept_selected_symbol(current, mid)
+            event = self._check_selected_boundary()
+            if event is not None:
+                events.append(event)
                 break
         return events
 

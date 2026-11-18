@@ -14,11 +14,14 @@ __all__ = ["InitialSyncFitService"]
 class InitialSyncFitService:
     """Bounded source/interpolator/cache/fit credits;no second raw or cache pass."""
 
-    def __init__(self, history, phase_codes, coarse_turn40, first_cell, phase, *, fmt=None):
+    def __init__(
+        self, history, phase_codes, coarse_turn40, first_cell, phase, *, fmt=None, start_cycle=0
+    ):
         self.fit = SyncFitWordFlow(phase_codes, coarse_turn40, fmt)
         self.stencil = InitialStencilService(
-            history, INPUT_FORMAT, len(phase_codes), first_cell, phase
+            history, INPUT_FORMAT, len(phase_codes), first_cell, phase, start_cycle=start_cycle
         )
+        self.fit.cycle = start_cycle
         self.eof = False
 
     @property
@@ -31,6 +34,8 @@ class InitialSyncFitService:
 
     def end_input(self):
         """EOF cannot manufacture missing stencil samples;available work may drain."""
+        if self.fit.output_taken:
+            raise RuntimeError("Initial service ownership has transferred")
         self.eof = True
         if self.stencil.history.end < self.stencil.activation_end:
             return self.abort(reason="truncated_sync_future")
@@ -41,6 +46,8 @@ class InitialSyncFitService:
             raise ValueError("Need explicit downstream fit readiness")
         if self.fit.cycle != self.cycle:
             raise RuntimeError("Fit and stencil clocks must remain on the same edge")
+        if self.fit.output_taken:
+            raise RuntimeError("Initial service ownership has transferred")
         committed = self.stencil.step(output_ready=output_ready and self.fit.input_ready)
         if committed is not None and not self.fit.issue(committed["word"]):
             raise RuntimeError("Broadcast cache/fit credit was not atomic")
@@ -48,6 +55,8 @@ class InitialSyncFitService:
         return committed
 
     def abort(self, *, reason="resource_overflow"):
+        if self.fit.output_taken:
+            raise RuntimeError("Initial service ownership has transferred")
         detail = self.stencil.abort()
         if detail is None:
             return None
