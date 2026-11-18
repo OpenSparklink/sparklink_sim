@@ -326,6 +326,36 @@
           "initial_reads_required": 504,
           "scope": "single-port,current no-early-retire initializer,direct live bank;optimistic necessary test;arithmetic unknown"
         }
+      },
+      "experimental_lagrange": {
+        "reference": "interpolation-word.md",
+        "target_adopted": false,
+        "reason": "receiver numeric regression;system ports/deadlines still open",
+        "input_bits": 46,
+        "output_bits": 52,
+        "DSP25x18_estimate": 6,
+        "pipeline_register_bound_bits": 2057,
+        "statistics_and_clock_bits": 320,
+        "logical_division_ROM_bits": 1344,
+        "proposed_ROM_LUT6": 28,
+        "proposed_ROM_MUXF7": 14,
+        "optional_two_query_FIFO_bits": 438,
+        "other_datapath_control_LUT_FF": null,
+        "source_RAM_ports_included": false,
+        "RX_TX_or_fine_sharing_credit": 0,
+        "whole16MSps": false,
+        "synthesis_or_timing": false,
+        "reference_word_quality_statistics_bits": 256,
+        "placement": "FPGA candidate,not target adopted",
+        "concurrency": "after fine,overlapping live RX/previous decode;physical arbitration unresolved",
+        "clock_assumptions_MHz": [
+          100,
+          160,
+          200
+        ],
+        "IImodule_cycles": 8,
+        "latency_module_cycles": 32,
+        "total_LUT_or_FF_synthesis": null
       }
     },
     {
@@ -538,7 +568,7 @@
       "function": "packet/descriptor/candidate/output/completion queues",
       "baseline_relationship": "partly_baseline",
       "concurrency": "all producers/consumers",
-      "word_and_ports": "draft2TX+2RX+1reply×2048B not qualified",
+      "word_and_ports": "draft2TX+2RX+1reply\u00d72048B not qualified",
       "clock_ii_latency": "port arbitration and downstream maximum stall unknown",
       "overflow_policy": "bounded queues;admission/drop/abort explicit",
       "resources": {

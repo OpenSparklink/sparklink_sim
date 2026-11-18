@@ -1,0 +1,165 @@
+{
+  "stage": "SYS-C2E2B-I",
+  "formats": [
+    [
+      16,
+      0,
+      19
+    ],
+    [
+      16,
+      2,
+      19
+    ],
+    [
+      20,
+      2,
+      19
+    ],
+    [
+      16,
+      2,
+      22
+    ]
+  ],
+  "budgets": {
+    "symbol_normalized_rms": 0.0001,
+    "symbol_normalized_peak": 0.001,
+    "center_peak_samples": 0.001,
+    "rate_peak_ppm": 0.1
+  },
+  "adoption": "all numeric/decision budgets pass;zero original success losses,zero additional false deliveries;choose minimumDSP then register bits on development,validate only frozen choice",
+  "development": {
+    "seed": 940117,
+    "pid": 3,
+    "profiles": [
+      [
+        2,
+        12,
+        0,
+        5
+      ],
+      [
+        3,
+        8,
+        16,
+        181
+      ],
+      [
+        4,
+        6,
+        4,
+        71
+      ],
+      [
+        2,
+        0,
+        8,
+        613
+      ],
+      [
+        3,
+        12,
+        0,
+        1031
+      ],
+      [
+        4,
+        10,
+        16,
+        307
+      ]
+    ],
+    "kinds": [
+      "clean",
+      "tone",
+      "burst",
+      "noise",
+      "amplitude_step",
+      "wrong_sync_tone"
+    ],
+    "cfo_hz": [
+      57000,
+      -33000
+    ],
+    "sro_ppm": [
+      -125,
+      75
+    ],
+    "offset": 0.537
+  },
+  "validation": {
+    "seed": 940333,
+    "pid": 6,
+    "profiles": [
+      [
+        4,
+        12,
+        8,
+        29
+      ],
+      [
+        2,
+        6,
+        0,
+        971
+      ],
+      [
+        3,
+        0,
+        4,
+        47
+      ],
+      [
+        4,
+        8,
+        16,
+        1999
+      ],
+      [
+        2,
+        12,
+        16,
+        251
+      ],
+      [
+        3,
+        10,
+        8,
+        421
+      ]
+    ],
+    "kinds": [
+      "clean",
+      "two_tone",
+      "double_burst",
+      "amplitude_step",
+      "wrong_sync",
+      "tone_burst"
+    ],
+    "cfo_hz": [
+      -61000,
+      23000
+    ],
+    "sro_ppm": [
+      100,
+      -150
+    ],
+    "offset": 0.163
+  },
+  "negative_samples_each_split": [
+    3584,
+    5632,
+    7680,
+    9728
+  ],
+  "negative_kinds": [
+    "silence",
+    "noise",
+    "tone",
+    "wrong_sync"
+  ],
+  "word_input_bridge": "explicit host normalization19+19+8,identical input for float/word comparison;not an ADC or RRC performance claim",
+  "scope": "fixed interpolation only;all other selected receiver arithmetic remainsfloat;no whole16M or default promotion",
+  "output_width_decision": "22bit output carries guard2 amplitude bound;old19bit candidates and old numeric failures retained;budgets unchanged"
+}

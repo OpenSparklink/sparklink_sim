@@ -34,7 +34,7 @@ jobs:
       - name: Ruff check
         run: |
           make lint
-          uv run --frozen --no-sync ruff check scripts/model_spline_power.py scripts/model_spline_geometry.py scripts/model_score_words.py scripts/model_capture_tail.py scripts/model_selected_frame.py scripts/model_sliding_history.py
+          uv run --frozen --no-sync ruff check scripts/model_interpolation_word.py scripts/model_spline_power.py scripts/model_spline_geometry.py scripts/model_score_words.py scripts/model_capture_tail.py scripts/model_selected_frame.py scripts/model_sliding_history.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 \
             src/nearlink_sdr/sim/word_arithmetic.py \
             src/nearlink_sdr/sim/score_word_runtime.py \
@@ -55,7 +55,14 @@ jobs:
             tests/test_retained_history.py \
             tests/test_selected_history.py \
             tests/test_receive_history.py \
-            scripts/model_sliding_history.py
+            scripts/model_sliding_history.py \
+            src/nearlink_sdr/phy/interpolation_word.py \
+            src/nearlink_sdr/phy/selected_word.py \
+            src/nearlink_sdr/sim/interpolation_flow.py \
+            tests/test_interpolation_word.py \
+            tests/test_interpolation_flow.py \
+            tests/test_selected_word.py \
+            scripts/model_interpolation_word.py
 
   rust:
     name: Rust Quality
@@ -359,6 +366,45 @@ jobs:
           assert all(hashlib.sha256((p/k).read_bytes()).hexdigest()==v
                      for k,v in json.loads((p / "manifest.json").read_text()).items())
           PYCODE
+      - name: Preserve word interpolation rejection and finite query deadlines
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_interpolation_word.py --split development --selected-root receiver-diagnostics/selected-frame --capture-root receiver-diagnostics/capture-fine --output receiver-diagnostics/interpolation-development >interpolation-development.log 2>&1 || status=$?
+          test "$status" -eq 1
+          status=0
+          uv run --frozen --no-sync python scripts/model_interpolation_word.py --split node-validation --freeze receiver-diagnostics/interpolation-development/freeze.json --output receiver-diagnostics/interpolation-node-validation >interpolation-node-validation.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import hashlib, json
+          from pathlib import Path
+          root = Path("receiver-diagnostics")
+          p = root / "interpolation-development"
+          d = json.loads((p / "model.json").read_text())
+          assert d["selected"] is None and d["RF_validation_skipped_due_rejection"]
+          assert not d["default_RX_changed"] and not d["whole_receiver16msps"]
+          r = d["fixed_regressions"]
+          assert r["reference_full"] == r["full"] == 13 and not r["success_losses"]
+          assert r["numeric_or_decision_failures"] == ["development-development-4-fine-1"]
+          assert len(d["gates"]) == 4 and d["paired_query_scenarios"] == 24
+          a = json.loads((p / "paired-calendars.json").read_text())
+          a = [r for r in a if r["format"] == {"phase_bits":16,"guard_bits":2,"output_bits":22}]
+          assert len(a) == 6
+          assert [r["minimum_interpolation_only_feedback_margin_cycles"]
+                  for r in a if not r["blocked"]] == [-15,0,10]
+          assert all(r["queue_peak"] <= 2 and not r["whole_receiver16msps"] for r in a)
+          assert all(r["query_resource_drops"] for r in a if r["blocked"])
+          q = root / "interpolation-node-validation"
+          d = json.loads((q / "model.json").read_text())
+          assert d["standalone_node_validation_only"] and d["RF_validation_skipped_due_rejection"]
+          assert len(d["node_cases"]) == 4
+          assert all(g["eligible"] is None and not g["reception_evaluated"] for g in d["gates"])
+          assert all(n["bitexact_cycle"] and n["independent_rational_bound"] for n in d["node_cases"])
+          for folder in (p, q):
+              manifest = json.loads((folder / "manifest.json").read_text())
+              assert all(hashlib.sha256((folder/k).read_bytes()).hexdigest() == v
+                         for k,v in manifest.items())
+          PYCODE
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -390,6 +436,8 @@ jobs:
             capture-tail.log
             selected-frame.log
             sliding-history.log
+            interpolation-development.log
+            interpolation-node-validation.log
             receiver-diagnostics/
 
   optional-sm3:

@@ -687,10 +687,13 @@ class PSKStreamReceiver:
         start = origin+found['phase']+found['offset']*self.sps
         self._activate_selected(start, found['delta'], found['score'], confirmation)
 
+    def _sample(self, position):
+        return _cubic(self._filtered, self._origin, position)
+
     def _activate_selected(self, start, delta, score, confirmation=None):
         """Shared selected-candidate initialization; no search or CRC retry here."""
         centers = start+np.arange(len(self.reference))*self.sps
-        raw = np.array([_cubic(self._filtered, self._origin, t) for t in centers])
+        raw = np.array([self._sample(t) for t in centers])
         t = np.arange(len(raw))
         corrected = raw*np.exp(-1j*delta*t)
         slope, phase = np.polyfit(t, np.unwrap(np.angle(corrected*self.reference.conj())), 1)
@@ -728,8 +731,8 @@ class PSKStreamReceiver:
             if a['native'] is not None:
                 self._track_native_batch(a, latest)
             else:
-                current = _cubic(self._filtered, self._origin, t)
-                mid = (_cubic(self._filtered, self._origin, (a['previous_t']+t)/2)
+                current = self._sample(t)
+                mid = (self._sample((a['previous_t']+t)/2)
                        if count >= len(self.reference) else None)
                 step, error = loop.advance(current, a['previous'], mid)
                 self._values[count] = current*np.exp(-1j*(a['phase']+a['slope']*count))/a['gain']

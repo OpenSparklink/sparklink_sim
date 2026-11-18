@@ -111,6 +111,7 @@ score-word-arithmetic
 capture-tail
 selected-frame
 sliding-history
+interpolation-word
 rrc-memory
 spline-preparation
 spline-fixed
