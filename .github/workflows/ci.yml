@@ -209,6 +209,15 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/carrier-parallel-development/model.json")); assert d["gate"]["eligible"]; assert all(s["full"] == 6 and s["bit_errors"] == 6 and s["captures"] == 7 for s in d["summary"].values())'
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/carrier-parallel-validation/model.json")); assert not d["gate"]["eligible"] and not d["gate"]["success_losses"]; assert all(s["full"] == 7 and s["captures"] == 8 for s in d["summary"].values()); assert d["summary"]["raw18"]["bit_errors"] == 1737 and d["summary"]["q10"]["bit_errors"] == 1709 and d["summary"]["float"]["bit_errors"] == 1742; assert not any(d["gate"]["numerical_passed"].values()) and d["gate"]["saturations"] == 0; assert not d["default_changed"] and not d["whole16msps"]; f=d["flow"]; assert f["cost"]["service_clocks"] == 32; assert any(r["clock"] == 160000000 and r["batch"] == 1 and not r["blocked"] and r["dropped"] == 0 for r in f["scenarios"]); assert any(r["clock"] == 100000000 and r["dropped"] > 0 for r in f["scenarios"])'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; ps=[Path("receiver-diagnostics/carrier-parallel-"+s) for s in ("development","validation")]; assert all(all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in json.loads((p/"manifest.json").read_text()).items()) for p in ps)'
+      - name: Preserve capture fine integration and continuation retention failures
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_capture_fine.py --output receiver-diagnostics/capture-fine >capture-fine.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/capture-fine/model.json")); assert d["streams"] == 24 and d["requests"] == 30 and d["samples"] == 523680; assert d["functional_reference_capture"] == d["functional_reference_heads"] == 15 and d["functional_reference_full"] == d["functional_reference_data_crc"] == 13; assert d["functional_reference_bit_errors"] == 1748 and d["functional_reference_ber_bits"] == 51640; assert not d["numerical_failures"] and d["observer_arrays_exact"]; assert not d["whole_receiver16msps"] and not d["default_changed"] and not d["resource_feedback_to_receiver"]; assert all(s["completed"] == 28 and s["queue_drops"] == 2 and s["potential_continuation_retention_lost"] == 17 and s["potential_continuation_retention_necessary_pass"] == 0 for s in d["schedules"].values()); assert all(c["transport"]["transport_bram36"] == 10 and c["transport"]["descriptor_reserved_bits_each"] == 448 and not c["fine"]["coherent_confirmation_scheduled"] for c in d["costs"].values())'
+          uv run --frozen --no-sync python -c 'import json; from pathlib import Path; p=Path("receiver-diagnostics/capture-fine"); r=[json.loads(f.read_text()) for f in p.glob("*-fine-*.json")]; pending=[x for x in r if x["service"]["disposition"] == "confirm_pending"]; assert len(r) == 30 and len(pending) == 19; assert sum(not x["microtrace"]["best"]["threshold_pass"] for x in pending) == 4; assert all(x["service"]["disposition"] != "below_threshold" for x in r)'
+          uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/capture-fine"); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in json.loads((p/"manifest.json").read_text()).items())'
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -233,6 +242,7 @@ jobs:
             carrier-loop-*.log
             carrier-fixed-*.log
             carrier-parallel-*.log
+            capture-fine.log
             receiver-diagnostics/
 
   optional-sm3:

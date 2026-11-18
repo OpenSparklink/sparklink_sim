@@ -104,6 +104,7 @@ sync-coherent-confirmation
 rx-failure-controls
 sync-carrier-initialization
 capture-transport
+capture-fine-integration
 rrc-memory
 spline-preparation
 spline-fixed
