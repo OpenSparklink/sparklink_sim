@@ -34,7 +34,7 @@ jobs:
       - name: Ruff check
         run: |
           make lint
-          uv run --frozen --no-sync ruff check scripts/model_spline_power.py scripts/model_spline_geometry.py
+          uv run --frozen --no-sync ruff check scripts/model_spline_power.py scripts/model_spline_geometry.py scripts/model_score_words.py
 
   rust:
     name: Rust Quality
@@ -239,6 +239,15 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/spline-geometry/model.json")); assert len(d["regressions"]) == 30 and sum(r["geometry_wait"] for r in d["regressions"]) == 11; assert sum(r["power_cycles"] for r in d["regressions"]) == 3872765 and sum(r["guarded_cycles"] for r in d["regressions"]) == 2805974; assert d["node_budget_pass"] and d["transport_budget_pass"] and d["guard_cycle_budget_pass"] and d["node_increment_bits"] == [118]*3 and d["transport_statistics_increment_bits"] == 64; assert d["fixed_saturation"]["numerical_rejection"] and not d["fixed_saturation"]["geometry_wait"]; assert not d["whole_receiver16msps"] and not d["default_changed"] and not d["resource_feedback_to_receiver"]'
           uv run --frozen --no-sync python -c 'import json; from pathlib import Path; p=Path("receiver-diagnostics/spline-geometry"); waits=[json.loads(f.read_text()) for f in p.glob("*-fine-*-guarded.json") if json.loads(f.read_text())["service"]["disposition"] == "geometry_wait"]; assert len(waits) == 11 and all(x["service"]["start_tick"] is None and x["microtrace"]["best"] is None and x["microtrace"]["numerical_pass"] is None and x["microtrace"]["scores_evaluated"] == 0 for x in waits); d=json.loads((p/"model.json").read_text()); assert all(sum(s["completed"] for s in d["schedules"] if s["guard"] == v and s["clock"] == c) == 28 and sum(s["queue_drops"] for s in d["schedules"] if s["guard"] == v and s["clock"] == c) == 2 and sum(s["potential_continuation_retention_lost"] for s in d["schedules"] if s["guard"] == v and s["clock"] == c) == 17 for v in (False,True) for c in (100000000,160000000,200000000))'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/spline-geometry"); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in json.loads((p/"manifest.json").read_text()).items())'
+      - name: Preserve word arithmetic exactness and finite scheduling failures
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_score_words.py --capture-root receiver-diagnostics/capture-fine --output receiver-diagnostics/score-words >score-words.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/score-words/model.json")); assert d["experimental_node_adopted"] and d["selected_ALU"] == 2 and d["all_scored_values_exact"]; assert len(d["development"]) == len(d["validation"]) == 6 and len(d["regressions"]) == 30; assert sum(r["cycles"]["0"] for r in d["regressions"]) == 2805974 and sum(r["cycles"]["2"] for r in d["regressions"]) == 1536752; assert not d["default_RX_changed"] and not d["whole_receiver16msps"] and not d["full_system_resources_accepted"]'
+          uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/score-words/model.json")); assert all(c["2"]["fine"]["additional_word_and_context_bits"] == 20936 and c["2"]["fine"]["additional_query_state_upper_bits"] == 28155 for c in d["costs"].values()); assert all(sum(s["completed"] for s in d["schedules"] if s["ALU"] == a and s["clock"] == c) == 28 and sum(s["queue_drops"] for s in d["schedules"] if s["ALU"] == a and s["clock"] == c) == 2 and sum(s["potential_continuation_retention_lost"] for s in d["schedules"] if s["ALU"] == a and s["clock"] == c) == 17 for a in (0,2) for c in (100000000,160000000,200000000))'
+          uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/score-words"); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in json.loads((p/"manifest.json").read_text()).items())'
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -266,6 +275,7 @@ jobs:
             capture-fine.log
             spline-power.log
             spline-geometry.log
+            score-words.log
             receiver-diagnostics/
 
   optional-sm3:

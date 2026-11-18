@@ -15,7 +15,6 @@ from nearlink_sdr.sim.spline_score import (
     SplineScoreAssumptions,
     SplineScoreFlow,
     SyncSignTemplate,
-    spline_score_cost,
 )
 
 __all__ = ["CaptureFineWorker", "pack_filter_word", "unpack_filter_word"]
@@ -76,6 +75,7 @@ class CaptureFineWorker:
         sink=None,
         reuse_symbol_power=False,
         defer_all_future=False,
+        word_fabric=None,
     ):
         if not isinstance(template, SyncSignTemplate) or (len(template.words) + 1, window) not in (
             (32, 256),
@@ -94,7 +94,8 @@ class CaptureFineWorker:
                 capacity=window,
                 reuse_symbol_power=reuse_symbol_power,
                 defer_all_future=defer_all_future,
-            )
+            ),
+            word_fabric=word_fabric,
         )
 
     def __call__(self, event, owned_words):
@@ -140,7 +141,7 @@ class CaptureFineWorker:
         return FineService(result["cycles"], disposition, tick)
 
     def estimate(self):
-        cost = spline_score_cost(self.engine.a)
+        cost = self.engine.estimate()
         return dict(
             fine=cost,
             raw_source_is_same_owned_slot=True,

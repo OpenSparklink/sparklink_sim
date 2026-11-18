@@ -127,10 +127,22 @@
       "partial_bounded_search_scenarios": {
         "evidence": "RX-CAND2 direct-MAC allocation estimate plus inherited finite FCFS scenario; not synthesis or complete scheduling",
         "sps": 4,
-        "ft2_local_trials_per_request": [9, 18],
-        "direct_mac_product_equivalents_per_request": [2949, 5898],
-        "two_bank_extra_peak_register_bits": [156, 312],
-        "known_partial_with_q12_and_peaks_bits": [128724, 128880],
+        "ft2_local_trials_per_request": [
+          9,
+          18
+        ],
+        "direct_mac_product_equivalents_per_request": [
+          2949,
+          5898
+        ],
+        "two_bank_extra_peak_register_bits": [
+          156,
+          312
+        ],
+        "known_partial_with_q12_and_peaks_bits": [
+          128724,
+          128880
+        ],
         "additional_fine_format_and_spline_state_known": false,
         "system_schedule_verified": false,
         "default_promote": false
@@ -176,7 +188,61 @@
         }
       },
       "ports_verified": false,
-      "deadline_verified": false
+      "deadline_verified": false,
+      "experimental_submodule_evidence": {
+        "stage": "SYS-C2C",
+        "reference": "score-word-arithmetic.md",
+        "status": "finite node/port/cycle model;not entire item acceptance",
+        "fine_worker": {
+          "ALU32_lanes": 2,
+          "native_DSP25x18": 1,
+          "preparation_DSP_additional": 2,
+          "issue_ports": 1,
+          "result_ports": 1,
+          "contexts": 9,
+          "extra_YM_copies": 0,
+          "word_context_increment_bits": 20936,
+          "legacy_query_state_retained_bits": 7219,
+          "query_and_fabric_reserved_bits": 28155,
+          "new_fabric_register_cap_bits": 8192,
+          "new_fabric_phase_context_cap_bits": 24576
+        },
+        "frozen_actual_30_request_cycles": {
+          "previous": 2805974,
+          "new": 1536752
+        },
+        "remaining_fixed_trace_failures": {
+          "resource_drops_each_clock": 2,
+          "continuation_retention_gaps_each_clock": 17,
+          "clock_hz": [
+            100000000,
+            160000000,
+            200000000
+          ]
+        },
+        "direct_history_projection_only_BRAM36": {
+          "100MHz": 76,
+          "160MHz": 48,
+          "200MHz": 44
+        },
+        "four_fine_worker_register_projection": {
+          "query_only_bits": 112620,
+          "chip_FF": 106400,
+          "basis": "conservative FF mapping of reserved bits,not synthesis or minimal allocation;exceeds chip before baseline/other functions;not adopted"
+        },
+        "not_included": [
+          "coherent confirmation",
+          "raw downstream replay",
+          "decoder",
+          "TX",
+          "real-time MAC",
+          "new front-end baseline",
+          "mux/decode/LUT placement"
+        ],
+        "old_2percent_16KiB_failure_preserved": true,
+        "whole16MSps": false,
+        "synthesis_or_timing_evidence": false
+      }
     },
     {
       "id": "head_crc_scrambler_bch",

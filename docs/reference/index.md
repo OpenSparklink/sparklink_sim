@@ -107,6 +107,7 @@ capture-transport
 capture-fine-integration
 spline-power
 spline-geometry
+score-word-arithmetic
 rrc-memory
 spline-preparation
 spline-fixed

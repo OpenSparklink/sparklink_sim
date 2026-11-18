@@ -14,7 +14,13 @@ import numpy as np
 
 from nearlink_sdr.phy.spline_fixed import SplineFixedFormat, _rne_shift
 from nearlink_sdr.phy.uniform_spline import _DIGITS
+from nearlink_sdr.sim.score_word_runtime import ScoreWordRuntime
 from nearlink_sdr.sim.spline_flow import SplineFlowAssumptions, _Run, spline_flow_cost
+from nearlink_sdr.sim.word_arithmetic import (
+    WordFabric,
+    WordFabricAssumptions,
+    word_fabric_cost,
+)
 
 __all__ = ["SplineScoreAssumptions", "SplineScoreFlow", "SyncSignTemplate", "spline_score_cost"]
 
@@ -291,7 +297,9 @@ def _geometry(peaks, n, count, minimum, lookahead, emit):
     return positions, deferred
 
 
-def _guarded_program(peaks, template, n, minimum, lookahead, reuse, threshold, emit, reuse_power):
+def _guarded_program(
+    peaks, template, n, minimum, lookahead, reuse, threshold, emit, reuse_power, concurrent=False
+):
     positions, deferred = yield from _geometry(
         peaks, n, len(template.words) + 1, minimum, lookahead, emit
     )
@@ -299,12 +307,38 @@ def _guarded_program(peaks, template, n, minimum, lookahead, reuse, threshold, e
         emit("geometry_wait", positions=positions, scoring_evaluated=False)
         return _GeometryDecision(None, positions, True)
     best = yield from _program(
-        peaks, template, n, minimum, lookahead, reuse, threshold, emit, reuse_power
+        peaks, template, n, minimum, lookahead, reuse, threshold, emit, reuse_power, concurrent
     )
     return _GeometryDecision(best, positions, False)
 
 
-def _program(peaks, template, n, minimum, lookahead, reuse, threshold, emit, reuse_power=False):
+def _phase_symbol(cache, tick, state, template, k, cb, eb, reuse_power):
+    word = yield from _query(cache, tick)
+    previous, cr, ci, energy, previous_power = state
+    power = (yield from _symbol_power(word)) if reuse_power else 0
+    if previous is not None:
+        rr = yield from _mul(word[0], previous[0], 22, 22, "difference_rr")
+        ii = yield from _mul(word[1], previous[1], 22, 22, "difference_ii")
+        ir = yield from _mul(word[1], previous[0], 22, 22, "difference_ir")
+        ri = yield from _mul(word[0], previous[1], 22, 22, "difference_ri")
+        dr = yield from _alu("add", rr, ii, 45, "difference_real")
+        di = yield from _alu("sub", ir, ri, 45, "difference_imag")
+        tr, ti = yield from _contribution(dr, di, *template.words[k - 1], 46)
+        cr = yield from _alu("add", cr, tr, cb, "correlation_real")
+        ci = yield from _alu("add", ci, ti, cb, "correlation_imag")
+        if reuse_power:
+            part = yield from _mul(power, previous_power, 44, 44, "energy_product")
+        else:
+            er = yield from _mul(dr, dr, 45, 45, "energy_real")
+            ei = yield from _mul(di, di, 45, 45, "energy_imag")
+            part = yield from _alu("add", er, ei, 91, "difference_power", False)
+        energy = yield from _alu("add", energy, part, eb, "energy_sum", False)
+    return word, cr, ci, energy, power
+
+
+def _program(
+    peaks, template, n, minimum, lookahead, reuse, threshold, emit, reuse_power=False, concurrent=False
+):
     """Nine contexts, no retained18x128 symbol vectors; replay the chosen phase."""
     count = len(template.words) + 1
     guard = math.ceil(math.log2(count - 1))
@@ -320,30 +354,21 @@ def _program(peaks, template, n, minimum, lookahead, reuse, threshold, emit, reu
         for k in range(count):
             ticks = [s + 32 * k for s in starts]
             shared = (yield dict(code="read", keys=_needed(ticks))) if reuse and ticks else None
+            if concurrent and ticks:
+                jobs = tuple(
+                    _phase_symbol(shared, tick, state, template, k, cb, eb, reuse_power)
+                    for tick, state in zip(ticks, states, strict=True)
+                )
+                states = yield dict(code="fork", jobs=jobs)
+                for h, state in enumerate(states):
+                    emit("sample", start_tick=starts[h], symbol=k, word=state[0])
+                continue
             for h, tick in enumerate(ticks):
                 cache = shared if reuse else (yield dict(code="read", keys=_needed([tick])))
-                word = yield from _query(cache, tick)
-                previous, cr, ci, energy, previous_power = states[h]
-                power = (yield from _symbol_power(word)) if reuse_power else 0
-                if previous is not None:
-                    rr = yield from _mul(word[0], previous[0], 22, 22, "difference_rr")
-                    ii = yield from _mul(word[1], previous[1], 22, 22, "difference_ii")
-                    ir = yield from _mul(word[1], previous[0], 22, 22, "difference_ir")
-                    ri = yield from _mul(word[0], previous[1], 22, 22, "difference_ri")
-                    dr = yield from _alu("add", rr, ii, 45, "difference_real")
-                    di = yield from _alu("sub", ir, ri, 45, "difference_imag")
-                    tr, ti = yield from _contribution(dr, di, *template.words[k - 1], 46)
-                    cr = yield from _alu("add", cr, tr, cb, "correlation_real")
-                    ci = yield from _alu("add", ci, ti, cb, "correlation_imag")
-                    if reuse_power:
-                        part = yield from _mul(power, previous_power, 44, 44, "energy_product")
-                    else:
-                        er = yield from _mul(dr, dr, 45, 45, "energy_real")
-                        ei = yield from _mul(di, di, 45, 45, "energy_imag")
-                        part = yield from _alu("add", er, ei, 91, "difference_power", False)
-                    energy = yield from _alu("add", energy, part, eb, "energy_sum", False)
-                states[h] = word, cr, ci, energy, power
-                emit("sample", start_tick=starts[h], symbol=k, word=word)
+                states[h] = yield from _phase_symbol(
+                    cache, tick, states[h], template, k, cb, eb, reuse_power
+                )
+                emit("sample", start_tick=starts[h], symbol=k, word=states[h][0])
         for start, (_, cr, ci, energy, _) in zip(starts, states, strict=True):
             rr = yield from _mul(cr, cr, cb, cb, "numerator_real")
             ii = yield from _mul(ci, ci, cb, cb, "numerator_imag")
@@ -404,11 +429,44 @@ class SplineScoreFlow:
     Peak positions are supplied by the already bounded coarse stage, never truth.
     """
 
-    def __init__(self, assumptions=None):
+    def __init__(self, assumptions=None, *, word_fabric=None):
         self.a = SplineScoreAssumptions() if assumptions is None else assumptions
         if not isinstance(self.a, SplineScoreAssumptions):
             raise ValueError("Need explicit SplineScoreAssumptions")
+        if word_fabric is not None and (
+            not isinstance(word_fabric, WordFabricAssumptions)
+            or word_fabric.contexts != 9 or not self.a.reuse_stencil
+        ):
+            raise ValueError("Fine concurrency needs9 contexts and shared stencil")
+        self.word_fabric = word_fabric
         self.monitor_tags = _monitor_tags(self.a.reuse_symbol_power, self.a.defer_all_future)
+
+    def estimate(self):
+        """Charge experimental contexts/fabric in addition to legacy state."""
+        cost = spline_score_cost(self.a)
+        if self.word_fabric is not None:
+            fabric = word_fabric_cost(self.word_fabric)
+            phase = dict(
+                current_word=44, four_products=180, differential=90, contribution=92,
+                power=44, magnitudes_partial=180, native_product=43, sign_cursors=10,
+                query_accumulator=33, query_cursor=9, program_indices_flags=57,
+                call_control=48, pending_command=480, entry_work_state=292,
+                contribution_negative_temporaries=90, allocation_spare=100,
+            )
+            extra = fabric["state_bits"] + 9 * sum(phase.values())
+            cost.update(
+                word_fabric=fabric,
+                phase_context_register_bits_each=phase,
+                additional_phase_context_bits=9 * sum(phase.values()),
+                wide_ALU_latency="actual32bit steps over max(input/output widths)+2;RNE33/10to22 four steps;registered feedback",
+                peak_monitor_update="one taken result per cycle;private mailboxes handle simultaneous unit completions;monitor decode/LUT timing unsynthesized",
+                additional_word_and_context_bits=extra,
+                additional_query_state_upper_bits=cost["additional_query_state_upper_bits"] + extra,
+                legacy_scratch_not_subtracted=True,
+                phase_contexts=9,
+                word_fabric_enabled=True,
+            )
+        return cost
 
     def run(
         self,
@@ -470,6 +528,7 @@ class SplineScoreFlow:
             )
         cycle, output_blocked = -1, 0
         geometry_cycle = None
+        fabric = None
 
         def emit(event, **fields):
             nonlocal cycle, output_blocked, geometry_cycle
@@ -482,6 +541,8 @@ class SplineScoreFlow:
                     cycle += 1
                     output_blocked += 1
                     context.ram.advance(cycle, lambda *args: None)
+                    if fabric is not None:
+                        fabric.tick()
             if sink is not None:
                 sink(dict(cycle=cycle, event=event, **fields))
 
@@ -539,16 +600,59 @@ class SplineScoreFlow:
             threshold,
             emit,
             self.a.reuse_symbol_power,
+            self.word_fabric is not None,
         )
         counts, peaks_bits, observed_bits = {}, {}, {}
         reads = 0
         reply = None
         best, aborted, geometry = None, False, None
         cache_peak = pending_peak = 0
+        def word_advance():
+            nonlocal cycle
+            if cycle + 1 >= max_cycles:
+                raise TimeoutError
+            cycle += 1
+            context.ram.advance(cycle, lambda *args: None)
+            fabric.tick()
+
+        def word_issue(command, latency):
+            code, tag = command["code"], command["tag"]
+            if tag not in self.monitor_tags or len(self.monitor_tags) > 80:
+                raise RuntimeError("Score node lacks a reserved monitor register")
+            counts[code] = counts.get(code, 0) + 1
+            if tag == "phase_accumulator" or command.get("constant_shifted_operand"):
+                key = "constant_shifted_operands"
+                counts[key] = counts.get(key, 0) + 1
+            peaks_bits[tag] = max(command["bits"], peaks_bits.get(tag, 0))
+            emit("op_issue", **command, latency=latency)
+
+        def word_complete(command, value, overflow):
+            if overflow:
+                emit("overflow", **command, result=value)
+                raise OverflowError("Explicit finite arithmetic bound exceeded")
+            width = abs(value).bit_length() + int(command["signed"])
+            if width >= 256:
+                raise OverflowError("Peak-width monitor exceeds reserved8-bit slot")
+            tag = command["tag"]
+            observed_bits[tag] = max(observed_bits.get(tag, 0), width)
+            emit("op_complete", tag=tag, result=value)
+
+        fabric = None if self.word_fabric is None else WordFabric(
+            self.word_fabric, initial_cycle=cycle
+        )
+        runtime = None if fabric is None else ScoreWordRuntime(
+            fabric, word_advance, word_issue, word_complete, self.monitor_tags
+        )
         try:
             command = next(program)
             while True:
-                if command["code"] == "read":
+                if command["code"] == "fork":
+                    word_advance()  # Registered phase dispatch; no same-edge RAM forwarding.
+                    reply = runtime.fork(command["jobs"])
+                    word_advance()  # Registered join before consuming next shared stencil.
+                elif runtime is not None and command["code"] != "read":
+                    reply = runtime.execute(command)
+                elif command["code"] == "read":
                     keys = command["keys"]
                     cache, pending = {}, set()
                     waiting = list(keys)
@@ -563,6 +667,8 @@ class SplineScoreFlow:
                             raise TimeoutError
                         cycle += 1
                         context.ram.advance(cycle, received)
+                        if fabric is not None:
+                            fabric.tick()
                         after = []
                         for key in waiting:
                             if len(pending) == 4:
@@ -605,6 +711,8 @@ class SplineScoreFlow:
                             raise TimeoutError
                         cycle += 1
                         context.ram.advance(cycle, lambda *args: None)
+                    if fabric is not None:
+                        fabric.tick()
                     a, b = command["a"], command["b"]
                     if code == "tile":
                         if not 0 <= a < 2**24 or not 0 <= b < 2**17:
@@ -680,6 +788,13 @@ class SplineScoreFlow:
             whole_rx_verified=False,
             synthesis_or_timing_verified=False,
         )
+        if fabric is not None:
+            result.update(
+                word_fabric_statistics=dict(fabric.stats),
+                word_fabric_state=word_fabric_cost(self.word_fabric),
+                word_context_peak=runtime.peak_live,
+                word_fabric_idle=fabric.idle,
+            )
         if self.a.defer_all_future:
             deferred = geometry is not None and geometry.deferred
             result.update(
