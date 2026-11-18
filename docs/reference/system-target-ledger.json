@@ -356,6 +356,44 @@
         "IImodule_cycles": 8,
         "latency_module_cycles": 32,
         "total_LUT_or_FF_synthesis": null
+      },
+      "experimental_initial_reuse": {
+        "reference": "initial-interpolant-reuse.md",
+        "placement": "FPGA structural candidate,word receiver remains experimental",
+        "default_enabled": false,
+        "receiver_numeric_gate_passed": false,
+        "cache_word_bits": 52,
+        "cache_words": 128,
+        "logical_cache_bits": 6656,
+        "BRAM36_incremental_estimate": 1,
+        "unused_BRAM_capacity_sharing_credit": 0,
+        "alternative_LUT6_estimate": 104,
+        "alternative_MUXF7_estimate": 52,
+        "additional_controller_staging_register_bits_estimate": 841,
+        "additional_DSP": 0,
+        "existing_interpolator_DSP_estimate": 6,
+        "borrowed_source_history_ports": "existing1R1W registered1;no replication credit",
+        "source_staging_words": 4,
+        "cache_read_latency_cycles": 1,
+        "held_cache_reply_words": 1,
+        "raw_sync_reads_FT4_before_after": [
+          1008,
+          504
+        ],
+        "kernel_sync_queries_FT4_before_after": [
+          252,
+          126
+        ],
+        "initial_source_future_wait_rule_changed": false,
+        "final_raw_words_needed_by_first_data_midpoint": 2,
+        "cache_ready_after_activation_cycles": 1036,
+        "initial_fit_PI_head_decoder_cycles": null,
+        "concurrency": "cache fill before replay;raw input continues;previous decoder/TX/MAC arbitration remains open",
+        "whole_system_sum_approved": false,
+        "old16KiB_and2percent_failures_preserved": true,
+        "other_control_LUTs": null,
+        "synthesis_or_timing": false,
+        "whole16MSps": false
       }
     },
     {
@@ -568,7 +606,7 @@
       "function": "packet/descriptor/candidate/output/completion queues",
       "baseline_relationship": "partly_baseline",
       "concurrency": "all producers/consumers",
-      "word_and_ports": "draft2TX+2RX+1reply\u00d72048B not qualified",
+      "word_and_ports": "draft2TX+2RX+1reply×2048B not qualified",
       "clock_ii_latency": "port arbitration and downstream maximum stall unknown",
       "overflow_policy": "bounded queues;admission/drop/abort explicit",
       "resources": {

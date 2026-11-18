@@ -1,0 +1,45 @@
+{
+  "stage": "SYS-C2E2B-R",
+  "word_format": [16, 2, 22],
+  "cache_capacity": 128,
+  "supported_sync_symbols": [32, 62, 126],
+  "sps": 4,
+  "adoption": "opt-in reuse only;all decisions,consumption and trajectories exact versus unchanged word sampler;zero success loss or added false delivery;old float-vs-word numeric rejection remains",
+  "provisional_incremental_node_budget": {
+    "cache_BRAM36_max": 1,
+    "payload_bits_max": 6656,
+    "cache_and_source_service_control_bits_max": 1024,
+    "additional_DSP": 0,
+    "extra_source_read_ports": 0,
+    "whole_system_budget_approved": false
+  },
+  "development": {
+    "seed": 942117,
+    "pid": 1,
+    "profiles": [[2,10,4,7],[3,6,0,239],[4,12,8,541],[2,0,16,997],[3,8,16,83],[4,10,0,313]],
+    "kinds": ["clean","wrong_sync_tone","burst","noise","amplitude_step","two_tone"],
+    "cfo_hz": [-41000,69000],
+    "sro_ppm": [125,-175],
+    "offset": 0.271
+  },
+  "validation": {
+    "seed": 942333,
+    "pid": 4,
+    "profiles": [[3,12,4,19],[4,8,0,887],[2,6,16,53],[3,0,8,1319],[4,10,16,211],[2,12,0,461]],
+    "kinds": ["clean","tone_burst","wrong_sync","double_burst","noise","amplitude_step"],
+    "cfo_hz": [19000,-73000],
+    "sro_ppm": [-50,150],
+    "offset": 0.683
+  },
+  "negative_samples": {
+    "development": [4096,6656,8704,11264],
+    "validation": [4608,7168,9216,12288]
+  },
+  "negative_templates": {
+    "development": {"tone_frequency":0.06317,"phase":0.319,"wrong_pid":5,"wrong_payload":"initial-cache-new-negative-dev"},
+    "validation": {"tone_frequency":-0.04739,"phase":-1.173,"wrong_pid":0,"wrong_payload":"independent-cache-negative-held-content"}
+  },
+  "negative_kinds": ["silence","noise","tone","wrong_sync"],
+  "scope": "selected-candidate service and exact reuse;not new capture statistic,not full word receiver,not whole16MSps",
+  "fit_PI_head_decoder_service_cycles": null
+}

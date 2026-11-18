@@ -28,8 +28,14 @@ from nearlink_sdr.sim.interpolation_flow import LagrangeInterpolationFlow
 POLICY = Path("tests/data/interpolation_word_policy.json")
 
 
-def word_execute(out, name, profile, words, selection, fmt, pattern):
-    rx = WordInterpolatedPSKReceiver(profile, **selection, sample_limit=len(words), word_format=fmt)
+def word_execute(out, name, profile, words, selection, fmt, pattern, *, reuse=False):
+    rx = WordInterpolatedPSKReceiver(
+        profile,
+        **selection,
+        sample_limit=len(words),
+        word_format=fmt,
+        reuse_sync_interpolants=reuse,
+    )
     events, pos, k = [], 0, 0
     while pos < len(words) and not rx.done:
         n = int(pattern[k % len(pattern)])

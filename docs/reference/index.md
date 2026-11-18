@@ -112,6 +112,7 @@ capture-tail
 selected-frame
 sliding-history
 interpolation-word
+initial-interpolant-reuse
 rrc-memory
 spline-preparation
 spline-fixed

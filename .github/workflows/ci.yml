@@ -35,6 +35,7 @@ jobs:
         run: |
           make lint
           uv run --frozen --no-sync ruff check scripts/check_test_shards.py
+          uv run --frozen --no-sync ruff check scripts/model_initial_reuse.py
           uv run --frozen --no-sync ruff check scripts/model_interpolation_word.py scripts/model_spline_power.py scripts/model_spline_geometry.py scripts/model_score_words.py scripts/model_capture_tail.py scripts/model_selected_frame.py scripts/model_sliding_history.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 \
             src/nearlink_sdr/sim/word_arithmetic.py \
@@ -64,6 +65,11 @@ jobs:
             tests/test_interpolation_flow.py \
             tests/test_selected_word.py \
             scripts/model_interpolation_word.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 \
+            src/nearlink_sdr/phy/initial_interpolant.py \
+            src/nearlink_sdr/sim/initial_interpolant_flow.py \
+            tests/test_initial_interpolant.py tests/test_initial_interpolant_flow.py \
+            scripts/model_initial_reuse.py
 
   rust:
     name: Rust Quality
@@ -407,6 +413,46 @@ jobs:
               assert all(hashlib.sha256((folder/k).read_bytes()).hexdigest() == v
                          for k,v in manifest.items())
           PYCODE
+      - name: Verify exact initial-word reuse and preserve unmodeled RX service
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_initial_reuse.py --split development --selected-root receiver-diagnostics/selected-frame --capture-root receiver-diagnostics/capture-fine --word-root receiver-diagnostics/interpolation-development --output receiver-diagnostics/initial-reuse-development >initial-reuse-development.log 2>&1 || status=$?
+          test "$status" -eq 1
+          status=0
+          uv run --frozen --no-sync python scripts/model_initial_reuse.py --split validation --freeze receiver-diagnostics/initial-reuse-development/freeze.json --output receiver-diagnostics/initial-reuse-validation >initial-reuse-validation.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import hashlib, json
+          from pathlib import Path
+          root = Path("receiver-diagnostics")
+          for split in ("development", "validation"):
+              p = root / ("initial-reuse-" + split)
+              d = json.loads((p / "model.json").read_text())
+              assert d["reuse_eligible"] and d["provisional_node_resource_gate"]
+              assert d["reference_full"] == d["reuse_full"]
+              assert d["all_decisions_and_trajectories_exact"] and d["active_pairs"] > 0
+              assert not d["success_losses"] and not d["added_false_deliveries"]
+              assert d["interpolation_calls_before"]-d["interpolation_calls_after"] == d["interpolation_calls_saved"]
+              assert d["source_raw_reads_saved"] == 4*d["interpolation_calls_saved"]
+              assert not d["default_RX_changed"] and not d["whole_receiver16msps"]
+              assert not any(d["full_RX_gates"].values())
+              if split == "development":
+                  assert d["fixed_reference_full"] == d["fixed_reuse_full"] == 13
+                  assert d["old_numeric_failures"] == ["development-development-4-fine-1"]
+              a = json.loads((p / "calendars.json").read_text())
+              assert len(a) == 27 and all(r["initial_fit_PI_head_decoder_cycles"] is None for r in a)
+              normal = [r for r in a if r["retire_after_staging"] and not r["blocked"]]
+              assert len(normal) == 9 and all(r["status"] == "cache_ready_fit_service_unknown" for r in normal)
+              assert all(r["cost"]["incremental_control_bits"] == 841 for r in a)
+              assert all(r["cost"]["source_read_ports"] == 1 for r in a)
+              fail = [r for r in a if r["symbols"] == 126 and not r["retire_after_staging"]]
+              assert [r["overflow"]["cycle"]-r["activation_cycle"] for r in fail] == [50,80,100]
+              assert all(r["overflow"]["index"] == 512 for r in fail)
+              assert sum(r["overflow"] is not None for r in a) == 7
+              assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v
+                         for k,v in json.loads((p / "manifest.json").read_text()).items())
+          PYCODE
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -441,6 +487,7 @@ jobs:
             sliding-history.log
             interpolation-development.log
             interpolation-node-validation.log
+            initial-reuse-*.log
             receiver-diagnostics/
 
   optional-sm3:

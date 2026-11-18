@@ -25,11 +25,16 @@ def quantize_input(values):
     return np.array(result, np.uint64)
 
 
-def word_consume(profile, words, selection, fmt, chunks):
+def word_consume(profile, words, selection, fmt, chunks, *, reuse=False):
     selection = {
         k: v for k, v in selection.items() if k not in ("timing_backend", "history_capacity")
     }
-    rx = WordInterpolatedPSKReceiver(profile, **selection, word_format=fmt)
+    rx = WordInterpolatedPSKReceiver(
+        profile,
+        **selection,
+        word_format=fmt,
+        reuse_sync_interpolants=reuse,
+    )
     events, pos, k = [], 0, 0
     while pos < len(words) and not rx.done:
         n = int(chunks[k % len(chunks)])
@@ -164,3 +169,85 @@ def test_receiver_preserves_exponent_floor_telemetry():
         rx.feed_words([pack_filter_word(1, 0, -128)] * 32)
     assert rx.interpolation_stats["output_underflows"] > 0
     assert rx.reference_memory()["word_store_writes"] == rx.input_samples
+
+
+@pytest.mark.parametrize("ft,mcs,pilot,length", [(2, 12, 0, 19), (3, 8, 16, 83), (4, 10, 8, 131)])
+def test_initial_reuse_keeps_power_fit_all_trajectories_and_frame_boundary(ft, mcs, pilot, length):
+    profile = ordinary(ft, mcs, pilot)
+    values, payload, selection = selected_input(profile, length=length)
+    words = quantize_input(values)
+    reference, original = word_consume(profile, words, selection, FORMATS[-1], [32])
+    for pattern in ([32], [1, 7, 31]):
+        event, rx = word_consume(profile, words, selection, FORMATS[-1], pattern, reuse=True)
+        equal(reference, event)
+        assert event["frame"]["payload"] == payload
+        assert event["timing_loop"] == reference["timing_loop"]
+        assert event["cfo_hz"] == reference["cfo_hz"]
+        assert event["gain_codes"] == reference["gain_codes"]
+        assert rx.input_samples == original.input_samples
+        assert original.interpolation_stats["queries"] - rx.interpolation_stats["queries"] == len(
+            profile.sync_symbols()
+        )
+        cache = rx.reference_memory()["initial_interpolant_cache"]
+        assert cache["written"] == cache["reused"] == len(profile.sync_symbols())
+        assert cache["valid_words"] == 0 and cache["payload_bits"] == 6656
+
+
+def test_reuse_retains_raw_midpoint_dependency_and_stops_before_head():
+    profile = ordinary(4, 12)
+    values, _, selection = selected_input(profile, length=67)
+    words = quantize_input(values)
+    rx = WordInterpolatedPSKReceiver(
+        profile,
+        **selection,
+        word_format=FORMATS[-1],
+        reuse_sync_interpolants=True,
+    )
+    pos = 0
+    while rx._active is None or rx._active["count"] < len(rx.reference):
+        assert not rx.feed_words([int(words[pos])])
+        pos += 1
+    last = math.floor(rx._active["previous_t"])
+    assert rx._sample_history.origin == last + 1
+    assert rx._sample_history.end >= last + 3  # Last sync's final two raw words stay live.
+    while rx._active["count"] == len(rx.reference):
+        assert not rx.feed_words([int(words[pos])])
+        pos += 1
+    assert rx.header_decision_after_filtered_samples is None
+    assert rx._active["count"] == len(rx.reference) + 1
+
+
+@pytest.mark.parametrize("damage", [{"bad_head": True}, {"bad_data": True}, {"empty": True}])
+def test_reuse_does_not_retry_crc_failures_or_change_terminal_consumption(damage):
+    profile = ordinary()
+    values, _, selection = selected_input(profile, **damage)
+    words = quantize_input(values)
+    a, ra = word_consume(profile, words, selection, FORMATS[-1], [13])
+    b, rb = word_consume(profile, words, selection, FORMATS[-1], [7, 31], reuse=True)
+    equal(a, b)
+    assert ra.input_samples == rb.input_samples
+    assert b["frame"]["payload"] is None
+    assert rb.initial_interpolants.diagnostics()["valid_words"] == 0
+
+
+def test_reuse_EOF_before_initialization_and_wrong_flag_are_explicit():
+    profile = ordinary(4, 12)
+    values, _, selection = selected_input(profile, length=67)
+    with pytest.raises(ValueError):
+        WordInterpolatedPSKReceiver(
+            profile, **selection, word_format=FORMATS[-1], reuse_sync_interpolants=1
+        )
+    words = quantize_input(values)
+    cut = math.floor(selection["start_tick"] / 8) + 37
+    a, _ = word_consume(profile, words[:cut], selection, FORMATS[-1], [19])
+    b, rx = word_consume(profile, words[:cut], selection, FORMATS[-1], [7], reuse=True)
+    assert a["frame"] == b["frame"]
+    assert a["delivered_after_filtered_samples"] == b["delivered_after_filtered_samples"]
+    for key in ("symbols", "symbol_centers_filtered", "timing_rate_ppm", "timing_detector_error"):
+        assert (key in a) == (key in b)
+        if key in a:
+            np.testing.assert_array_equal(a[key], b[key])
+    assert b["frame"]["status"] == "truncated_sync" and b["frame"]["header_crc"] is None
+    assert rx.initial_interpolants.diagnostics() == dict(
+        state="released", written=0, reused=0, valid_words=0
+    )

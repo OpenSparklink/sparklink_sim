@@ -8,6 +8,7 @@ import math
 
 import numpy as np
 
+from nearlink_sdr.phy.initial_interpolant import InitialInterpolantCache
 from nearlink_sdr.phy.interpolation_word import (
     LagrangeWordFormat,
     interpolate_filter_word,
@@ -32,7 +33,7 @@ class WordInterpolatedPSKReceiver(SelectedPSKReceiver):
     required or free on hardware. Causal input batches contain at most32 words.
     """
 
-    def __init__(self, profile, *, word_format, **selection):
+    def __init__(self, profile, *, word_format, reuse_sync_interpolants=False, **selection):
         if not isinstance(word_format, LagrangeWordFormat):
             raise ValueError("Need explicit interpolation word format")
         if selection.get("timing_backend", "python") != "python":
@@ -41,7 +42,14 @@ class WordInterpolatedPSKReceiver(SelectedPSKReceiver):
             raise ValueError("Word interpolation currently validates512 history")
         selection.update(timing_backend="python", history_capacity=512)
         super().__init__(profile, **selection)
+        if type(reuse_sync_interpolants) is not bool:
+            raise ValueError("Need explicit boolean initial-interpolant reuse")
         self.word_format, self._words = word_format, [0] * 512
+        self.initial_interpolants = (
+            InitialInterpolantCache(word_format, len(self.reference))
+            if reuse_sync_interpolants
+            else None
+        )
         self.interpolation_stats = dict(
             queries=0, aligned_components_erased=0, output_saturations=0, output_underflows=0
         )
@@ -79,12 +87,23 @@ class WordInterpolatedPSKReceiver(SelectedPSKReceiver):
 
     def _sample(self, position):
         cell = math.floor(position)
+        phase = round((position - cell) * 2**self.word_format.phase_bits)
+        cache = self.initial_interpolants
+        if (
+            cache is not None
+            and self._active is not None
+            and (self._active["count"] < len(self.reference))
+        ):
+            result = cache.reuse(cell, phase)
+            r, i, exponent = unpack_interpolated_word(result, self.word_format)
+            return complex(math.ldexp(r, exponent), math.ldexp(i, exponent))
         history = self._sample_history
         if not history.origin <= cell - 1 or cell + 2 >= history.end:
             raise RuntimeError("Word stencil future/expired;no manufactured samples")
-        phase = round((position - cell) * 2**self.word_format.phase_bits)
         words = tuple(self._words[k % 512] for k in range(cell - 1, cell + 3))
         result, info = interpolate_filter_word(words, phase, self.word_format)
+        if cache is not None and self._active is None:
+            cache.store(cell, phase, result)
         self.interpolation_stats["queries"] += 1
         for key in ("aligned_components_erased", "output_saturations"):
             self.interpolation_stats[key] += info[key]
@@ -95,6 +114,8 @@ class WordInterpolatedPSKReceiver(SelectedPSKReceiver):
         return complex(math.ldexp(r, exponent), math.ldexp(i, exponent))
 
     def _word_event(self, event):
+        if self.initial_interpolants is not None:
+            self.initial_interpolants.release()
         event["interpolation"] = "finite denominator6 Lagrange Horner;RNE phase and words"
         event["word_interpolation"] = dict(
             phase_bits=self.word_format.phase_bits,
@@ -103,6 +124,11 @@ class WordInterpolatedPSKReceiver(SelectedPSKReceiver):
             statistics=self.interpolation_stats.copy(),
             other_nodes_fixed=False,
             service_cycles_verified=False,
+            initial_interpolants=(
+                None
+                if self.initial_interpolants is None
+                else self.initial_interpolants.diagnostics()
+            ),
         )
         return event
 
@@ -122,4 +148,9 @@ class WordInterpolatedPSKReceiver(SelectedPSKReceiver):
             interpolation_stats=self.interpolation_stats.copy(),
             all_other_receiver_nodes_fixed=False,
             native_word_interpolation=False,
+            initial_interpolant_cache=(
+                None
+                if self.initial_interpolants is None
+                else self.initial_interpolants.estimate() | self.initial_interpolants.diagnostics()
+            ),
         )
