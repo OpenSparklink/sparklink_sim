@@ -34,6 +34,7 @@ jobs:
       - name: Ruff check
         run: |
           make lint
+          uv run --frozen --no-sync ruff check scripts/check_test_shards.py
           uv run --frozen --no-sync ruff check scripts/model_interpolation_word.py scripts/model_spline_power.py scripts/model_spline_geometry.py scripts/model_score_words.py scripts/model_capture_tail.py scripts/model_selected_frame.py scripts/model_sliding_history.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 \
             src/nearlink_sdr/sim/word_arithmetic.py \
@@ -110,11 +111,11 @@ jobs:
         env:
           SPARKLINK_TEST_DIAGNOSTICS: receiver-diagnostics
         run: |
-          # Keep every case; run the long finite-word integration suite beside
-          # the remaining suite to meet the test-duration budget on two cores.
-          uv run --frozen --no-sync pytest tests/ --ignore=tests/test_stream_rrc_word.py -v --tb=short --junitxml=report-core.xml >test-core.log 2>&1 &
+          # Move selected-word tests to the shorter existing shard; retain all
+          # cases and the same two processes. Check actual JUnit times below.
+          uv run --frozen --no-sync pytest tests/ --ignore=tests/test_stream_rrc_word.py --ignore=tests/test_selected_word.py -v --tb=short --junitxml=report-core.xml >test-core.log 2>&1 &
           core_pid=$!
-          uv run --frozen --no-sync pytest tests/test_stream_rrc_word.py -v --tb=short --junitxml=report-front.xml >test-front.log 2>&1 &
+          uv run --frozen --no-sync pytest tests/test_stream_rrc_word.py tests/test_selected_word.py -v --tb=short --junitxml=report-front.xml >test-front.log 2>&1 &
           front_pid=$!
           core_status=0
           front_status=0
@@ -122,6 +123,7 @@ jobs:
           wait "$front_pid" || front_status=$?
           cat test-core.log test-front.log
           test "$core_status" -eq 0 && test "$front_status" -eq 0
+          uv run --frozen --no-sync python scripts/check_test_shards.py report-core.xml report-front.xml --output test-budget.json
       - name: Preserve carrier workload and explicit system resource gap
         if: always()
         run: |
@@ -412,6 +414,7 @@ jobs:
           name: test-results-${{ matrix.backend }}
           path: |
             report-*.xml
+            test-budget.json
             test-*.log
             build.log
             backend.json
@@ -479,9 +482,9 @@ jobs:
         run: |
           # Each partial suite has incomplete coverage. Enforce the unchanged
           # 90.1% gate only after combining both real coverage data files.
-          COVERAGE_FILE=coverage-core.data uv run --frozen --no-sync pytest tests/ --ignore=tests/test_stream_rrc_word.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-core.xml >coverage-core.log 2>&1 &
+          COVERAGE_FILE=coverage-core.data uv run --frozen --no-sync pytest tests/ --ignore=tests/test_stream_rrc_word.py --ignore=tests/test_selected_word.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-core.xml >coverage-core.log 2>&1 &
           core_pid=$!
-          COVERAGE_FILE=coverage-front.data uv run --frozen --no-sync pytest tests/test_stream_rrc_word.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-front.xml >coverage-front.log 2>&1 &
+          COVERAGE_FILE=coverage-front.data uv run --frozen --no-sync pytest tests/test_stream_rrc_word.py tests/test_selected_word.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-front.xml >coverage-front.log 2>&1 &
           front_pid=$!
           core_status=0
           front_status=0
@@ -497,6 +500,7 @@ jobs:
           fi
           cat coverage-*.log
           test "$core_status" -eq 0 && test "$front_status" -eq 0 && test "$combine_status" -eq 0 && test "$xml_status" -eq 0 && test "$report_status" -eq 0
+          uv run --frozen --no-sync python scripts/check_test_shards.py coverage-tests-core.xml coverage-tests-front.xml --output coverage-test-budget.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -504,6 +508,7 @@ jobs:
           path: |
             coverage.xml
             coverage-tests-*.xml
+            coverage-test-budget.json
             coverage-*.log
             coverage-*.data
             backend.json

@@ -143,6 +143,14 @@ PYTHONPATH=src uv run --frozen --no-sync python scripts/model_interpolation_word
 同时定位初始化/载波边界的精度分配，保留当前拒绝，不同时重设插值、搜索或环路参数。
 完整流式、全链定点、整机资源、持续16MS/s四项门仍分别未关闭；FT1/GFSK另行补齐。
 
+## CI测试分片与时间门
+
+本阶段实际CI `44333942137`虽9项作业通过，纯Python主套123.709秒仍超过项目120秒要求，
+该失败与接收数值失败分别保留。后续只将原`test_selected_word.py`移入较短的前端分片，
+仍为两个pytest进程、不删除用例；两份JUnit必须身份不重叠、计数完整且各自小于120秒。
+`scripts/check_test_shards.py`对测试及覆盖率作业执行同一检查，先保存JSON再按失败返回1。
+覆盖率分片仍在合并后执行原90.1%门限；测试时间通过不能替代四项接收机验收。
+
 ## API参考
 
 ```{toctree}
