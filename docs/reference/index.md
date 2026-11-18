@@ -110,6 +110,7 @@ spline-geometry
 score-word-arithmetic
 capture-tail
 selected-frame
+sliding-history
 rrc-memory
 spline-preparation
 spline-fixed

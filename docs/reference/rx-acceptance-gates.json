@@ -1,11 +1,11 @@
 {
-  "stage": "SYS-C2E1",
+  "stage": "SYS-C2E2A",
   "target": "4Msym/s QPSK/8PSK16MS/s;FT2/3/4 first;FT1 separate",
   "complete": false,
   "gates": {
     "complete_streaming": {
       "passed": false,
-      "evidence": "strict floating stream exists;selected port now stops at real frame boundary",
+      "evidence": "strict floating stream exists;selected port now stops at real frame boundary;optional512 ring retires actual interpolation dependencies",
       "gaps": [
         "physical replay/actual service feedback",
         "FT1/GFSK complete arbitrary-block path",
@@ -31,7 +31,7 @@
     },
     "continuous_16msps": {
       "passed": false,
-      "evidence": "isolated executable RRC/fine/word transport calendars;not whole receiver",
+      "evidence": "isolated executable RRC/fine/word transport calendars;not whole receiver;registered history port tested only with pauseable replay source",
       "gaps": [
         "selected decoder/interpolator/head service unknown,not zero",
         "early stop not in actual transport scheduler",

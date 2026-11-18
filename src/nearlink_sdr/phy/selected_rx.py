@@ -7,6 +7,7 @@ floating reference port, not a complete fixed/cycle/hardware receiver.
 
 import numpy as np
 
+from nearlink_sdr.phy.retained_history import RetainedSampleHistory
 from nearlink_sdr.phy.stream_rx import PSKStreamReceiver
 from nearlink_sdr.phy.strict_rx import PSKReceiveProfile, decode_psk_frame
 from nearlink_sdr.phy.sync_coherent import coherent_sync_confirmation
@@ -37,6 +38,7 @@ class SelectedPSKReceiver(PSKStreamReceiver):
         timing_backend="auto",
         timing_config=None,
         carrier_method="coherent",
+        history_capacity=None,
     ):
         if not isinstance(profile, PSKReceiveProfile):
             raise ValueError("Need an explicit PSKReceiveProfile")
@@ -75,7 +77,16 @@ class SelectedPSKReceiver(PSKStreamReceiver):
             defer_quiet_fir=False,
         )
         self.sample_limit = sample_limit
-        self._retained = np.empty(sample_limit, complex)
+        self._sample_history = (
+            None
+            if history_capacity is None
+            else RetainedSampleHistory(history_capacity, max(0, start_tick // 8 - 1))
+        )
+        self._retained = (
+            np.empty(sample_limit, complex)
+            if self._sample_history is None
+            else self._sample_history.storage
+        )
         self._selected_sync = sync.copy()
         self.selected_start = start_tick / 8
         self.selected_delta = float(delta)
@@ -94,7 +105,7 @@ class SelectedPSKReceiver(PSKStreamReceiver):
         self.last_input_consumed = 0
         self.last_event = None
         self.header_decision_after_filtered_samples = None
-        self._origin = 0
+        self._origin = 0 if self._sample_history is None else self._sample_history.origin
         self._filtered_values = self._retained[:0]
 
     @property
@@ -121,6 +132,12 @@ class SelectedPSKReceiver(PSKStreamReceiver):
     def iter_feed(self, samples):
         raise RuntimeError("Use feed_filtered; one explicit upstream selection is required")
 
+    def _release_sample_history(self, event):
+        if self._sample_history is not None:
+            event["raw_history_at_termination"] = self._sample_history.diagnostics()
+            self._sample_history.retire_before(self._sample_history.end)
+            self._refresh_history()
+
     def _bare_event(self, status, reason=None):
         row = dict(
             status=status,
@@ -142,6 +159,7 @@ class SelectedPSKReceiver(PSKStreamReceiver):
             hardware_cycles_verified=False,
             input_domain="matched-filtered",
         )
+        self._release_sample_history(event)
         self.last_event, self._terminal, self._closed = event, True, True
         return event
 
@@ -156,6 +174,7 @@ class SelectedPSKReceiver(PSKStreamReceiver):
             selection_source="one upstream differential maximum; no retry",
         )
         event["interpolation"] = "existing four-point local cubic; frontend already filtered"
+        self._release_sample_history(event)
         self.last_event, self._terminal, self._closed = event, True, True
         return event
 
@@ -184,11 +203,17 @@ class SelectedPSKReceiver(PSKStreamReceiver):
                 return self.finish(reason="retention_limit")
             if not np.isfinite(value):
                 raise ValueError("Need finite consumed filtered samples")
-            self._retained[self.input_samples] = value
+            if self._sample_history is None:
+                self._retained[self.input_samples] = value
+            elif not self._sample_history.append(self.input_samples, value):
+                return self.finish(reason="history_overflow")
             self.input_samples += 1
             self._processed = self.input_samples
             self.last_input_consumed += 1
-            self._filtered_values = self._retained[: self.input_samples]
+            if self._sample_history is None:
+                self._filtered_values = self._retained[: self.input_samples]
+            else:
+                self._refresh_history()
             last_sync = self.selected_start + (len(self.reference) - 1) * self.sps
             if not self._selection_started and last_sync <= self.input_samples - 3:
                 self._activate_selected(
@@ -211,18 +236,34 @@ class SelectedPSKReceiver(PSKStreamReceiver):
                         self.header_decision_after_filtered_samples
                     )
                     return events
+                self._retire_sample_history()
         return []
+
+    def _refresh_history(self):
+        self._origin = self._sample_history.origin
+        self._filtered_values = self._sample_history.view
+
+    def _retire_sample_history(self):
+        if self._sample_history is None or self._active is None:
+            return
+        a = self._active
+        earliest = a["next"]
+        if a["count"] >= len(self.reference):
+            earliest = min(earliest, (a["previous_t"] + a["next"]) / 2)
+        # Current and (when enabled) midpoint each use floor(t)-1..floor(t)+2.
+        self._sample_history.retire_before(max(0, int(np.floor(earliest)) - 1))
+        self._refresh_history()
 
     def finish(self, *, reason="eof"):
         """Seal observed data only; retain EOF and storage exhaustion separately."""
-        if reason not in ("eof", "retention_limit"):
-            raise ValueError("Need explicit eof or retention_limit")
+        if reason not in ("eof", "retention_limit", "history_overflow"):
+            raise ValueError("Need explicit eof, retention_limit or history_overflow")
         if self.done:
             return []
         if not self._selection_accepted:
             return [self._bare_event("sync_confirmation_rejected")]
         if self._active is None:
-            status = "truncated_sync" if reason == "eof" else "retention_limit"
+            status = "truncated_sync" if reason == "eof" else reason
             return [self._bare_event(status, None if reason == "eof" else reason)]
         row = decode_psk_frame(
             self._values[: self._active["count"]],
@@ -230,10 +271,10 @@ class SelectedPSKReceiver(PSKStreamReceiver):
             carrier_method=self.carrier_method,
             **self._carrier_weight_options,
         )
-        if reason == "retention_limit":
+        if reason != "eof":
             row.update(
                 parser_status=row["status"],
-                status="retention_limit",
+                status=reason,
                 resource_reason=reason,
                 payload=None,
             )
@@ -261,6 +302,9 @@ class SelectedPSKReceiver(PSKStreamReceiver):
             persistent_numpy_allocations=list(roots.values()),
             emitted_event_arrays_bytes=event_arrays,
             caller_arrays_and_python_object_overhead_included=False,
+            raw_history=(
+                None if self._sample_history is None else self._sample_history.diagnostics()
+            ),
             retained_filtered_bytes=self._retained.nbytes,
             selected_sync_bytes=self._selected_sync.nbytes,
             legal_symbol_array_bytes=sum(

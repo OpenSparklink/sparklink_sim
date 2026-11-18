@@ -291,6 +291,41 @@
         "service_cycles": null,
         "hardware_resource_allocation_approved": false,
         "no_extra_copy_or_relay_II_credit": true
+      },
+      "selected_sliding_history": {
+        "stage": "SYS-C2E2A",
+        "status": "opt-in functional and word-port node;not integrated ADC schedule",
+        "logical_history_words": 512,
+        "word_bits": 46,
+        "logical_history_bits": 23552,
+        "host_mirrored_reference_bytes": 16384,
+        "RAMB36E1_SDP72x512_estimate": 1,
+        "address_and_reply_register_bits": 623,
+        "statistic_bits": 512,
+        "external_producer_hold_bits_if_not_shared": 111,
+        "max_observed_startup_words": 505,
+        "old504bound_failed_and_retained": true,
+        "steady_reference_dependency_words_max": 8,
+        "additional_to_existing_capture_storage_until_sharing_proven": true,
+        "LUT_synthesis_and_timing_verified": false,
+        "interpolator_head_decoder_service_cycles": null,
+        "whole16msps": false,
+        "direct_live_startup_failure": {
+          "profile": "FT4 sync126,fractional start",
+          "clocks": [
+            100000000,
+            160000000,
+            200000000
+          ],
+          "cycles_until_first_drop": [
+            50,
+            80,
+            100
+          ],
+          "first_lost_index": 512,
+          "initial_reads_required": 504,
+          "scope": "single-port,current no-early-retire initializer,direct live bank;optimistic necessary test;arithmetic unknown"
+        }
       }
     },
     {

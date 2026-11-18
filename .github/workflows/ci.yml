@@ -34,7 +34,7 @@ jobs:
       - name: Ruff check
         run: |
           make lint
-          uv run --frozen --no-sync ruff check scripts/model_spline_power.py scripts/model_spline_geometry.py scripts/model_score_words.py scripts/model_capture_tail.py scripts/model_selected_frame.py
+          uv run --frozen --no-sync ruff check scripts/model_spline_power.py scripts/model_spline_geometry.py scripts/model_score_words.py scripts/model_capture_tail.py scripts/model_selected_frame.py scripts/model_sliding_history.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 \
             src/nearlink_sdr/sim/word_arithmetic.py \
             src/nearlink_sdr/sim/score_word_runtime.py \
@@ -49,7 +49,13 @@ jobs:
             scripts/model_capture_tail.py \
             src/nearlink_sdr/phy/selected_rx.py \
             tests/test_selected_rx.py \
-            scripts/model_selected_frame.py
+            scripts/model_selected_frame.py \
+            src/nearlink_sdr/phy/retained_history.py \
+            src/nearlink_sdr/sim/receive_history.py \
+            tests/test_retained_history.py \
+            tests/test_selected_history.py \
+            tests/test_receive_history.py \
+            scripts/model_sliding_history.py
 
   rust:
     name: Rust Quality
@@ -320,6 +326,39 @@ jobs:
           assert all(hashlib.sha256((p/k).read_bytes()).hexdigest()==v
                      for k,v in json.loads((p / "manifest.json").read_text()).items())
           PYCODE
+      - name: Verify sliding raw history and registered word ports without full-RX credit
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_sliding_history.py --selected-root receiver-diagnostics/selected-frame --capture-root receiver-diagnostics/capture-fine --output receiver-diagnostics/sliding-history >sliding-history.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import hashlib, json
+          from pathlib import Path
+          p = Path("receiver-diagnostics/sliding-history")
+          d = json.loads((p / "model.json").read_text())
+          assert d["fixed_requests"] == 30 and d["scored"] == 19
+          assert d["heads"] == 15 and d["full"] == 13
+          assert d["conditional_prefix_recoveries"] == 7 and d["full_reference_losses"] == 0
+          assert d["history_resource_failures"] == 0 and d["maximum_history_words"] == 505
+          assert d["host_history_bytes"] == 16384 and d["partition_and_reference_exact"]
+          assert d["word_port_cost"]["logical_bits"] == 23552
+          assert d["word_port_cost"]["bram36"] == 1
+          assert d["word_port_cost"]["interpolation_loop_head_decoder_cycles"] is None
+          assert d["actual_pipeline_recoveries"] is None
+          assert d["direct_live_startup_resource_failures"] == 3
+          startup = json.loads((p / "startup-live-failures.json").read_text())
+          assert [r["cycles_since_initial_ready"] for r in startup] == [50,80,100]
+          assert all(r["first_lost_absolute_index"] == 512
+                     and r["initial_scan_returns_before_loss"] < 504 for r in startup)
+          assert not d["actual_pipeline_deadlines_verified"]
+          assert not d["default_RX_changed"] and not d["whole_receiver16msps"]
+          assert [r["full"] for r in d["fresh"]] == [6, 5]
+          assert not any(r["false_deliveries"] for r in d["fresh"])
+          assert len(json.loads((p / "ports.json").read_text())) == 8
+          assert all(hashlib.sha256((p/k).read_bytes()).hexdigest()==v
+                     for k,v in json.loads((p / "manifest.json").read_text()).items())
+          PYCODE
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -350,6 +389,7 @@ jobs:
             score-words.log
             capture-tail.log
             selected-frame.log
+            sliding-history.log
             receiver-diagnostics/
 
   optional-sm3:

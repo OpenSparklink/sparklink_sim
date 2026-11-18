@@ -1,0 +1,27 @@
+{
+  "history_capacity": 512,
+  "input_horizon": 1048576,
+  "startup_stencil_words_max": 504,
+  "startup_existing_wait_peak_max": 505,
+  "steady_history_max": 8,
+  "same_backend_exact": true,
+  "backend_centers_atol": 2e-9,
+  "backend_symbols_atol": 2e-9,
+  "backend_rate_ppm_atol": 2e-6,
+  "development": {
+    "seed": 920117, "pid": 2,
+    "profiles": [[2,10,4,2],[3,8,4,53],[4,12,16,349],[2,6,16,997],[3,12,4,113],[4,0,16,223]],
+    "kinds": ["clean","tone_burst","wrong_sync","noise","amplitude_step","clean"],
+    "cfo_hz": [31000,-47000], "sro_ppm": [-75,50], "offset": 0.441
+  },
+  "validation": {
+    "seed": 920333, "pid": 5,
+    "profiles": [[4,8,4,17],[2,12,16,181],[3,6,8,607],[4,12,0,1019],[2,8,4,443],[3,10,16,67]],
+    "kinds": ["clean","wrong_sync_tone","double_burst","amplitude_step","two_tone","clean"],
+    "cfo_hz": [-53000,13000], "sro_ppm": [125,-100], "offset": 0.897
+  },
+  "negative_samples_each_split": [3072,5120,7168,9216],
+  "negative_kinds": ["silence","noise","tone","wrong_sync"],
+  "node_validation_scope": "new independent storage/port and functional waveforms,not RF capture held rate",
+  "adoption": "opt-in history reference only;not default or complete hardware schedule"
+}
