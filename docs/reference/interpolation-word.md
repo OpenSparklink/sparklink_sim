@@ -161,3 +161,8 @@ PYTHONPATH=src uv run --frozen --no-sync python scripts/model_interpolation_word
 /apidocs/nearlink_sdr/nearlink_sdr.phy.selected_word
 /apidocs/nearlink_sdr/nearlink_sdr.sim.interpolation_flow
 ```
+
+后续SYS-C2E2B-G又观察到实际核心分片124.349秒超原120秒，但4073项零断言失败。
+按真实JUnit将新增alignment-guard与receive-scope两文件移至较短的前端分片，
+不增加进程或删除用例；覆盖率同步划分，仍合并后执行原门限。
+原数值拒绝、两次时间门失败及实际CI状态分别保存，不能用局部测试通过代替接收机验收。
