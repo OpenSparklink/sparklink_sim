@@ -1,5 +1,11 @@
 """Variable actual geometry,causal source,exact ownership and retention failures."""
 
+import hashlib
+import importlib
+import io
+import zipfile
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -13,6 +19,94 @@ from nearlink_sdr.sim.capture_transport import (
     FineService,
 )
 from nearlink_sdr.sim.spline_score import SplineScoreAssumptions, SplineScoreFlow, SyncSignTemplate
+
+
+def archive_reference(path):
+    """Independent exact NPY-member reference;container bytes are separate."""
+    with zipfile.ZipFile(path) as archive:
+        members = {
+            name: dict(
+                sha256=hashlib.sha256(archive.read(name)).hexdigest(), bytes=len(archive.read(name))
+            )
+            for name in archive.namelist()
+        }
+    return dict(
+        original_archive_sha256=hashlib.sha256(path.read_bytes()).hexdigest(), members=members
+    )
+
+
+@pytest.fixture
+def input_container_verifier(monkeypatch):
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1] / "scripts"))
+    return importlib.import_module("model_capture_fine").verify_input_container
+
+
+def test_repacked_container_requires_exact_original_members_and_explicit_derived_mode(
+    tmp_path, input_container_verifier
+):
+    original, derived = tmp_path / "original.npz", tmp_path / "derived.npz"
+    np.savez_compressed(
+        original,
+        iq=np.array([1 + 2j, -0.0 + 0j]),
+        quiet=np.zeros(3),
+        payload=np.array([3, 255], np.uint8),
+    )
+    expected = archive_reference(original)
+    with zipfile.ZipFile(original) as source, zipfile.ZipFile(derived, "w") as target:
+        for name in reversed(source.namelist()):
+            target.writestr(name, source.read(name), compress_type=zipfile.ZIP_STORED)
+    exact = input_container_verifier(original, expected, require_original=True)
+    assert exact["original_archive_hash_matches"]
+    result = input_container_verifier(derived, expected, require_original=False)
+    assert result["exact_original_member_hashes_verified"]
+    assert result["original_archive_sha256"] == expected["original_archive_sha256"]
+    assert result["current_archive_sha256"] == hashlib.sha256(derived.read_bytes()).hexdigest()
+    assert not result["original_archive_hash_matches"]
+    assert result["members"] == exact["members"]
+    with pytest.raises(ValueError, match="Frozen original archive SHA mismatch"):
+        input_container_verifier(derived, expected, require_original=True)
+
+
+@pytest.mark.parametrize(
+    "change", ["one_ulp", "payload_bit", "header", "missing", "extra", "duplicate", "size"]
+)
+def test_derived_mode_rejects_data_header_and_membership_changes(
+    tmp_path, input_container_verifier, change
+):
+    original, derived = tmp_path / "original.npz", tmp_path / "derived.npz"
+    np.savez_compressed(original, iq=np.array([1.0, 2.0]), payload=np.array([3], np.uint8))
+    expected = archive_reference(original)
+    with zipfile.ZipFile(original) as source:
+        members = {name: source.read(name) for name in source.namelist()}
+    if change in ("one_ulp", "payload_bit"):
+        name = "iq.npy" if change == "one_ulp" else "payload.npy"
+        values = np.load(io.BytesIO(members[name]), allow_pickle=False)
+        if change == "one_ulp":
+            values[0] = np.nextafter(values[0], np.inf)
+        else:
+            values[0] ^= 1
+        buffer = io.BytesIO()
+        np.save(buffer, values, allow_pickle=False)
+        members[name] = buffer.getvalue()
+    elif change == "header":
+        # Same numerical values;an altered NPY header is still not the original byte reference.
+        members["iq.npy"] = members["iq.npy"].replace(
+            b"'fortran_order': False", b"'fortran_order': True ", 1
+        )
+    elif change == "missing":
+        del members["payload.npy"]
+    elif change == "extra":
+        members["extra.npy"] = members["iq.npy"]
+    elif change == "size":
+        members["iq.npy"] += b"\0"
+    with zipfile.ZipFile(derived, "w") as target:
+        for name, value in members.items():
+            target.writestr(name, value)
+        if change == "duplicate":
+            with pytest.warns(UserWarning, match="Duplicate name"):
+                target.writestr("iq.npy", members["iq.npy"])
+    with pytest.raises(ValueError, match=r"Input (member|archive)"):
+        input_container_verifier(derived, expected, require_original=False)
 
 
 def word_at(index, path):

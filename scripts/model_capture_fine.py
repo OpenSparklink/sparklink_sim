@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 import math
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -30,8 +31,38 @@ from nearlink_sdr.sim.capture_transport import (
 from nearlink_sdr.sim.spline_score import SyncSignTemplate
 
 INPUTS = Path("tests/data/capture_fine_inputs.json")
+MEMBERS = Path("tests/data/capture_fine_members.json")
 BUDGET = Path("tests/data/spline_fixed_format.json")
 GEOMETRY = {2: (32, 256, 384), 3: (62, 376, 504), 4: (126, 632, 760)}
+
+
+def verify_input_container(path, expected, *, require_original):
+    """Exact source-member bytes,with separate original/derived archive hashes.
+
+    Compression streams can differ across platforms. Frozen-root mode still
+    requires the original archive itself;generated mode is explicitly derived.
+    No array casts,tolerances,header rewriting or payload changes are allowed.
+    """
+    actual = sha(path)
+    original = expected["original_archive_sha256"]
+    if require_original and actual != original:
+        raise ValueError("Frozen original archive SHA mismatch")
+    with zipfile.ZipFile(path) as archive:
+        names = archive.namelist()
+        if len(names) != len(expected["members"]) or set(names) != set(expected["members"]):
+            raise ValueError("Input archive has missing,duplicate or unexpected members")
+        for name, member in expected["members"].items():
+            if archive.getinfo(name).file_size != member["bytes"]:
+                raise ValueError(f"Input member size mismatch:{name}")
+            if hashlib.sha256(archive.read(name)).hexdigest() != member["sha256"]:
+                raise ValueError(f"Input member SHA mismatch:{name}")
+    return dict(
+        original_archive_sha256=original,
+        current_archive_sha256=actual,
+        original_archive_hash_matches=actual == original,
+        exact_original_member_hashes_verified=True,
+        members=expected["members"],
+    )
 
 
 def image_sha(words):
@@ -120,7 +151,11 @@ def observe(folder, meta, profile, iq, quiet, payload):
 
 def load_cases(args, out):
     plan = json.loads(INPUTS.read_text())
+    member_index = json.loads(MEMBERS.read_text())
+    if member_index["source_index_sha256"] != sha(INPUTS):
+        raise ValueError("Original input index does not match frozen member provenance")
     generated = {}
+    containers = {}
     if args.frozen_root is None:
         for held in (False, True):
             for meta, _p, iq, q, payload in frozen_generator.cases(held):
@@ -136,7 +171,13 @@ def load_cases(args, out):
         else:
             iq, q, payload = generated[(split, meta["id"])]
             np.savez_compressed(target, iq=iq, quiet=q, payload=np.frombuffer(payload, np.uint8))
-        assert sha(target) == meta["input_sha256"], name
+        expected_container = member_index["entries"][name]
+        if expected_container["original_archive_sha256"] != meta["input_sha256"]:
+            raise ValueError("Original archive provenance mismatch")
+        containers[name] = verify_input_container(
+            target, expected_container, require_original=args.frozen_root is not None
+        )
+        write(out / "input-containers.json", containers)
         with np.load(target) as ar:
             iq, q, payload = ar["iq"], ar["quiet"], ar["payload"].tobytes()
         profile = validate_profiles(
@@ -234,7 +275,13 @@ def run(args):
             stage="SYS-C1",
             input_index_sha256=sha(INPUTS),
             parent_evidence_sha256=index["parent_index_sha256"],
-            input_mode="frozen" if args.frozen_root else "generated-and-original-SHA-verified",
+            input_mode="frozen"
+            if args.frozen_root
+            else "derived-container-original-members-verified",
+            original_archive_provenance_preserved=True,
+            generated_container_hashes_separately_recorded=True,
+            input_members_sha256=sha(MEMBERS),
+            input_container_ledger="input-containers.json",
             geometry=GEOMETRY,
             clocks=[100000000, 160000000, 200000000],
             owned=3,
@@ -246,6 +293,7 @@ def run(args):
                 for p in (
                     Path(__file__),
                     INPUTS,
+                    MEMBERS,
                     BUDGET,
                     Path("scripts/audit_carrier_loop.py"),
                     Path("scripts/audit_carrier_parallel.py"),
