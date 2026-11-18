@@ -76,6 +76,7 @@ class SplineScoreAssumptions:
     read_latency: int = 1
     multiplier_latency: int = 3
     alu_segment_bits: int = 32
+    reuse_symbol_power: bool = False
 
     def __post_init__(self):
         if (
@@ -88,6 +89,7 @@ class SplineScoreAssumptions:
             or type(self.multiplier_latency) is not int
             or self.alu_segment_bits != 32
             or type(self.alu_segment_bits) is not int
+            or type(self.reuse_symbol_power) is not bool
         ):
             raise ValueError("Need explicit capacity4..640,read1/2,DSP latency3,ALU32")
 
@@ -182,7 +184,59 @@ def _constant_product(value, constant, bits, tag):
     return total
 
 
-def _program(peaks, template, n, minimum, lookahead, reuse, threshold, emit):
+def _symbol_power(word):
+    """Full-growth norm of signed22-bit components;no rounding or saturation."""
+    real = yield from _mul(word[0], word[0], 22, 22, "symbol_power_real")
+    imag = yield from _mul(word[1], word[1], 22, 22, "symbol_power_imag")
+    return (yield from _alu("add", real, imag, 44, "symbol_power", False))
+
+
+def _monitor_tags(reuse_power):
+    """Compiled register slots for every score-node peak-width diagnostic."""
+    products = (
+        "difference_rr",
+        "difference_ii",
+        "difference_ir",
+        "difference_ri",
+        "numerator_real",
+        "numerator_imag",
+        "rank_left",
+        "rank_right",
+        *(
+            ("symbol_power_real", "symbol_power_imag", "energy_product")
+            if reuse_power
+            else ("energy_real", "energy_imag")
+        ),
+    )
+    tags = {
+        p + suffix
+        for p in products
+        for suffix in (".abs_a", ".abs_b", ".tile", ".partial", ".sign")
+    }
+    tags.update(
+        (
+            "phase_accumulator",
+            "phase",
+            "difference_real",
+            "difference_imag",
+            "template_real",
+            "template_imag",
+            "correlation_real",
+            "correlation_imag",
+            "symbol_power" if reuse_power else "difference_power",
+            "energy_sum",
+            "template_sign",
+            "numerator",
+            "normalized_rank",
+            "threshold_left",
+            "threshold_right",
+            "threshold_compare",
+        )
+    )
+    return frozenset(tags)
+
+
+def _program(peaks, template, n, minimum, lookahead, reuse, threshold, emit, reuse_power=False):
     """Nine contexts, no retained18x128 symbol vectors; replay the chosen phase."""
     count = len(template.words) + 1
     guard = math.ceil(math.log2(count - 1))
@@ -194,14 +248,15 @@ def _program(peaks, template, n, minimum, lookahead, reuse, threshold, emit):
             for d in range(-4, 5)
             if 8 * peak + d >= minimum and 8 * peak + d + 32 * (count - 1) < 8 * (n - 1)
         ]
-        states = [[None, 0, 0, 0] for _ in starts]
+        states = [[None, 0, 0, 0, 0] for _ in starts]
         for k in range(count):
             ticks = [s + 32 * k for s in starts]
             shared = (yield dict(code="read", keys=_needed(ticks))) if reuse and ticks else None
             for h, tick in enumerate(ticks):
                 cache = shared if reuse else (yield dict(code="read", keys=_needed([tick])))
                 word = yield from _query(cache, tick)
-                previous, cr, ci, energy = states[h]
+                previous, cr, ci, energy, previous_power = states[h]
+                power = (yield from _symbol_power(word)) if reuse_power else 0
                 if previous is not None:
                     rr = yield from _mul(word[0], previous[0], 22, 22, "difference_rr")
                     ii = yield from _mul(word[1], previous[1], 22, 22, "difference_ii")
@@ -212,13 +267,16 @@ def _program(peaks, template, n, minimum, lookahead, reuse, threshold, emit):
                     tr, ti = yield from _contribution(dr, di, *template.words[k - 1], 46)
                     cr = yield from _alu("add", cr, tr, cb, "correlation_real")
                     ci = yield from _alu("add", ci, ti, cb, "correlation_imag")
-                    er = yield from _mul(dr, dr, 45, 45, "energy_real")
-                    ei = yield from _mul(di, di, 45, 45, "energy_imag")
-                    part = yield from _alu("add", er, ei, 91, "difference_power", False)
+                    if reuse_power:
+                        part = yield from _mul(power, previous_power, 44, 44, "energy_product")
+                    else:
+                        er = yield from _mul(dr, dr, 45, 45, "energy_real")
+                        ei = yield from _mul(di, di, 45, 45, "energy_imag")
+                        part = yield from _alu("add", er, ei, 91, "difference_power", False)
                     energy = yield from _alu("add", energy, part, eb, "energy_sum", False)
-                states[h] = word, cr, ci, energy
+                states[h] = word, cr, ci, energy, power
                 emit("sample", start_tick=starts[h], symbol=k, word=word)
-        for start, (_, cr, ci, energy) in zip(starts, states, strict=True):
+        for start, (_, cr, ci, energy, _) in zip(starts, states, strict=True):
             rr = yield from _mul(cr, cr, cb, cb, "numerator_real")
             ii = yield from _mul(ci, ci, cb, cb, "numerator_imag")
             numerator = yield from _alu("add", rr, ii, 2 * cb + 1, "numerator", False)
@@ -282,6 +340,7 @@ class SplineScoreFlow:
         self.a = SplineScoreAssumptions() if assumptions is None else assumptions
         if not isinstance(self.a, SplineScoreAssumptions):
             raise ValueError("Need explicit SplineScoreAssumptions")
+        self.monitor_tags = _monitor_tags(self.a.reuse_symbol_power)
 
     def run(
         self,
@@ -408,6 +467,7 @@ class SplineScoreFlow:
             self.a.reuse_stencil,
             threshold,
             emit,
+            self.a.reuse_symbol_power,
         )
         counts, peaks_bits, observed_bits = {}, {}, {}
         reads = 0
@@ -450,6 +510,8 @@ class SplineScoreFlow:
                     reply = cache
                 else:
                     code = command["code"]
+                    if command["tag"] not in self.monitor_tags or len(self.monitor_tags) > 80:
+                        raise RuntimeError("Score node lacks a reserved monitor register")
                     counts[code] = counts.get(code, 0) + 1
                     if command["tag"] == "phase_accumulator":
                         counts["constant_shifted_operands"] = (
@@ -499,9 +561,11 @@ class SplineScoreFlow:
                     if not lo <= reply < hi:
                         emit("overflow", **command, result=reply)
                         raise OverflowError("Explicit finite arithmetic bound exceeded")
+                    observed_width = abs(reply).bit_length() + int(command["signed"])
+                    if observed_width >= 256:
+                        raise OverflowError("Peak-width monitor exceeds reserved8-bit slot")
                     observed_bits[command["tag"]] = max(
-                        observed_bits.get(command["tag"], 0),
-                        abs(reply).bit_length() + int(command["signed"]),
+                        observed_bits.get(command["tag"], 0), observed_width
                     )
                     emit("op_complete", tag=command["tag"], result=reply)
                 command = program.send(reply)
@@ -566,13 +630,20 @@ def spline_score_cost(assumptions=None):
         held_output_word_valid=45,
         control_loop_descriptors=512,
         operation_counters=10 * 64,
-        peak_bit_monitors=40 * 16,
+        peak_bit_monitors=80 * 8,
     )
+    if a.reuse_symbol_power:
+        fields.update(nine_previous_powers=9 * 44, current_symbol_power=44, power_context_index=4)
     return dict(
         assumptions=vars(a),
         shared_preparation_banks=banks,
         additional_query_state_upper_bits=sum(fields.values()),
         state_components=fields,
+        peak_bit_monitor_slots=len(_monitor_tags(a.reuse_symbol_power)),
+        peak_bit_monitor_reserved_slots=80,
+        peak_bit_monitor_slot_bits=8,
+        peak_bit_monitor_tags=sorted(_monitor_tags(a.reuse_symbol_power)),
+        peak_monitor_update="one completed op per cycle;reserved80x8bit registers hold bit counts,not node values;LZ/decode/max pipeline and LUT/FF not synthesized",
         preparation_state_not_subtracted_as_free_sharing=True,
         shared_DSP25x18_count=1,
         serial_alu_segment_bits=32,

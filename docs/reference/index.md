@@ -105,6 +105,7 @@ rx-failure-controls
 sync-carrier-initialization
 capture-transport
 capture-fine-integration
+spline-power
 rrc-memory
 spline-preparation
 spline-fixed

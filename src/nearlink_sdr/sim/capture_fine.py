@@ -67,7 +67,9 @@ class CaptureFineWorker:
     Raw RAM is the borrowed immutable owned slot; workingY/M banks are additional.
     """
 
-    def __init__(self, template, window, *, confirmation_required, sink=None):
+    def __init__(
+        self, template, window, *, confirmation_required, sink=None, reuse_symbol_power=False
+    ):
         if not isinstance(template, SyncSignTemplate) or (len(template.words) + 1, window) not in (
             (32, 256),
             (62, 376),
@@ -80,7 +82,9 @@ class CaptureFineWorker:
             raise ValueError("Need explicit confirmation-required mode")
         self.template, self.window, self.sink = template, window, sink
         self.confirmation_required = confirmation_required
-        self.engine = SplineScoreFlow(SplineScoreAssumptions(capacity=window))
+        self.engine = SplineScoreFlow(
+            SplineScoreAssumptions(capacity=window, reuse_symbol_power=reuse_symbol_power)
+        )
 
     def __call__(self, event, owned_words):
         request = event.get("geometry")

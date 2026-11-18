@@ -32,7 +32,9 @@ jobs:
         run: uv sync --frozen
 
       - name: Ruff check
-        run: make lint
+        run: |
+          make lint
+          uv run --frozen --no-sync ruff check scripts/model_spline_power.py
 
   rust:
     name: Rust Quality
@@ -219,6 +221,15 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; from pathlib import Path; p=Path("receiver-diagnostics/capture-fine"); r=[json.loads(f.read_text()) for f in p.glob("*-fine-*.json")]; pending=[x for x in r if x["service"]["disposition"] == "confirm_pending"]; assert len(r) == 30 and len(pending) == 19; assert sum(not x["microtrace"]["best"]["threshold_pass"] for x in pending) == 4; assert all(x["service"]["disposition"] != "below_threshold" for x in r)'
           uv run --frozen --no-sync python -c 'import json; from pathlib import Path; p=Path("receiver-diagnostics/capture-fine"); c=json.loads((p/"input-containers.json").read_text()); assert len(c) == 24 and all(x["exact_original_member_hashes_verified"] for x in c.values()); assert all(r["EOF_filter_flush_words"] == 42 for r in json.loads((p/"rows.json").read_text())); assert json.loads((p/"protocol.json").read_text())["input_mode"] == "derived-container-original-members-verified"'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/capture-fine"); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in json.loads((p/"manifest.json").read_text()).items())'
+      - name: Preserve full-growth power reuse and resource failures
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_spline_power.py --capture-root receiver-diagnostics/capture-fine --output receiver-diagnostics/spline-power >spline-power.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/spline-power/model.json")); assert d["all_completed_node_values_exact"] and d["old_default_microtraces_exact"] and d["all_actual_candidate_scores_and_samples_exact"]; assert len(d["node_sets"]["development"]) == len(d["node_sets"]["validation"]) == 8 and len(d["regressions"]) == 30; assert d["initial444bit_gate_pass"] and d["actual_incremental_state_bits"] == [444]*3; assert len(d["node_numerical_rejections"]) == 1 and not d["node_numerical_rejections"][0]["independent_fraction_and_difference_square_checked"]; assert sum(r["baseline_cycles"] for r in d["regressions"]) == 4180197 and sum(r["reused_cycles"] for r in d["regressions"]) == 3872765; assert all(r["every_candidate_score_and_sample_exact"] for r in d["regressions"]); assert not d["whole_receiver16msps"] and not d["default_changed"]'
+          uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/spline-power/model.json")); assert all(c["False"]["fine"]["additional_query_state_upper_bits"] == 6657 and c["True"]["fine"]["additional_query_state_upper_bits"] == 7101 and c["True"]["fine"]["peak_bit_monitor_reserved_slots"] == 80 for c in d["costs"].values()); assert all(sum(s["completed"] for s in d["schedules"] if s["reuse"] == v and s["clock"] == c) == 28 and sum(s["queue_drops"] for s in d["schedules"] if s["reuse"] == v and s["clock"] == c) == 2 and sum(s["potential_continuation_retention_lost"] for s in d["schedules"] if s["reuse"] == v and s["clock"] == c) == 17 for v in (False,True) for c in (100000000,160000000,200000000))'
+          uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/spline-power"); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in json.loads((p/"manifest.json").read_text()).items())'
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -244,6 +255,7 @@ jobs:
             carrier-fixed-*.log
             carrier-parallel-*.log
             capture-fine.log
+            spline-power.log
             receiver-diagnostics/
 
   optional-sm3:
