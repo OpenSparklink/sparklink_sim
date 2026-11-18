@@ -1,0 +1,44 @@
+{
+  "stage": "SYS-C2E1",
+  "target": "4Msym/s QPSK/8PSK16MS/s;FT2/3/4 first;FT1 separate",
+  "complete": false,
+  "gates": {
+    "complete_streaming": {
+      "passed": false,
+      "evidence": "strict floating stream exists;selected port now stops at real frame boundary",
+      "gaps": [
+        "physical replay/actual service feedback",
+        "FT1/GFSK complete arbitrary-block path",
+        "target support matrix closure"
+      ]
+    },
+    "full_fixed_point": {
+      "passed": false,
+      "evidence": "RRC/differential/scoring and isolated carrier nodes exist",
+      "gaps": [
+        "word-full12-c18 .0234835255681227 exceeds original .02",
+        "selected interpolation/timing/coherent/header/LLR/decoder chain not all finite words"
+      ]
+    },
+    "system_resources": {
+      "passed": false,
+      "evidence": "actual ANTSDR xc7z020clg400-1 and baseline known;system-target-ledger.json",
+      "gaps": [
+        "all RX/TX/Polar/realMAC/crypto/DMA concurrent budgets not closed",
+        "old16KiB failure retained",
+        "three private tails24BRAM not target adopted"
+      ]
+    },
+    "continuous_16msps": {
+      "passed": false,
+      "evidence": "isolated executable RRC/fine/word transport calendars;not whole receiver",
+      "gaps": [
+        "selected decoder/interpolator/head service unknown,not zero",
+        "early stop not in actual transport scheduler",
+        "100/160/200MHz full-chain ports/queue/deadlines unresolved"
+      ]
+    }
+  },
+  "budget_changes": "prospective cost/performance decision,freeze before independent new validation;old failures unchanged",
+  "TX": "resources reserved/planned now;no large implementation before RX gates"
+}

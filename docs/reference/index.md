@@ -109,6 +109,7 @@ spline-power
 spline-geometry
 score-word-arithmetic
 capture-tail
+selected-frame
 rrc-memory
 spline-preparation
 spline-fixed

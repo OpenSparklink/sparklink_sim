@@ -1,0 +1,30 @@
+{
+  "stage": "SYS-C2E1",
+  "scope": "selected filtered-port functional/availability reference,not RF capture or hardware cadence",
+  "coherent_Q": 0.45,
+  "tail_words": 4096,
+  "retained_prefix_rule": "owned_window_plus_first4096;hypothetical availability,not actual C2D overwrite history",
+  "carrier_method": "coherent",
+  "same_backend_partition_exact": true,
+  "backend_centers_atol": 2e-9,
+  "backend_symbols_atol": 2e-9,
+  "backend_rate_ppm_atol": 2e-6,
+  "decision_exact": true,
+  "development": {
+    "seed": 910117,
+    "pid": 1,
+    "profiles": [[2,8,0,11],[3,12,8,59],[4,8,0,211],[2,6,8,521],[3,0,0,37],[4,12,8,797],[2,12,0,139],[3,8,8,401]],
+    "kinds": ["clean","tone","wrong_sync","burst","noise","amplitude_step","tone_burst","clean"],
+    "cfo_hz": [-37000,21000], "sro_ppm": [100,-50], "offset": 0.213
+  },
+  "validation": {
+    "seed": 910333,
+    "pid": 4,
+    "profiles": [[4,12,0,7],[2,8,8,173],[3,6,0,467],[4,0,8,89],[2,12,8,1023],[3,12,0,257],[4,8,8,613],[2,6,0,29]],
+    "kinds": ["clean","wrong_sync_tone","double_burst","noise","amplitude_step","two_tone","tone_burst","clean"],
+    "cfo_hz": [43000,-17000], "sro_ppm": [-100,25], "offset": 0.731
+  },
+  "negative_samples_each_split": [4096,6144,8192,10240],
+  "negative_kinds": ["silence","noise","tone","wrong_sync"],
+  "adoption": "functional reference port only;no algorithm/default promotion;remaining schedules unknown"
+}

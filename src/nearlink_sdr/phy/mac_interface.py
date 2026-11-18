@@ -13,6 +13,7 @@ import struct
 __all__ = [
     "MacCaptureResult",
     "MacRxResult",
+    "MacSelectedReceiver",
     "MacStreamReceiver",
     "QosLink",
     "bits_to_bytes",
@@ -195,6 +196,21 @@ class MacStreamReceiver:
     def finish(self) -> MacCaptureResult:
         """Flush once and return final candidates, including unfinished truncations."""
         return self._wrap(self.phy.finish())
+
+
+class MacSelectedReceiver(MacStreamReceiver):
+    """Strict MAC adapter for an already-filtered,already-selected PSK candidate."""
+
+    def __init__(self, profile, **selection):
+        from nearlink_sdr.phy.selected_rx import SelectedPSKReceiver
+
+        self.phy = SelectedPSKReceiver(profile, **selection)
+
+    def feed_filtered(self, samples):
+        return self._wrap(self.phy.feed_filtered(samples))
+
+    def finish(self, *, reason="eof"):
+        return self._wrap(self.phy.finish(reason=reason))
 
 
 def iq_to_mac(

@@ -34,7 +34,7 @@ jobs:
       - name: Ruff check
         run: |
           make lint
-          uv run --frozen --no-sync ruff check scripts/model_spline_power.py scripts/model_spline_geometry.py scripts/model_score_words.py scripts/model_capture_tail.py
+          uv run --frozen --no-sync ruff check scripts/model_spline_power.py scripts/model_spline_geometry.py scripts/model_score_words.py scripts/model_capture_tail.py scripts/model_selected_frame.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 \
             src/nearlink_sdr/sim/word_arithmetic.py \
             src/nearlink_sdr/sim/score_word_runtime.py \
@@ -46,7 +46,10 @@ jobs:
             tests/test_score_word_runtime.py \
             tests/test_capture_tail.py \
             scripts/model_score_words.py \
-            scripts/model_capture_tail.py
+            scripts/model_capture_tail.py \
+            src/nearlink_sdr/phy/selected_rx.py \
+            tests/test_selected_rx.py \
+            scripts/model_selected_frame.py
 
   rust:
     name: Rust Quality
@@ -293,6 +296,30 @@ jobs:
           manifest = json.loads((p / "manifest.json").read_text())
           assert all(hashlib.sha256((p/k).read_bytes()).hexdigest()==v for k,v in manifest.items())
           PY
+      - name: Verify selected-frame reference and preserve finite retention failures
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_selected_frame.py --capture-root receiver-diagnostics/capture-fine --score-root receiver-diagnostics/score-words --output receiver-diagnostics/selected-frame >selected-frame.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import hashlib, json
+          from pathlib import Path
+          p = Path("receiver-diagnostics/selected-frame")
+          d = json.loads((p / "model.json").read_text())
+          assert d["fixed_requests"] == 30 and d["scored"] == 19
+          assert d["accepted"] == d["full_header_crc"] == 15
+          assert d["full_data_crc"] == d["full_payload"] == 13
+          assert d["prefix_payload"] == 6 and d["prefix_limits"] == 8
+          assert d["prefix_sufficient"] == 11 and d["partition_exact"]
+          assert not d["default_RX_changed"] and not d["whole_receiver16msps"]
+          assert not d["full_system_resources_accepted"] and d["RF_capture_gain"] is None
+          assert [r["selected_full"] for r in d["fresh"]] == [7, 7]
+          assert [r["selected_prefix"] for r in d["fresh"]] == [2, 3]
+          assert not any(r["false_deliveries"] for r in d["fresh"])
+          assert all(hashlib.sha256((p/k).read_bytes()).hexdigest()==v
+                     for k,v in json.loads((p / "manifest.json").read_text()).items())
+          PYCODE
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -322,6 +349,7 @@ jobs:
             spline-geometry.log
             score-words.log
             capture-tail.log
+            selected-frame.log
             receiver-diagnostics/
 
   optional-sm3:

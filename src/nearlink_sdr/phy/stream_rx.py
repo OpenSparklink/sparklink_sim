@@ -685,16 +685,20 @@ class PSKStreamReceiver:
             return
         self.capture_stats['sync_candidates'] += 1
         start = origin+found['phase']+found['offset']*self.sps
+        self._activate_selected(start, found['delta'], found['score'], confirmation)
+
+    def _activate_selected(self, start, delta, score, confirmation=None):
+        """Shared selected-candidate initialization; no search or CRC retry here."""
         centers = start+np.arange(len(self.reference))*self.sps
         raw = np.array([_cubic(self._filtered, self._origin, t) for t in centers])
         t = np.arange(len(raw))
-        corrected = raw*np.exp(-1j*found['delta']*t)
+        corrected = raw*np.exp(-1j*delta*t)
         slope, phase = np.polyfit(t, np.unwrap(np.angle(corrected*self.reference.conj())), 1)
         gain = max(float(np.mean(abs(corrected))), 1e-30)
         loop = GardnerPIState(self.sps, float(np.mean(abs(raw)**2)), self.timing_config)
         self._active = dict(start=start, next=start, previous=raw[0], previous_t=start,
                             count=0, end=None, header=None, loop=loop,
-                            slope=slope+found['delta'], phase=phase, gain=gain, score=found['score'])
+                            slope=slope+delta, phase=phase, gain=gain, score=score)
         if confirmation is not None:
             self._active['sync_confirmation'] = confirmation
         self._active['native'] = None

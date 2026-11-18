@@ -276,6 +276,21 @@
           "no_new_capture_demand": true,
           "RF_waveform_verified": false
         }
+      },
+      "selected_frame_reference": {
+        "stage": "SYS-C2E1",
+        "status": "functional only;not complete fixed/cycle acceptance",
+        "filtered_input": "one selected result;noCRC retry;existing cubic/Gardner",
+        "tail_prefix_words": 4096,
+        "actual_frame_end": "from realCRC/length/MCS header and observed timing trajectory",
+        "fixed_requests": 30,
+        "scored": 19,
+        "full_correct": 13,
+        "prefix_correct": 6,
+        "prefix_capacity_failures": 8,
+        "service_cycles": null,
+        "hardware_resource_allocation_approved": false,
+        "no_extra_copy_or_relay_II_credit": true
       }
     },
     {
