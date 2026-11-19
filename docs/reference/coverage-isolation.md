@@ -94,3 +94,17 @@ Rust当次核心69.060秒、前端56.486秒；不同runner的耗时不能相互�
 正常新运行预期18项作业、15份官方制品；必须核验实际数量、状态、后端和原始字节。
 六份单元原件分别保留并核对汇总制品；覆盖率三份原件核对合并来源。
 新增CI并发不证明任何FPGA资源、接收增益或整链16MS/s能力。
+
+
+## H3 核心分片再平衡
+
+实际 CI44555008965 的六份独立单元报告均小于120秒，两个完整算法验证作业通过，
+覆盖率为93.25%；但覆盖率核心分片131.425秒超出原120秒门，汇总作业因此失败。
+前端45.383秒、RRC52.166秒；不能用覆盖率或其他作业成功覆盖这次超时。
+原报告、每用例耗时及全部失败结论保存于`timing-divider-prefix/CI-coverage-budget-failure.json`。
+
+按该次JUnit归并模块后，将已有overlapped-normalization-replay、normalized-word-replay、
+normalization-overlap-model、pipelined-timing-replay、normalization-word及finite-timing-replay
+六模块共31.158秒的用例工作移到前端片。单元测试与覆盖率使用同一成员调整，
+仍为原三片、原全部用例、原120秒和90.1%覆盖率门。预计的负载平衡不是远端通过证据，
+必须另核对新提交的实际作业、原始报告与制品。没有改变任何接收源码、参数或硬件预算。
