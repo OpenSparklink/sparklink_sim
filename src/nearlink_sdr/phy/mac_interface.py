@@ -95,9 +95,16 @@ def mac_to_iq(
         if cfg.ctrl_bits_len != 27:
             raise ValueError("B1 MAC transmission requires ctrl_bits_len=27")
         if ctrl_info is None:
-            ctrl_info = ControlInfoB1(0, 0, 0, cfg.mcs_index, len(mac_payload), 0, 0)
+            wire_length = len(mac_payload) + cfg.crc_len // 8 if mac_payload else 0
+            if wire_length > 2047:
+                raise ValueError("B1 payload plus data CRC exceeds the 11-bit wire length")
+            ctrl_info = ControlInfoB1(0, 0, 0, cfg.mcs_index, wire_length, 0, 0)
         if not isinstance(ctrl_info, ControlInfoB1):
             raise ValueError("FT3/4 MAC transmission requires B1 control information")
+        from nearlink_sdr.phy.control_length import control_data_length
+        payload_length, data_present = control_data_length(ctrl_info.data_length, "B1", cfg.crc_len)
+        if payload_length != len(mac_payload) or ctrl_info.mcs != cfg.mcs_index:
+            raise ValueError("B1 control length/MCS must match the actual payload plus data CRC")
         ctrl_bits = ctrl_info.pack(llid=cfg.head_llid)
     else:
         if cfg.ctrl_bits_len not in (20, 28):
@@ -108,10 +115,11 @@ def mac_to_iq(
             raise ValueError("FT1/2 MAC transmission requires A2 control information")
         ctrl_bits = ctrl_info.pack(sync_seed=head_crc_parameters(cfg)[2],
                                   lqi=0 if cfg.ctrl_bits_len == 28 else None)
-    if ctrl_info.data_length != len(mac_payload):
+    if cfg.frame_type not in (3, 4) and ctrl_info.data_length != len(mac_payload):
         raise ValueError("Control length must equal the actual MAC payload length")
 
-    return tx_chain(ctrl_bits, data_bits, cfg)
+    return tx_chain(ctrl_bits, data_bits, cfg,
+                    data_present=data_present if cfg.frame_type in (3, 4) else True)
 
 
 def signaling_to_iq(msg: object, cfg: TxConfig) -> np.ndarray:

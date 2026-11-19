@@ -19,7 +19,8 @@ def transmitted(profile, *, bad_head=False, bad_data=False, empty=False, mcs=Non
     payload = np.random.default_rng(payload_seed).integers(0, 256, length, dtype=np.uint8).tobytes()
     data = np.unpackbits(np.frombuffer(payload, dtype=np.uint8), bitorder=profile.payload_bitorder)
     if profile.control_format == "B1":
-        head = ControlInfoB1(0, 0, 0, cfg.mcs_index if mcs is None else mcs, length, 0, 0)
+        raw_length = length + (cfg.crc_len // 8 if profile.length_contract == "standard" else 0)
+        head = ControlInfoB1(0, 0, 0, cfg.mcs_index if mcs is None else mcs, raw_length, 0, 0)
         raw = head.pack(cfg.head_llid)
     else:
         parser = ControlInfoA2 if profile.control_format == "A2" else ControlInfoA3
@@ -69,7 +70,8 @@ def test_unknown_start_and_header_length_reach_mac(ft, mcs, pilot):
     assert [p.mac_payload for p in result.packets] == [payload]
     row, = result.diagnostics["frames"]
     assert row["header_crc"] and row["data_crc"] and row["length_ok"]
-    assert row["header"]["data_length"] == 37 and row["mcs"] == mcs
+    assert row["header"]["data_length"] == 37 + (cfg.crc_len // 8 if ft != 2 else 0)
+    assert row["payload_length_bytes"] == 37 and row["mcs"] == mcs
     assert result.packets[0].header == row["header"]
 
 

@@ -24,7 +24,7 @@ def make_profile(ft, mcs, pilot=8):
         frame_type=ft, mcs_index=mcs, ctrl_bits_len=28 if ft == 2 else 27,
         head_llid=0x234567 if ft >= 3 else None, pilot_interval=pilot,
         symbol_rate_mhz=4, crc_seed=0x123456, whitening_seed=0x52,
-    ))
+    ), length_contract="standard" if ft == 2 else "legacy-b1-payload-length")
 
 
 def receive(profile, x, quiet, chunks):

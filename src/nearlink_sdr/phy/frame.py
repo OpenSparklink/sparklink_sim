@@ -236,7 +236,8 @@ def frame_to_symbols(
     ctrl_cfg = _CTRL_CONFIG[config.frame_type]
     ctrl_wire = map_psk_field(fields.ctrl_bits, ctrl_cfg["ctrl_mod"], symbol_count,
                               ctrl_cfg["pilot_interval"],
-                              omit_last=not len(fields.data_bits) or config.pilot_interval == 0)
+                              omit_last=(config.frame_type == 2 and not len(fields.data_bits))
+                              or config.pilot_interval == 0)
     segments.append(ctrl_wire)
     symbol_count += len(ctrl_wire)
     if len(fields.data_bits):

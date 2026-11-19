@@ -23,7 +23,10 @@ def ordinary(ft=2, mcs=8, pilot=0):
             symbol_rate_mhz=4,
             ctrl_bits_len=28 if ft == 2 else 27,
             head_llid=0x234567 if ft != 2 else None,
-        )
+        ),
+        # Frozen selected-word experiments used B1 payload-only lengths. Preserve
+        # their exact wire bytes as an explicit nonstandard fixed regression.
+        length_contract="standard" if ft == 2 else "legacy-b1-payload-length",
     )
 
 

@@ -208,17 +208,29 @@ def tx_chain(
     ctrl_info_bits: np.ndarray,
     data_bits: np.ndarray,
     cfg: TxConfig,
+    *,
+    data_present: bool = True,
 ) -> np.ndarray:
     """完整发射链路: 头部编码 + 载荷编码 → 帧组装 → 调制。
 
     :param ctrl_info_bits: 控制信息 + CRC12 比特。
     :param data_bits: 原始数据比特 (不含 CRC)。
     :param cfg: 发射配置。
+    :param data_present: False仅用于经过校验的B1零长度控制帧，不附加载荷CRC。
     :returns: 基带 IQ 信号 (complex128), 长度 = 帧符号数 × sps。
     """
-    # 编码
+    if type(data_present) is not bool:
+        raise ValueError("data_present must be boolean")
+    if not data_present:
+        from nearlink_sdr.phy.control_info import ControlInfoB1
+        if (cfg.frame_type not in (3, 4) or len(data_bits) != 0
+                or cfg.ctrl_bits_len != 27):
+            raise ValueError("Only an empty B1 control frame can omit data and its CRC")
+        if ControlInfoB1.unpack(np.asarray(ctrl_info_bits), cfg.head_llid).data_length != 0:
+            raise ValueError("Omitting B1 data requires a real CRC-checked zero length header")
+    # 编码；已知配置的理想API默认仍附加数据CRC，MAC适配层提供实际B1字段语义。
     head_w = encode_head(ctrl_info_bits, cfg)
-    payload_w = encode_payload(data_bits, cfg)
+    payload_w = encode_payload(data_bits, cfg) if data_present else np.empty(0, np.uint8)
 
     # 帧组装
     frame_cfg = FrameConfig(

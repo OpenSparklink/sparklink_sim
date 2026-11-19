@@ -42,6 +42,8 @@ jobs:
           uv run --frozen --no-sync ruff check scripts/model_normalization_overlap.py
           uv run --frozen --no-sync ruff check scripts/model_timing_divider.py
           uv run --frozen --no-sync ruff check scripts/model_control_polar.py
+          uv run --frozen --no-sync ruff check scripts/check_b1_length.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/check_b1_length.py tests/test_control_length.py tests/test_b1_wire_length.py src/nearlink_sdr/phy/control_length.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_control_polar.py src/nearlink_sdr/phy/control_polar_word.py src/nearlink_sdr/sim/control_polar_flow.py tests/test_control_polar_word.py tests/test_control_polar_flow.py tests/test_control_polar_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_timing_divider.py tests/test_timing_divider_prefix.py tests/test_timing_divider_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_normalization_overlap.py src/nearlink_sdr/sim/normalization_pipeline.py src/nearlink_sdr/sim/overlapped_normalization_replay.py tests/test_normalization_pipeline.py tests/test_overlapped_normalization_replay.py tests/test_normalization_overlap_model.py
@@ -948,6 +950,13 @@ jobs:
               assert row["cost"]["prospective_capacity_budget_met"]
               assert row["cost"]["unmodeled_head_demap_descramble_CRC_fields_cycles"] is None
           PYCODE
+      - name: Verify original SHA-frozen B1 length counterexamples
+        if: always()
+        env:
+          B1_EXPECTED_RUST: ${{ matrix.backend == 'rust' && 'yes' || 'no' }}
+        run: |
+          uv run --frozen --no-sync python scripts/check_b1_length.py --expected-rust "$B1_EXPECTED_RUST" --output receiver-diagnostics/B1-length >B1-length.log 2>&1
+          cat B1-length.log
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -955,6 +964,7 @@ jobs:
           name: test-results-${{ matrix.backend }}
           path: |
             report-*.xml
+            B1-length.log
             test-budget.json
             test-*.log
             build.log

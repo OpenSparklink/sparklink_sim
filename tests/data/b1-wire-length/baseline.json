@@ -1,0 +1,145 @@
+{
+  "scope": "Independent length-contract regression, not whole SLE conformance; original bytes unchanged",
+  "source": {
+    "src/nearlink_sdr/phy/strict_rx.py": "04936fe37be9b639d2bc365765f57e646070186309623818960923dadda41642",
+    "src/nearlink_sdr/phy/control_info.py": "a38a4b98de27e3644e2fa1b9c7bd1c8edcf1bf2a44f9c126fce42a1d86ae314e",
+    "src/nearlink_sdr/phy/rx_pipeline.py": "8aa4926d4995284ccec962c30fd6bb9f7c6829931fafc01e4ec977017fbc9d93"
+  },
+  "rows": [
+    {
+      "frame_type": 2,
+      "CRC_width": 24,
+      "raw_header_length": 36,
+      "payload_bytes": 36,
+      "physical_data_bytes": 39,
+      "wire_length_relation": "A2:data+MIC;B1:data+MIC+CRC",
+      "independent_data_CRC": true,
+      "aligned_status": "valid",
+      "aligned_header_CRC": true,
+      "aligned_model_frame_end": 241,
+      "actual_frame_end": 241,
+      "unknown_start_statuses": [
+        "valid"
+      ],
+      "MAC_delivered": [
+        "d97055b23081569d19b50eadea9bd46124e622856c49749ed26d5020c6c01b911fcb1254"
+      ],
+      "expected_payload": "d97055b23081569d19b50eadea9bd46124e622856c49749ed26d5020c6c01b911fcb1254",
+      "input_sha256": "2842a2c41af2128b3a8d42c3a015811b480a0410923565f56eaa6238de1d5cd1",
+      "known_transmitter_sync_time_diagnostic_only": 672.277,
+      "actual_receiver_uses_no_truth": true
+    },
+    {
+      "frame_type": 2,
+      "CRC_width": 32,
+      "raw_header_length": 35,
+      "payload_bytes": 35,
+      "physical_data_bytes": 39,
+      "wire_length_relation": "A2:data+MIC;B1:data+MIC+CRC",
+      "independent_data_CRC": true,
+      "aligned_status": "valid",
+      "aligned_header_CRC": true,
+      "aligned_model_frame_end": 241,
+      "actual_frame_end": 241,
+      "unknown_start_statuses": [
+        "valid"
+      ],
+      "MAC_delivered": [
+        "13573336c29bc7d8fdff547d38f913f3951afc694ad2ed5a3674d0f321cc822e3ea6ab"
+      ],
+      "expected_payload": "13573336c29bc7d8fdff547d38f913f3951afc694ad2ed5a3674d0f321cc822e3ea6ab",
+      "input_sha256": "415a08dac3ade75923fb5b02b584b7f0530510308c2a35d97a5766ec62a2b83a",
+      "known_transmitter_sync_time_diagnostic_only": 672.277,
+      "actual_receiver_uses_no_truth": true
+    },
+    {
+      "frame_type": 3,
+      "CRC_width": 24,
+      "raw_header_length": 39,
+      "payload_bytes": 36,
+      "physical_data_bytes": 39,
+      "wire_length_relation": "A2:data+MIC;B1:data+MIC+CRC",
+      "independent_data_CRC": true,
+      "aligned_status": "truncated_data",
+      "aligned_header_CRC": true,
+      "aligned_model_frame_end": 410,
+      "actual_frame_end": 397,
+      "unknown_start_statuses": [
+        "bad_data_crc"
+      ],
+      "MAC_delivered": [],
+      "expected_payload": "deb8ffd1a1e90d82c4e2de3e202c059e1a1d219aac9ca1318444a6035fa6e234308b2514",
+      "input_sha256": "a836365830c58cd7ca80fa9c1c50ce6b623d67c12f38f66396840ada925a328a",
+      "known_transmitter_sync_time_diagnostic_only": 704.277,
+      "actual_receiver_uses_no_truth": true
+    },
+    {
+      "frame_type": 3,
+      "CRC_width": 32,
+      "raw_header_length": 39,
+      "payload_bytes": 35,
+      "physical_data_bytes": 39,
+      "wire_length_relation": "A2:data+MIC;B1:data+MIC+CRC",
+      "independent_data_CRC": true,
+      "aligned_status": "truncated_data",
+      "aligned_header_CRC": true,
+      "aligned_model_frame_end": 415,
+      "actual_frame_end": 397,
+      "unknown_start_statuses": [
+        "bad_data_crc"
+      ],
+      "MAC_delivered": [],
+      "expected_payload": "52188de2b9aa55c70a91dbf053838d9080f565cede808c251197027a5aba0e717005c9",
+      "input_sha256": "133a55b4db5d9265b8efbe5e37ea3a9b067cb018ab0b0375146b57dd27dbc680",
+      "known_transmitter_sync_time_diagnostic_only": 704.277,
+      "actual_receiver_uses_no_truth": true
+    },
+    {
+      "frame_type": 4,
+      "CRC_width": 24,
+      "raw_header_length": 39,
+      "payload_bytes": 36,
+      "physical_data_bytes": 39,
+      "wire_length_relation": "A2:data+MIC;B1:data+MIC+CRC",
+      "independent_data_CRC": true,
+      "aligned_status": "truncated_data",
+      "aligned_header_CRC": true,
+      "aligned_model_frame_end": 634,
+      "actual_frame_end": 621,
+      "unknown_start_statuses": [
+        "bad_data_crc"
+      ],
+      "MAC_delivered": [],
+      "expected_payload": "52188de2b9aa55c70a91dbf053838d9080f565cede808c251197027a5aba0e717005c9e9",
+      "input_sha256": "d2da483adb35d1a606845a8414c2f320fde821ff1a95dca570a5efb3e7981fe3",
+      "known_transmitter_sync_time_diagnostic_only": 768.277,
+      "actual_receiver_uses_no_truth": true
+    },
+    {
+      "frame_type": 4,
+      "CRC_width": 32,
+      "raw_header_length": 39,
+      "payload_bytes": 35,
+      "physical_data_bytes": 39,
+      "wire_length_relation": "A2:data+MIC;B1:data+MIC+CRC",
+      "independent_data_CRC": true,
+      "aligned_status": "truncated_data",
+      "aligned_header_CRC": true,
+      "aligned_model_frame_end": 639,
+      "actual_frame_end": 621,
+      "unknown_start_statuses": [
+        "bad_data_crc"
+      ],
+      "MAC_delivered": [],
+      "expected_payload": "2933046d171abda94e5cb1c48a764d6ce82bf6e0b41f0c00c9df2531ff7d93287cdeee",
+      "input_sha256": "aec1c58d9fc7f51396b64423659f36bad2e9c2d4ae7fcabd5d8b3ffb9fb40a29",
+      "known_transmitter_sync_time_diagnostic_only": 768.277,
+      "actual_receiver_uses_no_truth": true
+    }
+  ],
+  "B1_known_defect": true,
+  "A2_semantics_must_not_be_changed_to_include_CRC": true,
+  "source_or_IQ_modified": false,
+  "CRC_used_to_select_sync_phase_timing_or_carrier": false,
+  "published_baseline_commit": "fd715ab5200ee0c54b68ff6f03ae444e589163ea"
+}

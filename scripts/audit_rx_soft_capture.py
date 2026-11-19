@@ -116,7 +116,10 @@ def diagnostic_bits(e, profile):
         llr = soft_demap_psk_field(
             y, cfg.mod_str, start, info["variance"], cfg.pilot_interval, method=info["method"]
         )[: f["coded_bits"]]
-    bits, ok = decode_payload(hard, cfg, f["header"]["data_length"] * 8, llr=llr)
+    from nearlink_sdr.phy.control_length import control_data_length
+    size, _ = control_data_length(f["header"]["data_length"], profile.control_format,
+                                  cfg.crc_len, contract=profile.length_contract)
+    bits, ok = decode_payload(hard, cfg, size * 8, llr=llr)
     assert bool(ok) == f["data_crc"]
     return bits
 

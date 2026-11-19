@@ -9,6 +9,7 @@ from itertools import islice
 import numpy as np
 
 from nearlink_sdr.phy.control_info import ControlInfoA2, ControlInfoA3, ControlInfoB1
+from nearlink_sdr.phy.control_length import control_data_length
 from nearlink_sdr.phy.psk import PSKModulator, refine_psk_carrier
 from nearlink_sdr.phy.psk_fields import demap_psk_field, psk_field_layout, soft_demap_psk_field
 from nearlink_sdr.phy.sync_sequence import sync_signal_2, sync_signal_3, sync_signal_4
@@ -38,6 +39,7 @@ class PSKReceiveProfile:
     soft_payload: bool = True
     noise_variance: float | None = None
     llr_method: str = "maxlog"
+    length_contract: str = "standard"
 
     def __post_init__(self):
         try:
@@ -57,6 +59,7 @@ class PSKReceiveProfile:
             raise ValueError("Strict PSK profiles support FT2/3/4; GFSK requires another frontend")
         if self.control_format not in ("A2", "A3", "B1"):
             raise ValueError("Explicit A2, A3 or B1 control format is required")
+        control_data_length(0, self.control_format, cfg.crc_len, contract=self.length_contract)
         if (cfg.frame_type == 2) != (self.control_format != "B1"):
             raise ValueError("Control format does not match frame type")
         expected = (27 if self.control_format == "B1" else
@@ -85,13 +88,15 @@ class PSKReceiveProfile:
 
     @classmethod
     def ordinary(cls, cfg: TxConfig, *, control_format: str | None = None,
-                 has_lqi: bool | None = None, max_payload_bytes: int = 2047):
+                 has_lqi: bool | None = None, max_payload_bytes: int = 2047,
+                 length_contract: str = "standard"):
         """Known negotiated PHY parameters; never infer a control layout using CRC."""
         if control_format is None:
             control_format = "A2" if cfg.frame_type == 2 else "B1"
         if has_lqi is None:
             has_lqi = (cfg.ctrl_bits_len == {"A2": 28, "A3": 36}.get(control_format))
-        return cls(cfg, control_format, has_lqi, max_payload_bytes=max_payload_bytes)
+        return cls(cfg, control_format, has_lqi, max_payload_bytes=max_payload_bytes,
+                   length_contract=length_contract)
 
     @classmethod
     def ws63_ft2_a3(cls, *, sync_word: int, data_crc_seed: int, pilot_interval: int,
@@ -169,16 +174,24 @@ def decode_psk_frame(symbols: np.ndarray, profile: PSKReceiveProfile, *,
     row.update(header_crc=True, header=vars(head), lqi=lqi, mcs=mcs,
                mcs_source="header" if profile.control_format == "B1" or profile.mcs_from_lqi
                else "negotiated_profile", header_end_symbol=required)
-    if not 0 <= head.data_length <= profile.max_payload_bytes or (
+    if mcs not in profile.allowed_mcs:
+        row["status"] = "unsupported_mcs"
+        return row
+    try:
+        payload_bytes, data_crc_present = control_data_length(
+            head.data_length, profile.control_format, cfg.crc_len, contract=profile.length_contract)
+    except ValueError:
+        row.update(status="invalid_length", length_ok=False)
+        return row
+    if payload_bytes > profile.max_payload_bytes or (
             getattr(head, "empty_packet", 0) and head.data_length != 0):
         row.update(status="invalid_length", length_ok=False)
         return row
     row["length_ok"] = True
-    if mcs not in profile.allowed_mcs:
-        row["status"] = "unsupported_mcs"
-        return row
+    row.update(payload_length_bytes=payload_bytes, data_crc_present=data_crc_present,
+               length_contract=profile.length_contract)
     cfg = replace(cfg, mcs_index=mcs)
-    nbits = payload_coded_length(head.data_length * 8, cfg)
+    nbits = payload_coded_length(payload_bytes * 8, cfg) if data_crc_present else 0
     bps = {"BPSK": 1, "QPSK": 2, "8PSK": 3}[cfg.mod_str]
     positions, nwire_data = psk_field_layout(nbits, bps, cfg.pilot_interval)
     start = nsync + nwire
@@ -187,6 +200,9 @@ def decode_psk_frame(symbols: np.ndarray, profile: PSKReceiveProfile, *,
                data_symbols=len(positions), wire_data_symbols=nwire_data)
     if len(y) < end:
         row["status"] = "truncated_data"
+        return row
+    if not data_crc_present:
+        row["status"] = "valid_empty_control"
         return row
     data = y[start:end]
     if len(data) >= 32:
@@ -213,7 +229,7 @@ def decode_psk_frame(symbols: np.ndarray, profile: PSKReceiveProfile, *,
                                             variance_source=source, llr_bound=64.)
         else:
             row["soft_information"] = dict(method="legacy hard +/-10")
-    payload, ok = decode_payload(bits, cfg, head.data_length * 8, llr=llr)
+    payload, ok = decode_payload(bits, cfg, payload_bytes * 8, llr=llr)
     pilot_mask = np.ones(len(data), dtype=bool)
     pilot_mask[positions] = False
     pilots = np.flatnonzero(pilot_mask)

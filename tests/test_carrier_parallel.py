@@ -167,7 +167,8 @@ def test_actual_iq_to_mac_and_exact_selected_method_ber_replay(monkeypatch, ft, 
             crc_seed=0x123456,
             ctrl_bits_len=28 if ft == 2 else 27,
             head_llid=None if ft == 2 else 0x234567,
-        )
+        ),
+        length_contract="standard" if ft == 2 else "legacy-b1-payload-length",
     )
     payload = bytes((k * 73 + 29) % 256 for k in range(37))
     x, q, _, _ = iq_record(

@@ -703,7 +703,18 @@
         }
       },
       "ports_verified": false,
-      "deadline_verified": false
+      "deadline_verified": false,
+      "B1_length_correction": {
+        "reference": "b1-length-contract.md",
+        "standard_wire_length_includes_data_CRC": true,
+        "legacy_inputs_explicit_only": true,
+        "per_verified_head_operations_estimate": "11-bit zero test,CRC-byte compare,constant subtraction",
+        "derived_context_bits_if_not_reused": 12,
+        "context_reuse_proven": false,
+        "registered_cycles": null,
+        "synthesis": null,
+        "does_not_close_full_receiver_gate": true
+      }
     },
     {
       "id": "polar_rate_match",

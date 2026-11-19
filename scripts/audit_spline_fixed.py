@@ -42,7 +42,8 @@ def independent_packet(profile, payload):
         head = ControlInfoA2(0, 0, 0, 0, 0, 0, 0, len(payload))
         raw = head.pack(head_crc_parameters(cfg)[2], lqi=0)
     else:
-        raw = ControlInfoB1(0, 0, 0, cfg.mcs_index, len(payload), 0, 0).pack(cfg.head_llid)
+        size = len(payload) + (cfg.crc_len // 8 if profile.length_contract == 'standard' else 0)
+        raw = ControlInfoB1(0, 0, 0, cfg.mcs_index, size, 0, 0).pack(cfg.head_llid)
     data = np.unpackbits(np.frombuffer(payload, np.uint8), bitorder=profile.payload_bitorder)
     sync = independent_wire(profile.sync_bits(), 'QPSK' if cfg.frame_type == 2 else 'BPSK', 40, 0, True)
     head = independent_wire(encode_head(raw, cfg), 'BPSK' if cfg.frame_type == 4 else 'QPSK',
@@ -66,7 +67,9 @@ def streams(held=False):
             pid=3 if held else 1, whitening_seed=0x52, crc_seed=0x123456,
             ctrl_bits_len=28 if ft == 2 else 27, head_llid=0x234567 if ft != 2 else None,
             symbol_rate_mhz=4)
-        profile = PSKReceiveProfile.ordinary(cfg)
+        # Frozen pre-audit inputs used payload-only B1 length; keep their bytes.
+        profile = PSKReceiveProfile.ordinary(
+            cfg, length_contract='standard' if ft == 2 else 'legacy-b1-payload-length')
         length = lengths[j % 4]
         values = (np.arange(length)*73+j*19) % 256 if j % 3 == 0 else (
             np.resize([0, 255, 0, 3, 128], length) if j % 3 == 1 else rng.integers(0, 256, length))

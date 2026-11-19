@@ -140,7 +140,10 @@ def test_selected_weights_at_legal_psk_length_extremes(ft, mcs, length):
     cfg = TxConfig(frame_type=ft, mcs_index=mcs, symbol_rate_mhz=4, pilot_interval=8,
                    whitening_seed=0x52, crc_seed=0x123456, ctrl_bits_len=28 if ft == 2 else 27,
                    head_llid=None if ft == 2 else 0x234567)
-    profile = PSKReceiveProfile.ordinary(cfg)
+    # Preserve the original payload-only B1 waveform and 2047-byte stress input.
+    # Its historical test name is not a standard B1 legal-length claim.
+    profile = PSKReceiveProfile.ordinary(
+        cfg, length_contract="standard" if ft == 2 else "legacy-b1-payload-length")
     wire, wanted = transmitted(profile, length=length)
     x, quiet, _, _ = iq_record(wire, cfo=23000, ppm=100)
     for fixed in [False, True]:
