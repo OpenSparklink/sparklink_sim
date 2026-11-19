@@ -119,6 +119,7 @@ selected-symbol-handoff
 finite-timing-words
 timing-service-handoff
 known-sync-pipeline
+finite-normalization-words
 coverage-isolation
 rrc-memory
 spline-preparation

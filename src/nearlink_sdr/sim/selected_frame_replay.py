@@ -36,13 +36,7 @@ class SelectedFrameReplay:
             raise ValueError("Need a completed unclaimed source/cache/fit service")
         stencil = prepared.stencil
         history, cache = stencil.history, stencil.output
-        if word_timing_format is None:
-            consumer = InterpolantPSKReceiver(profile, initial_fit=prepared.fit.result, **selection)
-        else:
-            from nearlink_sdr.phy.timing_word_rx import WordTimingPSKReceiver
-
-            consumer = WordTimingPSKReceiver(profile, initial_fit=prepared.fit.result,
-                                             word_timing_format=word_timing_format, **selection)
+        consumer = self._make_consumer(profile, prepared.fit.result, word_timing_format, selection)
         first = consumer.selected_start
         cell = math.floor(first)
         phase = round((first - cell) * 65536)
@@ -98,6 +92,14 @@ class SelectedFrameReplay:
             0,
         )
         self._plan()
+
+    def _make_consumer(self, profile, initial_fit, word_timing_format, selection):
+        if word_timing_format is None:
+            return InterpolantPSKReceiver(profile, initial_fit=initial_fit, **selection)
+        from nearlink_sdr.phy.timing_word_rx import WordTimingPSKReceiver
+
+        return WordTimingPSKReceiver(profile, initial_fit=initial_fit,
+                                     word_timing_format=word_timing_format, **selection)
 
     @property
     def cycle(self):

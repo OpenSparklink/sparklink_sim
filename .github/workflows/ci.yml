@@ -38,6 +38,8 @@ jobs:
           uv run --frozen --no-sync ruff check scripts/model_selected_handoff.py
           uv run --frozen --no-sync ruff check scripts/model_timing_words.py
           uv run --frozen --no-sync ruff check scripts/model_timing_handoff.py
+          uv run --frozen --no-sync ruff check scripts/model_normalization_words.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_normalization_words.py src/nearlink_sdr/phy/normalization_word.py src/nearlink_sdr/phy/normalized_word_rx.py src/nearlink_sdr/sim/normalization_word_flow.py src/nearlink_sdr/sim/normalized_word_replay.py tests/normalization_reference.py tests/test_normalization_word.py tests/test_normalization_word_flow.py tests/test_normalized_word_replay.py tests/test_normalization_word_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 tests/test_timing_handoff_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 src/nearlink_sdr/sim/timing_query_flow.py src/nearlink_sdr/sim/finite_timing_replay.py tests/test_timing_query_flow.py tests/test_finite_timing_replay.py scripts/model_timing_handoff.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_timing_words.py src/nearlink_sdr/phy/timing_word.py src/nearlink_sdr/phy/timing_word_rx.py src/nearlink_sdr/sim/timing_word_flow.py tests/test_timing_word.py tests/test_timing_word_flow.py tests/test_timing_word_rx.py tests/test_timing_word_model.py
@@ -793,6 +795,50 @@ jobs:
           ft4=next(r for r in rows if r["frame_type"] == 4 and r["clock_hz"] == 200000000 and r["variant"] == "pipeline")
           assert ft4["hold_edges"] == 763 < ft4["initial_snapshot"]["margin_edges"] == 1039
           PYCODE
+      - name: Verify finite symbol normalization and retain serial full-RX failures
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_normalization_words.py --split development --timing-root receiver-diagnostics/timing-development --capture-root receiver-diagnostics/capture-fine --selected-root receiver-diagnostics/selected-frame --output receiver-diagnostics/normalization-development >normalization-development.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/normalization-development/model.json")); assert d["node_numeric_pass"] and d["fixed_before_full"] == d["fixed_after_full"] == 13'
+          status=0
+          uv run --frozen --no-sync python scripts/model_normalization_words.py --split validation --freeze receiver-diagnostics/normalization-development/freeze.json --output receiver-diagnostics/normalization-validation >normalization-validation.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import hashlib,json
+          from pathlib import Path
+          for split in ("development","validation"):
+              p=Path("receiver-diagnostics")/("normalization-"+split)
+              d=json.loads((p/"model.json").read_text())
+              assert d["node_numeric_pass"] and d["before_full"] == d["after_full"]
+              assert d["success_losses"] == d["recoveries"] == d["new_false_deliveries"] == 0
+              assert d["negative_observation_samples"] == (96256 if split == "development" else 98304)
+              assert not any(d["all_RX_gates"].values()) and not d["default_changed"]
+              assert not d["arithmetic"][0]["numeric_pass"] and d["arithmetic"][1]["numeric_pass"]
+              rows=json.loads((p/"rows.json").read_text())
+              rows += json.loads((p/"fixed-regressions.json").read_text()) if split == "development" else []
+              for r in rows:
+                  if "comparison" not in r:
+                      continue
+                  c=r["comparison"];cost=c["cost"];node=cost["normalization_service"]
+                  assert c["numerical"]["numeric_pass"] and c["numerical"]["timing_trajectory_delta"] == 0
+                  assert node["state_register_bits_upper"] == 3469 and node["additional_DSP25x18"] == 4
+                  assert node["coefficient_ROM_RAMB18_estimate"] == 1 and node["coefficient_ROM_read_ports"] == 2
+                  assert node["new_original_source_RAM_bits"] == node["new_source_or_cache_read_ports"] == 0
+                  assert cost["new_controller_state_bits"] == 2282  # Original2048 failure retained.
+                  assert cost["normalization_controller_increment_bits"] == 192
+                  assert c["complete_latency_cycles"] is None and not c["full_receiver16MSps"]
+                  s=c["actual_services"]["statistics"];n=c["normalization_word_count"]
+                  assert s["native_products"] == 10*n and s["rom_reads"] == 4*n
+              assert all(hashlib.sha256((p/k).read_bytes()).hexdigest()==v for k,v in json.loads((p/"manifest.json").read_text()).items())
+          p=Path("receiver-diagnostics/normalization-development/periodic-prefixes.json")
+          rows=json.loads(p.read_text())
+          assert len(rows) == 9
+          assert all(r["history_peak_live"] <= 512 and r["resource_drop_contexts"] == 1 for r in rows)
+          assert all(r["complete_latency_cycles"] is None and not r["full_receiver16MSps"] for r in rows)
+          assert all(r["unmodeled_header_residual_carrier_LLR_decoder_cycles"] is None for r in rows)
+          PYCODE
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -808,6 +854,7 @@ jobs:
             backend-front.json
             unit-budget-*.json
             hold-pipeline-*.log
+            normalization-*.log
             timing-development.log
             timing-validation.log
             timing-handoff-development.log

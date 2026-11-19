@@ -732,8 +732,15 @@ class PSKStreamReceiver:
     def _store_selected_symbol(self, current, next_position, error, rate_ppm):
         """Common value/trace storage;word timing supplies its own absolute next coordinate."""
         a = self._active
+        count = a['count']
+        value = current*np.exp(-1j*(a['phase']+a['slope']*count))/a['gain']
+        self._store_normalized_symbol(value, current, next_position, error, rate_ppm)
+
+    def _store_normalized_symbol(self, value, current, next_position, error, rate_ppm):
+        """Store an already normalized value; strict header/payload gates remain shared."""
+        a = self._active
         count, t = a['count'], a['next']
-        self._values[count] = current*np.exp(-1j*(a['phase']+a['slope']*count))/a['gain']
+        self._values[count] = value
         self._centers[count], self._rates[count], self._errors[count] = (
             t, rate_ppm, error)
         a.update(count=count+1, previous=current, previous_t=t, next=next_position)

@@ -29,7 +29,12 @@ from nearlink_sdr.sim.timing_word_flow import TimingWordService
 POLICY = Path("tests/data/timing_word_policy.json")
 
 
-def execute(out, name, profile, words, selection, fmt, pattern, *, flow_class=SelectedFrameReplay):
+def execute(out, name, profile, words, selection, fmt, pattern, *, flow_class=SelectedFrameReplay,
+            host_edges_per_symbol=None):
+    if host_edges_per_symbol is not None and (
+        type(host_edges_per_symbol) is not int or not 1 <= host_edges_per_symbol <= 1024
+    ):
+        raise ValueError("Need a bounded host verification guard,not a hardware deadline")
     prepared, pos = prepare(profile, words, selection)
     observations = []
     flow = flow_class(
@@ -41,6 +46,8 @@ def execute(out, name, profile, words, selection, fmt, pattern, *, flow_class=Se
         **selection,
     )
     j = 0
+    host_edge_limit = (8_000_000 if host_edges_per_symbol is None
+                       else 65536 + host_edges_per_symbol * flow.consumer.max_frame_symbols)
     while not flow.done:
         if flow.pending_service is not None:
             flow.resolve_functional()  # Remaining carrier/normalization/decoder is off-clock.
@@ -54,7 +61,7 @@ def execute(out, name, profile, words, selection, fmt, pattern, *, flow_class=Se
                     pos += used
                     j += 1
             flow.step()
-        assert flow.cycle < 8_000_000
+        assert flow.cycle < host_edge_limit
     event = flow.event
     write(
         out / (name + ".json"), normalized({k: v for k, v in event.items() if k not in TRACE_KEYS})

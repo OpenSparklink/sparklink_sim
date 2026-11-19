@@ -598,6 +598,30 @@
         "NCO_prepared_parallel_bus_bits": 686,
         "additional_ALU_mux_LUT_mapping": "unknown;not credited free",
         "source_sample_rate_hz": 16000000
+      },
+      "partial_normalization_word_service": {
+        "evidence": "SYS-C2E2H1 actual integer/ROM/restoring-divider service;not synthesis or complete scheduling",
+        "new_external_register_bits_upper": 3469,
+        "new_controller_bits": 192,
+        "DSP_internal_pipeline_bits": 536,
+        "dedicated_DSP25x18": 4,
+        "coefficient_ROM_bits": 17408,
+        "coefficient_ROM_RAMB18_estimate": 1,
+        "coefficient_ROM_BRAM36_sites_upper": 1,
+        "coefficient_ROM_read_ports": 2,
+        "linear_native_products_per_symbol": 10,
+        "linear_ROM_reads_per_symbol": 4,
+        "gain_preparation_edges": 33,
+        "prepared_symbol_latency_edges": 24,
+        "input_handoff_edges": 1,
+        "new_original_source_RAM_bits": 0,
+        "new_source_cache_read_ports": 0,
+        "other_RX_TX_MAC_sharing_credit": false,
+        "old_controller2048_failure_retained": "2090+192=2282>2048",
+        "wide_macro_timing_assumptions": "LZC/RNE/variable shifts48/41;35bit add;55bit compare/sub;40/18/64bit updates assume1edge",
+        "remaining_float": "residual carrier/header/LLR/decoder",
+        "whole_receiver_accepted": false,
+        "system_schedule_verified": false
       }
     },
     {
