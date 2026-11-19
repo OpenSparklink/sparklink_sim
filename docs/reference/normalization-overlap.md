@@ -115,3 +115,10 @@ FT2/200MHz首次到头处理服务点9275边沿后阻塞；其他时钟/帧型�
 FT4/100、160MHz的初始化溢出不受后级重叠恢复。
 因此仅保留为显式实验值路径，拒绝据此推广默认或宣称整链16MS/s。
 下一瓶颈仍是数据定时104边沿及运输45边沿、剩余服务与完整捕获生产者的统一调度。
+
+```{toctree}
+:hidden:
+
+/apidocs/nearlink_sdr/nearlink_sdr.sim.normalization_pipeline
+/apidocs/nearlink_sdr/nearlink_sdr.sim.overlapped_normalization_replay
+```
