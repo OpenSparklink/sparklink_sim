@@ -45,6 +45,8 @@ jobs:
           uv run --frozen --no-sync ruff check scripts/check_b1_length.py
           uv run --frozen --no-sync ruff check scripts/check_frozen_corpora.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/check_frozen_corpora.py tests/test_legacy_corpora.py
+          uv run --frozen --no-sync ruff check scripts/model_header_geometry.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_header_geometry.py tests/test_header_geometry_flow.py src/nearlink_sdr/sim/header_geometry_flow.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/check_b1_length.py tests/test_control_length.py tests/test_b1_wire_length.py src/nearlink_sdr/phy/control_length.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_control_polar.py src/nearlink_sdr/phy/control_polar_word.py src/nearlink_sdr/sim/control_polar_flow.py tests/test_control_polar_word.py tests/test_control_polar_flow.py tests/test_control_polar_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_timing_divider.py tests/test_timing_divider_prefix.py tests/test_timing_divider_model.py
@@ -964,6 +966,24 @@ jobs:
         run: |
           uv run --frozen --no-sync python scripts/check_b1_length.py --expected-rust "$B1_EXPECTED_RUST" --output receiver-diagnostics/B1-length >B1-length.log 2>&1
           cat B1-length.log
+      - name: Verify finite standard B1 geometry and retained legacy contract
+        if: always()
+        run: |
+          uv run --frozen --no-sync python scripts/model_header_geometry.py --output receiver-diagnostics/header-geometry >header-geometry.log 2>&1
+          cat header-geometry.log
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("receiver-diagnostics/header-geometry/model.json").read_text())
+          assert len(d["rows"]) == 40 and d["word_errors"] == 0
+          assert len(d["original_length_handoff"]) == 6
+          assert not d["complete_RX_gates"] and not d["receiver16MSps"]
+          assert not d["new_RF_holdout"] and not d["adopted_as_default"]
+          assert all(r["max_active_registers"] <= 24 for r in d["rows"])
+          assert all(r["latency_max_edges"] <= 500 for r in d["rows"])
+          assert all(r["cost"]["DSP"] == r["cost"]["RAMB18"] == 0 for r in d["rows"])
+          assert all(not r["live_stream_handoff"] and r["head_CRC_service_cycles"] is None for r in d["original_length_handoff"])
+          PYCODE
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -973,6 +993,7 @@ jobs:
             report-*.xml
             B1-length.log
             frozen-corpora.log
+            header-geometry.log
             test-budget.json
             test-*.log
             build.log

@@ -124,6 +124,7 @@ normalization-overlap
 timing-divider-prefix
 control-polar-word
 b1-length-contract
+head-length-words
 coverage-isolation
 rrc-memory
 spline-preparation
@@ -135,4 +136,5 @@ psk-timing-tracking-results
 psk-noise-recovery-results
 /apidocs/nearlink_sdr/nearlink_sdr
 /apidocs/nearlink_sdr/nearlink_sdr.phy.control_length
+/apidocs/nearlink_sdr/nearlink_sdr.sim.header_geometry_flow
 ```

@@ -714,6 +714,34 @@
         "registered_cycles": null,
         "synthesis": null,
         "does_not_close_full_receiver_gate": true
+      },
+      "finite_geometry_node": {
+        "reference": "head-length-words.md",
+        "status": "standalone finite scalar,not live header/RX integration",
+        "FT2_logical_bits": 8452,
+        "B1_standard_logical_bits": 7684,
+        "DSP": 0,
+        "RAMB18": 0,
+        "constant_storage": "distributed LUT;ROM-only LUT upper58,complete LUT/FF unknown",
+        "FF_operand_read_ports": 2,
+        "FF_write_ports": 1,
+        "instruction_ROM_ports": 1,
+        "constant_data_ROM_ports": 1,
+        "constant_row_bits": 384,
+        "input_bus_bits": 15,
+        "worst_service_edges_FT2_B1": [
+          181,
+          69
+        ],
+        "modeled_clock_assumptions_MHz": [
+          100,
+          160,
+          200
+        ],
+        "output_backpressure": "one held result;input_ready false;no FIFO",
+        "head_CRC_and_demap_cycles": null,
+        "full_RX16MSps": false,
+        "synthesis": false
       }
     },
     {
