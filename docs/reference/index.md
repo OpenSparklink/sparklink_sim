@@ -126,6 +126,7 @@ control-polar-word
 b1-length-contract
 head-length-words
 head-word-gate
+hard-header-words
 coverage-isolation
 rrc-memory
 spline-preparation
@@ -139,4 +140,6 @@ psk-noise-recovery-results
 /apidocs/nearlink_sdr/nearlink_sdr.phy.control_length
 /apidocs/nearlink_sdr/nearlink_sdr.sim.header_geometry_flow
 /apidocs/nearlink_sdr/nearlink_sdr.sim.header_word_flow
+/apidocs/nearlink_sdr/nearlink_sdr.phy.psk_hard_word
+/apidocs/nearlink_sdr/nearlink_sdr.sim.psk_hard_flow
 ```

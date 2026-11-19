@@ -47,6 +47,8 @@ jobs:
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/check_frozen_corpora.py tests/test_legacy_corpora.py
           uv run --frozen --no-sync ruff check scripts/model_header_geometry.py
           uv run --frozen --no-sync ruff check scripts/model_header_words.py
+          uv run --frozen --no-sync ruff check scripts/model_hard_header.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_hard_header.py src/nearlink_sdr/phy/psk_hard_word.py src/nearlink_sdr/sim/psk_hard_flow.py tests/test_psk_hard_word.py tests/test_psk_hard_flow.py tests/test_hard_header_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_header_words.py src/nearlink_sdr/sim/header_word_flow.py tests/test_header_word_flow.py tests/test_header_word_receive.py tests/test_header_word_standard.py tests/test_header_word_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_header_geometry.py tests/test_header_geometry_flow.py src/nearlink_sdr/sim/header_geometry_flow.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/check_b1_length.py tests/test_control_length.py tests/test_b1_wire_length.py src/nearlink_sdr/phy/control_length.py
@@ -1044,6 +1046,35 @@ jobs:
                   print(ft, mcs, backend, "complete original payload")
           PYCODE
           cat header-word-MCS.log
+      - name: Verify actual normalized-word hard header and retain whole-RX gaps
+        if: always()
+        run: |
+          PYTHONPATH=src uv run --frozen --no-sync python -m scripts.model_hard_header --split development --output receiver-diagnostics/hard-head-development >hard-head-development.log 2>&1
+          PYTHONPATH=src uv run --frozen --no-sync python -m scripts.model_hard_header --split validation --freeze receiver-diagnostics/hard-head-development/freeze.json --output receiver-diagnostics/hard-head-validation >hard-head-validation.log 2>&1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          for split in ("development", "validation"):
+              root = Path("receiver-diagnostics/hard-head-" + split)
+              result = json.loads((root / "result.json").read_text())
+              assert result["component_pass"]
+              assert result["component_checks"] > 0
+              assert result["success_losses"] == 0
+              assert not any(result["whole_RX_gates"].values())
+              assert result["arithmetic"]["integer_reference_bit_errors"] == 0
+              assert result["arithmetic"]["float_non_tie_bit_errors"] == 0
+              assert result["hard_service_cost"]["unstalled_II"] == 3
+              assert result["negative_independent_samples"] == 32768
+              rows = json.loads((root / "rows.json").read_text())
+              for row in rows:
+                  for path in row.get("header_paths", []):
+                      assert path["input_word_requantized"] is False
+                      assert path["full_pipeline_latency"] is None
+                      assert path["final_reference_exact"] and path["head_bits_exact"]
+                      assert not path["new_false_delivery"]
+                      assert path["cost"]["extra_candidate_capacity_met"]
+                      assert not path["cost"]["whole_RX16MSps"]
+          PYCODE
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -1054,6 +1085,7 @@ jobs:
             B1-length.log
             frozen-corpora.log
             header-word-*.log
+            hard-head-*.log
             header-geometry.log
             test-budget.json
             test-*.log

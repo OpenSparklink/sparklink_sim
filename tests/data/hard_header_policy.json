@@ -1,0 +1,32 @@
+{
+  "stage": "RX-HARD-HEADER-WORDS",
+  "adoption": "explicit component experiment; no default or full-RX promotion",
+  "mathematical_tie": "maximum exact projection; smallest numeric Gray label",
+  "integer_reference_bit_errors_max": 0,
+  "non_tie_float_bit_errors_max": 0,
+  "original_success_losses_max": 0,
+  "new_false_deliveries_max": 0,
+  "component_extra_logical_bits_max": 3072,
+  "component_extra_DSP_max": 0,
+  "component_extra_RAMB18_max": 0,
+  "hard_latency_edges": 2,
+  "hard_unstalled_II": 3,
+  "whole_RX_gates_passed": false,
+  "upstream": "unchanged whole-record differential maximum fixture; not bounded live capture",
+  "timing_and_normalization": "actual existing finite services; no parameter changes",
+  "header_layouts": ["dense", "depth-parity"],
+  "clock_sensitivity_MHz": [100, 160, 200],
+  "development": [
+    [2, 8, 8, 43, 24, 55], [3, 10, 4, 97, 32, 17],
+    [4, 12, 16, 67, 24, 92], [2, 6, 0, 61, 32, 107],
+    [3, 8, 8, 23, 24, 2], [4, 6, 4, 79, 32, 68]
+  ],
+  "validation": [
+    [2, 12, 16, 101, 32, 82], [3, 6, 8, 71, 24, 38],
+    [4, 8, 4, 131, 32, 110], [2, 7, 0, 37, 24, 25],
+    [3, 12, 16, 109, 32, 83], [4, 10, 8, 53, 24, 97]
+  ],
+  "negative_samples_each_class": 8192,
+  "negative_scope": "front-end fixture observation only; not a new live-capture acceptance",
+  "note": "New cell combinations vary frame/MCS/length/CRC/pilot/payload/channel. Neither split may select CRC answers. Viewed validation becomes fixed regression. Old resource/numeric failures remain."
+}
