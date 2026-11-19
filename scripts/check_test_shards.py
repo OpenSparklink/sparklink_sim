@@ -8,9 +8,11 @@ from pathlib import Path
 
 def main() -> int:
     parser = argparse.ArgumentParser(__doc__)
-    parser.add_argument("reports", type=Path, nargs=2)
+    parser.add_argument("reports", type=Path, nargs="+")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if len(args.reports) < 2:
+        parser.error("Need at least two independent pytest shard reports")
     seen, duplicates, rows = set(), [], []
     for path in args.reports:
         tree = ET.parse(path)
