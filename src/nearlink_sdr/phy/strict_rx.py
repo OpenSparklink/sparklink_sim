@@ -4,6 +4,7 @@ Profile configuration is supplied before acquisition, never selected by expected
 payload or by retrying CRC. Factory settings are opt-in and have no sync/seed defaults.
 """
 from dataclasses import dataclass, replace
+from itertools import islice
 
 import numpy as np
 
@@ -39,6 +40,13 @@ class PSKReceiveProfile:
     llr_method: str = "maxlog"
 
     def __post_init__(self):
+        try:
+            allowed = tuple(islice(self.allowed_mcs, 14))
+        except TypeError as error:
+            raise ValueError("Need a finite permitted MCS sequence") from error
+        if len(allowed) > 13 or any(type(mcs) is not int or not 0 <= mcs <= 12 for mcs in allowed):
+            raise ValueError("Permitted MCS must contain at most13 ordinary indices0..12")
+        object.__setattr__(self, "allowed_mcs", allowed)
         cfg = replace(self.config)
         if (not isinstance(self.soft_payload, bool) or self.llr_method not in ("maxlog", "logmap")
                 or (self.noise_variance is not None and (
