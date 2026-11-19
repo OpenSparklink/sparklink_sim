@@ -741,10 +741,45 @@ jobs:
             sm3.log
             backend.json
 
+  coverage-shards:
+    name: Python Coverage (${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [core, front]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv python install 3.14
+      - run: uv sync --frozen
+      - run: uv run --frozen --no-sync python scripts/check_receiver_backend.py --expected-rust no --output coverage-backend-${{ matrix.shard }}.json
+      - name: Measure core coverage
+        if: matrix.shard == 'core'
+        run: |
+          COVERAGE_FILE=coverage-core.data uv run --frozen --no-sync pytest tests/ --ignore=tests/test_stream_rrc_word.py --ignore=tests/test_selected_word.py --ignore=tests/test_alignment_guard.py --ignore=tests/test_receive_scope.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-core.xml --durations=20 >coverage-core.log 2>&1
+      - name: Measure frontend coverage
+        if: matrix.shard == 'front'
+        run: |
+          COVERAGE_FILE=coverage-front.data uv run --frozen --no-sync pytest tests/test_stream_rrc_word.py tests/test_selected_word.py tests/test_alignment_guard.py tests/test_receive_scope.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-front.xml --durations=20 >coverage-front.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-shard-${{ matrix.shard }}
+          path: |
+            coverage-backend-${{ matrix.shard }}.json
+            coverage-tests-${{ matrix.shard }}.xml
+            coverage-${{ matrix.shard }}.log
+            coverage-${{ matrix.shard }}.data
+
   coverage:
     name: Python Coverage
     runs-on: ubuntu-latest
-    needs: test
+    needs: coverage-shards
+    if: ${{ !cancelled() }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -753,18 +788,14 @@ jobs:
       - run: uv python install 3.14
       - run: uv sync --frozen
       - run: uv run --frozen --no-sync python scripts/check_receiver_backend.py --expected-rust no --output backend.json
-      - name: Measure Python coverage
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-shard-*
+          merge-multiple: true
+      - name: Combine independent coverage shards
         run: |
-          # Each partial suite has incomplete coverage. Enforce the unchanged
-          # 90.1% gate only after combining both real coverage data files.
-          COVERAGE_FILE=coverage-core.data uv run --frozen --no-sync pytest tests/ --ignore=tests/test_stream_rrc_word.py --ignore=tests/test_selected_word.py --ignore=tests/test_alignment_guard.py --ignore=tests/test_receive_scope.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-core.xml >coverage-core.log 2>&1 &
-          core_pid=$!
-          COVERAGE_FILE=coverage-front.data uv run --frozen --no-sync pytest tests/test_stream_rrc_word.py tests/test_selected_word.py tests/test_alignment_guard.py tests/test_receive_scope.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-front.xml >coverage-front.log 2>&1 &
-          front_pid=$!
-          core_status=0
-          front_status=0
-          wait "$core_pid" || core_status=$?
-          wait "$front_pid" || front_status=$?
+          # Same test membership, 120-second shard limit and 90.1% coverage gate.
+          # Separate runners avoid CPU contention; missing/failed reports fail closed.
           combine_status=0
           xml_status=0
           report_status=0
@@ -774,7 +805,7 @@ jobs:
             uv run --frozen --no-sync coverage report --fail-under=90.1 >coverage-report.log 2>&1 || report_status=$?
           fi
           cat coverage-*.log
-          test "$core_status" -eq 0 && test "$front_status" -eq 0 && test "$combine_status" -eq 0 && test "$xml_status" -eq 0 && test "$report_status" -eq 0
+          test "$combine_status" -eq 0 && test "$xml_status" -eq 0 && test "$report_status" -eq 0
           uv run --frozen --no-sync python scripts/check_test_shards.py coverage-tests-core.xml coverage-tests-front.xml --output coverage-test-budget.json
       - uses: actions/upload-artifact@v4
         if: always()
@@ -786,6 +817,7 @@ jobs:
             coverage-test-budget.json
             coverage-*.log
             coverage-*.data
+            coverage-backend-*.json
             backend.json
 
   docs:

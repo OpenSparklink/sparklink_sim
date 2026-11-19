@@ -118,6 +118,7 @@ known-sync-word-fit
 selected-symbol-handoff
 finite-timing-words
 timing-service-handoff
+coverage-isolation
 rrc-memory
 spline-preparation
 spline-fixed
