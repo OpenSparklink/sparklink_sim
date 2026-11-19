@@ -1,0 +1,197 @@
+{
+  "stage": "SYS-C2E2F-LIVE-TIMING",
+  "formats": [
+    [
+      30,
+      32
+    ]
+  ],
+  "nco_fraction_bits": 32,
+  "coefficient_fraction_bits": 48,
+  "sps": 4,
+  "bandwidth": 0.003,
+  "max_rate_ppm": 500,
+  "old_failure_budgets_unchanged": true,
+  "node_budgets": {
+    "power_relative_max": 1e-06,
+    "TED_absolute_max": 2e-05,
+    "additional_closed_loop_center_max_samples": 0.001,
+    "extra_DSP_max": 4,
+    "state_bits_max": 4096,
+    "new_raw_RAM_bits_max": 0,
+    "original_success_loss_max": 0,
+    "new_false_delivery_max": 0
+  },
+  "cycle_budget": {
+    "clock_hz": 200000000,
+    "input_samples_per_second": 16000000,
+    "symbol_rate": 4000000,
+    "existing_transport_edges": 45,
+    "remaining_serial_feedback_cycles": 5,
+    "meaning": "existing serial structure,not synthesis"
+  },
+  "selection": "No parameter search;actual service handoff must match frozen functional finite timing exactly;current serial realtime remains experimental,not default",
+  "development": {
+    "seed": 1071517,
+    "pid": 2,
+    "profiles": [
+      [
+        2,
+        8,
+        16,
+        73
+      ],
+      [
+        3,
+        12,
+        4,
+        211
+      ],
+      [
+        4,
+        6,
+        8,
+        367
+      ],
+      [
+        2,
+        10,
+        0,
+        839
+      ],
+      [
+        3,
+        0,
+        16,
+        29
+      ],
+      [
+        4,
+        12,
+        4,
+        509
+      ]
+    ],
+    "kinds": [
+      "two_tone",
+      "noise",
+      "burst",
+      "wrong_sync",
+      "amplitude_step",
+      "tone_burst"
+    ],
+    "cfo_hz": [
+      -63000,
+      97000
+    ],
+    "sro_ppm": [
+      425,
+      -275
+    ],
+    "offset": 0.411
+  },
+  "validation": {
+    "seed": 1073737,
+    "pid": 4,
+    "profiles": [
+      [
+        3,
+        10,
+        8,
+        83
+      ],
+      [
+        4,
+        8,
+        0,
+        197
+      ],
+      [
+        2,
+        12,
+        4,
+        431
+      ],
+      [
+        3,
+        6,
+        16,
+        641
+      ],
+      [
+        4,
+        0,
+        8,
+        37
+      ],
+      [
+        2,
+        8,
+        4,
+        971
+      ]
+    ],
+    "kinds": [
+      "clean",
+      "two_tone",
+      "amplitude_step",
+      "double_burst",
+      "noise",
+      "wrong_sync"
+    ],
+    "cfo_hz": [
+      53000,
+      -101000
+    ],
+    "sro_ppm": [
+      -425,
+      275
+    ],
+    "offset": 0.819
+  },
+  "negative_samples": {
+    "development": [
+      15360,
+      16384,
+      17408,
+      18432
+    ],
+    "validation": [
+      15872,
+      16896,
+      17920,
+      18944
+    ]
+  },
+  "negative_kinds": [
+    "silence",
+    "noise",
+    "tone",
+    "wrong_sync"
+  ],
+  "negative_templates": {
+    "development": {
+      "tone_frequency": 0.071,
+      "phase": -0.6,
+      "wrong_pid": 3,
+      "wrong_payload": "finite-owned-dev"
+    },
+    "validation": {
+      "tone_frequency": 0.117,
+      "phase": 0.9,
+      "wrong_pid": 1,
+      "wrong_payload": "finite-owned-held"
+    }
+  },
+  "scope": "ordinary FT2/3/4 4Msym SPS4;timing only;carrier normalization/header/decoder remain float and unknown service;all four RX gates open",
+  "budget_basis": "additional .001sample is64 phase16LSBs and0.4% of prior .25 trajectory budget;does not replace existing interpolation/RRC failures",
+  "format_comparison": "single factor:hold errorQ32,NCOQ32 and gains fixed;compare power30vs38;first30/24 remains node-only baseline,not RF-selected",
+  "structural_budgets": {
+    "query_service_state_bits_max": 2048,
+    "controller_increment_bits_max": 1024,
+    "new_raw_RAM_bits": 0,
+    "new_DSP_over_existing_timing": 0,
+    "query_cycles": 3,
+    "whole_latency_unknown_is_not_zero": true
+  }
+}

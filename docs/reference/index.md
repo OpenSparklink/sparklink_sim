@@ -117,6 +117,7 @@ alignment-guard-order
 known-sync-word-fit
 selected-symbol-handoff
 finite-timing-words
+timing-service-handoff
 rrc-memory
 spline-preparation
 spline-fixed

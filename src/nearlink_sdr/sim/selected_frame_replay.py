@@ -145,24 +145,30 @@ class SelectedFrameReplay:
             self._barrier(kind)
             return
         current, midpoint = self.consumer.sample_positions
-        self.future_end = (self.consumer.future_sample_end
-                           if hasattr(self.consumer, 'word_queries') else math.ceil(current + 3))
+        future_end = (self.consumer.future_sample_end
+                      if hasattr(self.consumer, 'word_queries') else math.ceil(current + 3))
+        positions = [(0, current), (1, midpoint)]
+        if hasattr(self.consumer, 'word_queries'):
+            queries = [dict(role=role, **self.consumer.word_queries[role])
+                       for role, t in positions if t is not None]
+        else:
+            queries = [
+                dict(role=role, cell=math.floor(t), phase=round((t - math.floor(t)) * 65536))
+                for role, t in positions if t is not None
+            ]
+        self._plan_samples(queries, future_end)
+
+    def _plan_samples(self, queries, future_end):
+        """Shared transport only;finite controllers supply actual registered descriptors."""
+        self.future_end = future_end
         self.words = [None, None]
+        self.queries = queries
         if self.consumer._active["count"] < len(self.consumer.reference):
             self.mode = "cache"
             self.cache_requested = False
             return
-        positions = [(0, current), (1, midpoint)]
         if self.reuse_stencil:
-            positions.reverse()
-        if hasattr(self.consumer, 'word_queries'):
-            self.queries = [dict(role=role, **self.consumer.word_queries[role])
-                            for role, _ in positions]
-        else:
-            self.queries = [
-                dict(role=role, cell=math.floor(t), phase=round((t - math.floor(t)) * 65536))
-                for role, t in positions
-            ]
+            self.queries.reverse()
         self.query_index = 0
         self.staged = []
         self.stage_start = self.queries[0]["cell"] - 1

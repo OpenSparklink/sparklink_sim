@@ -1,11 +1,11 @@
 {
-  "stage": "SYS-C2E2E-TIMING",
+  "stage": "SYS-C2E2F-LIVE-TIMING",
   "target": "4Msym/s QPSK/8PSK16MS/s;FT2/3/4 first;FT1 separate",
   "complete": false,
   "gates": {
     "complete_streaming": {
       "passed": false,
-      "evidence": "strict floating stream exists;selected port now stops at real frame boundary;optional512 ring retires actual interpolation dependencies;opt-in initial reuse preserves real frame boundary,physical source/cache node isolated;actual prepared source/cache/fit now hands off through actual registered reads/kernel values to strict MAC and returns unconsumed source suffix;unknown compute is an explicit barrier",
+      "evidence": "strict floating stream exists;selected port now stops at real frame boundary;optional512 ring retires actual interpolation dependencies;opt-in initial reuse preserves real frame boundary,physical source/cache node isolated;actual prepared source/cache/fit now hands off through actual registered reads/kernel values to strict MAC and returns unconsumed source suffix;unknown compute is an explicit barrier;actual finite timing/query calendars now drive one selected source/cache/kernel;remaining normalization/head/payload still explicit barriers",
       "gaps": [
         "capture-slot/history producer and full live/multipacket arithmetic service scheduling",
         "FT1/GFSK complete arbitrary-block path",
@@ -14,7 +14,7 @@
     },
     "full_fixed_point": {
       "passed": false,
-      "evidence": "RRC/differential/scoring and isolated carrier nodes exist;integer localLagrange node and opt-in word sampler exist;receiver adoption rejected on fixed regression RMS .000150245>.0001;exact word-cache reuse does not change rejected RMS;guard-before-alignment candidate rejected:old RMS .000150245 to .000284283;no RF held generation;independent arithmetic validation only;finite known-sync initializer opt-in passes frozen per-node and delta gates;remaining loops/carrier/LLR/decoder float;old interpolation rejection unchanged;explicit52bit-word power/TED/PI/NCO candidate now numerically validated with actual DSP/restoring-division node;carrier normalization/header/LLR/decoder still float;old whole-chain numeric failures unchanged",
+      "evidence": "RRC/differential/scoring and isolated carrier nodes exist;integer localLagrange node and opt-in word sampler exist;receiver adoption rejected on fixed regression RMS .000150245>.0001;exact word-cache reuse does not change rejected RMS;guard-before-alignment candidate rejected:old RMS .000150245 to .000284283;no RF held generation;independent arithmetic validation only;finite known-sync initializer opt-in passes frozen per-node and delta gates;remaining loops/carrier/LLR/decoder float;old interpolation rejection unchanged;explicit52bit-word power/TED/PI/NCO candidate now numerically validated with actual DSP/restoring-division node;carrier normalization/header/LLR/decoder still float;old whole-chain numeric failures unchanged;actual finite timing no longer recomputed at floating symbol acceptance;query uses registered96/97bit descriptors",
       "gaps": [
         "word-full12-c18 .0234835255681227 exceeds original .02",
         "selected interpolation/timing/coherent/header/LLR/decoder chain not all finite words"
@@ -26,12 +26,13 @@
       "gaps": [
         "all RX/TX/Polar/realMAC/crypto/DMA concurrent budgets not closed",
         "old16KiB failure retained",
-        "three private tails24BRAM not target adopted"
+        "three private tails24BRAM not target adopted",
+        "actual timing handoff controller2090 exceeds original2048bit bound;42bit failure preserved,not automatically relaxed"
       ]
     },
     "continuous_16msps": {
       "passed": false,
-      "evidence": "isolated executable RRC/fine/word transport calendars;not whole receiver;registered history port tested only with pauseable replay source;isolated interpolation pipeline32/II8,paired feedback margin160MHz0/200MHz10 before raw reads/PI/head;initial source/cache transfer841controlbits modeled,fit/PI/head service unknown;actual initial-source/cache/fit broadcast service modeled;FT4 overflows100/160MHz,initial fit only ready200MHz;known-sync replay power/PI/head/decoder stillunknown;selected value consumer does not execute unknown services in step;off-clock functional resolution invalidates cycle evidence;all-ready source/kernel transaction45edges,read reuse no latency gain;finite timing service104cycles plus known45 serial transport exceeds50@200MHz;current serialized structure rejected,not full ADC schedule",
+      "evidence": "isolated executable RRC/fine/word transport calendars;not whole receiver;registered history port tested only with pauseable replay source;isolated interpolation pipeline32/II8,paired feedback margin160MHz0/200MHz10 before raw reads/PI/head;initial source/cache transfer841controlbits modeled,fit/PI/head service unknown;actual initial-source/cache/fit broadcast service modeled;FT4 overflows100/160MHz,initial fit only ready200MHz;known-sync replay power/PI/head/decoder stillunknown;selected value consumer does not execute unknown services in step;off-clock functional resolution invalidates cycle evidence;all-ready source/kernel transaction45edges,read reuse no latency gain;finite timing service104cycles plus known45 serial transport exceeds50@200MHz;current serialized structure rejected,not full ADC schedule;actual continuous selected-prefix/blocking tests retain bounded overflow;FT4/200 postfit1039 vs known-sync timing-only2268 necessary-condition failure;unknown services not assigned zero cycles",
       "gaps": [
         "selected decoder/interpolator/head service unknown,not zero",
         "early stop not in actual transport scheduler",

@@ -75,8 +75,8 @@ class TimingWordService:
 
     def issue(self, current, midpoint):
         self.state.validate_words(current, midpoint)
-        if self.mode == "aborted":
-            raise RuntimeError("Aborted packet cannot resume")
+        if self.mode in ("aborted", "released"):
+            raise RuntimeError("Closed packet cannot resume")
         if not self.input_ready or self.issued_this_cycle:
             self._count("backpressure")
             return False
@@ -279,11 +279,17 @@ class TimingWordService:
         return result
 
     def abort(self):
-        if self.mode == "aborted":
+        if self.mode in ("aborted", "released"):
             return
         self._count("aborted")
         self.job = self.result = None
         self.mode = "aborted"
+
+    def release(self):
+        """Retire a drained packet context without counting a work cancellation."""
+        if self.mode != "idle" or self.job is not None or self.result is not None:
+            raise RuntimeError("Timing context must drain before normal release")
+        self.mode = "released"
 
     def estimate(self):
         f = self.state.fmt

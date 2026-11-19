@@ -29,10 +29,10 @@ from nearlink_sdr.sim.timing_word_flow import TimingWordService
 POLICY = Path("tests/data/timing_word_policy.json")
 
 
-def execute(out, name, profile, words, selection, fmt, pattern):
+def execute(out, name, profile, words, selection, fmt, pattern, *, flow_class=SelectedFrameReplay):
     prepared, pos = prepare(profile, words, selection)
     observations = []
-    flow = SelectedFrameReplay(
+    flow = flow_class(
         profile,
         prepared,
         reuse_stencil=True,

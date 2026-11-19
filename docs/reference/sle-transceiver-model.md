@@ -192,3 +192,5 @@ SYS-C2E2D-HANDOFF补齐[实际已选字流交接](selected-symbol-handoff.md)：
 
 
 SYS-C2E2E-TIMING补齐显式实际插值字功率/Gardner误差/PI/NCO及节点周期对照，见[有限定时](finite-timing-words.md)。普通FT2/3/4、4Msym/SPS4新开发及冻结保留各5/6，原13完整保留，增益0；全链定点、实际捕获生产者/多包流、整机资源及16MS/s仍未通过。4DSP/2510bit逻辑寄存新增另计，104周期定时加45运输的当前串行结构拒绝采用；载波归一化/头/LLR/译码未知不填零，FT1及未知厂测变体不推广。
+
+SYS-C2E2F-LIVE-TIMING接入[实际有限定时与查询](timing-service-handoff.md)：同一源/缓存/核上的唯一状态提交，实际三边沿NCO查询及4DSP定时；载波归一化、头/载荷服务仍未知。查询1689bit、控制增量644bit另计，无新原始RAM/源端口或DSP。保留FT4初始化100/160MHz溢出和200MHz已知同步功率2268＞1039必要条件失败，普通FT2/3/4实验不推广FT1或厂测新字路径，四项验收继续开放。

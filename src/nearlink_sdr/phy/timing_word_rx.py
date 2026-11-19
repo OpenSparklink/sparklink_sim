@@ -23,6 +23,14 @@ class WordTimingPSKReceiver(InterpolantPSKReceiver):
             self.timing_config,
         )
         self._active["loop"] = self.word_timing
+        self._timing_claimed = False
+
+    def claim_timing_state(self):
+        """Transfer one packet state to an external finite service,without advancing it."""
+        if self._timing_claimed or self.done or self._active["count"] or self.word_timing.count:
+            raise RuntimeError("Timing state is already claimed or packet processing started")
+        self._timing_claimed = True
+        return self.word_timing
 
     @property
     def word_queries(self):
@@ -52,10 +60,16 @@ class WordTimingPSKReceiver(InterpolantPSKReceiver):
             return None
         return max(0, min(q["cell"] for q in self.word_timing.queries if q is not None) - 1)
 
-    def push_symbol(self, current_word, midpoint_word, *, after_samples):
+    def validate_symbol_words(self, current_word, midpoint_word, *, after_samples, future_end=None):
+        """Check the next input before service issue;an actual query may supply its guard."""
         if self.done or self.boundary_kind is not None:
             raise RuntimeError("Symbol input closed or awaiting strict header/payload gate")
-        if after_samples < self.future_sample_end:
+        if self.word_timing.count != self._active["count"]:
+            raise RuntimeError("Committed timing result still awaits symbol acceptance")
+        if type(after_samples) is not int:
+            raise ValueError("Need an integer observed source end")
+        guard = self.future_sample_end if future_end is None else future_end
+        if type(guard) is not int or not 0 <= guard < 2**64 or after_samples < guard:
             raise ValueError("Actual interpolation future samples have not arrived")
         if self._active["count"] >= self.max_frame_symbols:
             raise RuntimeError("Frame exceeded configured legal bound")
@@ -66,11 +80,32 @@ class WordTimingPSKReceiver(InterpolantPSKReceiver):
             or not self.input_samples <= after_samples <= self.sample_limit
         ):
             raise ValueError("Need monotonic actually observed source end")
-        z = physical_interpolant(current_word)
+    def push_symbol(self, current_word, midpoint_word, *, after_samples):
+        if self._timing_claimed:
+            raise RuntimeError("External timing owner must commit;functional advance is closed")
+        self.validate_symbol_words(current_word, midpoint_word, after_samples=after_samples)
         self.word_timing.advance_words(current_word, midpoint_word)
+        self._store_timed_symbol(current_word, after_samples)
+
+    def accept_timing_result(self, current_word, *, after_samples):
+        """Accept one already committed service result;never run the timing equations again."""
+        state = self.word_timing
+        if not self._timing_claimed or self.done or self.boundary_kind is not None:
+            raise RuntimeError("Need an open external timing ownership context")
+        if state.count != self._active["count"] + 1 or state.previous_word != current_word:
+            raise RuntimeError("Timing result is missing,duplicated or belongs to another word")
+        required = (state.previous_q32 >> 32) + 3 + bool(state.previous_q32 & (ONE - 1))
+        if (
+            type(after_samples) is not int
+            or not max(self.input_samples, required) <= after_samples <= self.sample_limit
+        ):
+            raise ValueError("Need actually observed future samples for the committed center")
+        self._store_timed_symbol(current_word, after_samples)
+
+    def _store_timed_symbol(self, current_word, after_samples):
         self._observe(after_samples)
         self._store_selected_symbol(
-            z,
+            physical_interpolant(current_word),
             self.word_timing.next_q32 / ONE,
             self.word_timing.error_word / 2**self.word_timing.fmt.error_bits,
             (self.word_timing.omega / self.sps - 1) * 1e6,
@@ -85,7 +120,10 @@ class WordTimingPSKReceiver(InterpolantPSKReceiver):
             word_timing_state=self.word_timing.snapshot(),
             timing_coordinates="unsigned64+fraction32;midpoint97bit sum",
             remaining_carrier_normalization_and_decoder_float=True,
-            timing_node_cycle_model="TimingWordService;not executed by functional bridge",
+            timing_node_cycle_model=(
+                "external committed timing port" if self._timing_claimed
+                else "TimingWordService;not executed by functional bridge"
+            ),
         )
         return event
 

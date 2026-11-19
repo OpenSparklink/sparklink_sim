@@ -37,6 +37,9 @@ jobs:
           uv run --frozen --no-sync ruff check scripts/check_test_shards.py
           uv run --frozen --no-sync ruff check scripts/model_selected_handoff.py
           uv run --frozen --no-sync ruff check scripts/model_timing_words.py
+          uv run --frozen --no-sync ruff check scripts/model_timing_handoff.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 tests/test_timing_handoff_model.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 src/nearlink_sdr/sim/timing_query_flow.py src/nearlink_sdr/sim/finite_timing_replay.py tests/test_timing_query_flow.py tests/test_finite_timing_replay.py scripts/model_timing_handoff.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_timing_words.py src/nearlink_sdr/phy/timing_word.py src/nearlink_sdr/phy/timing_word_rx.py src/nearlink_sdr/sim/timing_word_flow.py tests/test_timing_word.py tests/test_timing_word_flow.py tests/test_timing_word_rx.py tests/test_timing_word_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_selected_handoff.py tests/test_selected_frame_replay.py tests/test_interpolant_rx.py src/nearlink_sdr/phy/interpolant_rx.py src/nearlink_sdr/sim/selected_frame_replay.py
           uv run --frozen --no-sync ruff check scripts/model_sync_initial_fit.py
@@ -619,6 +622,56 @@ jobs:
                   assert r["complete_latency_cycles"] is None and r["remaining_carrier_head_decoder_cycles"] is None
               assert all(hashlib.sha256((p/k).read_bytes()).hexdigest()==v for k,v in json.loads((p/"manifest.json").read_text()).items())
           PYCODE
+      - name: Verify actual timing/query ownership and preserve blocked continuous prefixes
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_timing_handoff.py --split development --timing-root receiver-diagnostics/timing-development --capture-root receiver-diagnostics/capture-fine --selected-root receiver-diagnostics/selected-frame --output receiver-diagnostics/timing-handoff-development >timing-handoff-development.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/timing-handoff-development/model.json")); assert d["structural_value_handoff_eligible"] and d["fixed_before_full"] == d["fixed_after_full"] == 13'
+          status=0
+          uv run --frozen --no-sync python scripts/model_timing_handoff.py --split validation --freeze receiver-diagnostics/timing-handoff-development/freeze.json --output receiver-diagnostics/timing-handoff-validation >timing-handoff-validation.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import hashlib,json
+          from pathlib import Path
+          for split in ("development","validation"):
+              p=Path("receiver-diagnostics")/("timing-handoff-"+split)
+              d=json.loads((p/"model.json").read_text())
+              assert d["structural_value_handoff_eligible"]
+              assert d["before_full"] == d["after_full"]
+              assert d["success_losses"] == d["recoveries"] == d["new_false_deliveries"] == 0
+              assert not any(d["all_RX_gates"].values()) and not d["default_changed"]
+              assert d["negative_observation_samples"] == (67584 if split == "development" else 69632)
+              rows=json.loads((p/"rows.json").read_text())
+              rows += json.loads((p/"fixed-regressions.json").read_text()) if split == "development" else []
+              for r in rows:
+                  if "comparison" not in r:
+                      continue
+                  c=r["comparison"];cost=c["cost"];s=c["actual_services"]
+                  assert c["decisions_words_trajectories_and_states_exact"]
+                  assert cost["controller_increment_over_previous_bits"] == 644
+                  assert cost["new_controller_state_bits"] == 2090
+                  assert cost["new_controller_state_bits"] > 2048  # Preserve prior controller rejection.
+                  assert cost["query_service"]["logical_register_bits_upper"] == 1689
+                  assert cost["query_service"]["latency_edges"] == 3
+                  assert cost["timing_service"]["DSP25x18"] == 4
+                  assert cost["new_raw_RAM_bits"] == cost["extra_query_source_ports"] == 0
+                  assert s["timing_state_commits"] == s["stored_symbols"]
+                  assert s["complete_latency_cycles"] is None and not s["whole_receiver16MSps"]
+                  assert all(not v for v in s["cancelled_inflight"].values())
+              assert all(hashlib.sha256((p/k).read_bytes()).hexdigest()==v for k,v in json.loads((p/"manifest.json").read_text()).items())
+          p=Path("receiver-diagnostics/timing-handoff-development")
+          rows=json.loads((p/"blocked-periodic-prefixes.json").read_text())
+          assert len(rows) == 9 and sum(r["initialization_ready"] for r in rows) == 7
+          assert all(r["history_peak_live"] == r["history_capacity"] == 512 for r in rows)
+          assert all(r["no_functional_resolution"] and r["complete_latency_cycles"] is None for r in rows)
+          ft4=next(r for r in rows if r["frame_type"] == 4 and r["clock_hz"] == 200000000)
+          bound=ft4["known_sync_retention_necessary_condition"]
+          assert bound["remaining_edges_before_raw_capacity_exhausted"] == 1039
+          assert bound["timing_only_known_sync_lower_bound_edges"] == 2268
+          assert bound["current_serial_hold_timing_alone_exceeds_margin"]
+          PYCODE
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -632,6 +685,8 @@ jobs:
             backend.json
             timing-development.log
             timing-validation.log
+            timing-handoff-development.log
+            timing-handoff-validation.log
             handoff-development.log
             handoff-validation.log
             fit-development.log
