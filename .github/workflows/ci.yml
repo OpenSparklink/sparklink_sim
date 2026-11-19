@@ -101,8 +101,80 @@ jobs:
       - name: Run Rust tests
         run: cd rust && cargo test
 
+  unit-shards:
+    name: Unit (${{ matrix.backend }}, ${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [python, rust]
+        shard: [core, front]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        if: matrix.backend == 'rust'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv python install 3.14
+      - run: uv sync --frozen --group accel
+      - name: Build Rust accelerator
+        if: matrix.backend == 'rust'
+        run: uv run --frozen --no-sync maturin develop --manifest-path rust/Cargo.toml --locked --release
+      - name: Verify actual shard backend
+        run: uv run --frozen --no-sync python scripts/check_receiver_backend.py --expected-rust ${{ matrix.backend == 'rust' && 'yes' || 'no' }} --output backend-${{ matrix.shard }}.json
+      - name: Run one complete shard without a competing pytest process
+        env:
+          SPARKLINK_TEST_DIAGNOSTICS: receiver-diagnostics/unit-${{ matrix.shard }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          front=(tests/test_stream_rrc_word.py tests/test_selected_word.py tests/test_alignment_guard.py tests/test_receive_scope.py tests/test_rrc_pair_boundary.py tests/test_rrc_memory.py)
+          if [ "$SHARD" = core ]; then
+            paths=(tests/)
+            for path in "${front[@]}"; do paths+=("--ignore=$path"); done
+          else
+            paths=("${front[@]}")
+          fi
+          uv run --frozen --no-sync pytest "${paths[@]}" -v --tb=short --junitxml=report-$SHARD.xml --durations=20 >test-$SHARD.log 2>&1
+      - name: Check actual unit shard duration even on test failure
+        if: always()
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          uv run --frozen --no-sync python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from xml.etree import ElementTree as ET
+          shard = os.environ["SHARD"]
+          root = ET.parse(f"report-{shard}.xml")
+          suites = list(root.iter("testsuite"))
+          assert len(suites) == 1
+          data = suites[0].attrib
+          cases = len(list(root.iter("testcase")))
+          passed = (cases == int(data["tests"]) > 0
+                    and data["failures"] == data["errors"] == "0"
+                    and 0 <= float(data["time"]) < 120)
+          result = dict(shard=shard, suite=data, cases=cases, passed=passed,
+                        walltime_budget_seconds=120, receiver_acceptance=False)
+          Path(f"unit-budget-{shard}.json").write_text(json.dumps(result, indent=2) + "\n")
+          assert passed, result
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-${{ matrix.backend }}-${{ matrix.shard }}
+          path: |
+            backend-${{ matrix.shard }}.json
+            report-${{ matrix.shard }}.xml
+            test-${{ matrix.shard }}.log
+            unit-budget-${{ matrix.shard }}.json
+            receiver-diagnostics/
+
   test:
     name: Test (${{ matrix.backend }})
+    needs: unit-shards
+    if: always()
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -124,22 +196,22 @@ jobs:
         run: uv run --frozen --no-sync maturin develop --manifest-path rust/Cargo.toml --locked --release 2>&1 | tee build.log
       - name: Verify actual backend
         run: uv run --frozen --no-sync python scripts/check_receiver_backend.py --expected-rust ${{ matrix.backend == 'rust' && 'yes' || 'no' }} --output backend.json
-      - name: Run tests
-        env:
-          SPARKLINK_TEST_DIAGNOSTICS: receiver-diagnostics
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: unit-${{ matrix.backend }}-*
+          merge-multiple: true
+      - name: Verify both actual unit shards and unchanged time budget
         run: |
-          # Actual coverage JUnit: move 22.907s of RRC boundary/memory work.
-          # Retain every case, the same two processes, and the 120-second gate.
-          uv run --frozen --no-sync pytest tests/ --ignore=tests/test_stream_rrc_word.py --ignore=tests/test_selected_word.py --ignore=tests/test_alignment_guard.py --ignore=tests/test_receive_scope.py --ignore=tests/test_rrc_pair_boundary.py --ignore=tests/test_rrc_memory.py -v --tb=short --junitxml=report-core.xml >test-core.log 2>&1 &
-          core_pid=$!
-          uv run --frozen --no-sync pytest tests/test_stream_rrc_word.py tests/test_selected_word.py tests/test_alignment_guard.py tests/test_receive_scope.py tests/test_rrc_pair_boundary.py tests/test_rrc_memory.py -v --tb=short --junitxml=report-front.xml >test-front.log 2>&1 &
-          front_pid=$!
-          core_status=0
-          front_status=0
-          wait "$core_pid" || core_status=$?
-          wait "$front_pid" || front_status=$?
           cat test-core.log test-front.log
-          test "$core_status" -eq 0 && test "$front_status" -eq 0
+          uv run --frozen --no-sync python - <<'PY'
+          import json
+          base = json.load(open("backend.json"))
+          for shard in ("core", "front"):
+              actual = json.load(open(f"backend-{shard}.json"))
+              assert json.load(open(f"unit-budget-{shard}.json"))["passed"]
+              for key in ("commit", "polar_rust", "crc_rust", "stream_timing_rust", "integer_sync_rust"):
+                  assert actual[key] == base[key], (shard, key)
+          PY
           uv run --frozen --no-sync python scripts/check_test_shards.py report-core.xml report-front.xml --output test-budget.json
       - name: Preserve carrier workload and explicit system resource gap
         if: always()
@@ -732,6 +804,9 @@ jobs:
             test-*.log
             build.log
             backend.json
+            backend-core.json
+            backend-front.json
+            unit-budget-*.json
             hold-pipeline-*.log
             timing-development.log
             timing-validation.log
