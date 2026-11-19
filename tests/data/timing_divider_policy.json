@@ -1,0 +1,205 @@
+{
+  "stage": "SYS-C2E2H3-DIVIDER-PREFIX",
+  "baseline": "41107d7947d7b904037d4a76292e107f4e3e45a8",
+  "candidate": "same H2 arithmetic;registered zero quotient-prefix check,then E+2 restoring steps",
+  "node_budgets": {
+    "original_success_loss": 0,
+    "new_false_delivery": 0,
+    "extra_DSP_max": 4,
+    "extra_quarter_ROM_RAMB18_max": 1,
+    "extra_raw_source_RAM_bits": 0,
+    "extra_source_or_cache_read_ports": 0,
+    "new_logic_state_bits_upper_max": 8192,
+    "node_relative_RMS_max": 3e-05,
+    "node_relative_peak_max": 5e-05,
+    "packet_relative_RMS_max": 5e-05,
+    "packet_relative_peak_max": 0.0001,
+    "timing_trajectory_delta": 0
+  },
+  "receiver_gates": {
+    "streaming": false,
+    "full_fixed": false,
+    "system_resources": false,
+    "continuous16MSps": false
+  },
+  "adoption": "explicit bounded-prefix only;exact word/state/trajectory/CRC decisions;no capture changes",
+  "old_failures_retained": true,
+  "development": {
+    "seed": 1141021,
+    "pid": 2,
+    "profiles": [
+      [
+        3,
+        10,
+        8,
+        127
+      ],
+      [
+        4,
+        8,
+        16,
+        293
+      ],
+      [
+        2,
+        12,
+        0,
+        61
+      ],
+      [
+        3,
+        0,
+        4,
+        7
+      ],
+      [
+        4,
+        6,
+        8,
+        449
+      ],
+      [
+        2,
+        8,
+        4,
+        173
+      ]
+    ],
+    "kinds": [
+      "burst",
+      "wrong_sync",
+      "amplitude_step",
+      "two_tone",
+      "noise",
+      "tone_burst"
+    ],
+    "cfo_hz": [
+      -61000,
+      97000
+    ],
+    "sro_ppm": [
+      -325,
+      175
+    ],
+    "offset": 0.619,
+    "payload_transform": [
+      157,
+      89,
+      71
+    ]
+  },
+  "validation": {
+    "seed": 1147993,
+    "pid": 3,
+    "profiles": [
+      [
+        2,
+        6,
+        16,
+        389
+      ],
+      [
+        3,
+        8,
+        0,
+        97
+      ],
+      [
+        4,
+        12,
+        4,
+        227
+      ],
+      [
+        2,
+        0,
+        8,
+        13
+      ],
+      [
+        3,
+        12,
+        16,
+        43
+      ],
+      [
+        4,
+        10,
+        0,
+        307
+      ]
+    ],
+    "kinds": [
+      "tone",
+      "double_burst",
+      "noise",
+      "clean",
+      "wrong_sync",
+      "amplitude_step"
+    ],
+    "cfo_hz": [
+      -101000,
+      43000
+    ],
+    "sro_ppm": [
+      -225,
+      375
+    ],
+    "offset": 0.173,
+    "payload_transform": [
+      181,
+      23,
+      149
+    ]
+  },
+  "negative_samples": {
+    "development": [
+      28672,
+      29696,
+      30720,
+      31744
+    ],
+    "validation": [
+      29184,
+      30208,
+      31232,
+      32256
+    ]
+  },
+  "negative_templates": {
+    "development": {
+      "tone_frequency": 0.143,
+      "phase": -0.3,
+      "wrong_pid": 1,
+      "wrong_payload": "exact-prefix-new-development-content"
+    },
+    "validation": {
+      "tone_frequency": -0.097,
+      "phase": 0.6,
+      "wrong_pid": 4,
+      "wrong_payload": "exact-prefix-independent-unseen-content"
+    }
+  },
+  "negative_kinds": [
+    "silence",
+    "noise",
+    "tone",
+    "wrong_sync"
+  ],
+  "input_amplitudes": "unchanged independent generator cycles0.2/0.35/0.7,with configured amplitude-step;node arithmetic also spans full representation",
+  "arithmetic_development_seed": 1122233,
+  "arithmetic_validation_seed": 1129927,
+  "held_generated": false,
+  "no_theoretical_unrecoverability_claim": true,
+  "divider_budgets": {
+    "additional_DSP": 0,
+    "additional_raw_RAM_bits": 0,
+    "additional_source_ports": 0,
+    "additional_state_bits_max": 64,
+    "additional_operand_mux_bits_upper_max": 100,
+    "registered_guard_edges": 1,
+    "word_state_and_trajectory_delta": 0,
+    "original_success_losses": 0,
+    "new_false_deliveries": 0
+  }
+}

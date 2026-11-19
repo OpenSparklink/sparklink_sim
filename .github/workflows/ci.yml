@@ -40,6 +40,8 @@ jobs:
           uv run --frozen --no-sync ruff check scripts/model_timing_handoff.py
           uv run --frozen --no-sync ruff check scripts/model_normalization_words.py
           uv run --frozen --no-sync ruff check scripts/model_normalization_overlap.py
+          uv run --frozen --no-sync ruff check scripts/model_timing_divider.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_timing_divider.py tests/test_timing_divider_prefix.py tests/test_timing_divider_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_normalization_overlap.py src/nearlink_sdr/sim/normalization_pipeline.py src/nearlink_sdr/sim/overlapped_normalization_replay.py tests/test_normalization_pipeline.py tests/test_overlapped_normalization_replay.py tests/test_normalization_overlap_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_normalization_words.py src/nearlink_sdr/phy/normalization_word.py src/nearlink_sdr/phy/normalized_word_rx.py src/nearlink_sdr/sim/normalization_word_flow.py src/nearlink_sdr/sim/normalized_word_replay.py tests/normalization_reference.py tests/test_normalization_word.py tests/test_normalization_word_flow.py tests/test_normalized_word_replay.py tests/test_normalization_word_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 tests/test_timing_handoff_model.py
@@ -133,7 +135,7 @@ jobs:
           SHARD: ${{ matrix.shard }}
         run: |
           rrc=tests/test_stream_rrc_word.py
-          front=(tests/test_selected_word.py tests/test_alignment_guard.py tests/test_receive_scope.py tests/test_rrc_pair_boundary.py tests/test_rrc_memory.py)
+          front=(tests/test_timing_divider_prefix.py tests/test_timing_divider_model.py tests/test_selected_word.py tests/test_alignment_guard.py tests/test_receive_scope.py tests/test_rrc_pair_boundary.py tests/test_rrc_memory.py)
           if [ "$SHARD" = core ]; then
             paths=(tests/ "--ignore=$rrc")
             for path in "${front[@]}"; do paths+=("--ignore=$path"); done
@@ -886,6 +888,45 @@ jobs:
               assert all(r["history_peak_live"] <= 512 for r in rows)
               assert all(r["complete_latency_cycles"] is None and not r["full_receiver16MSps"] for r in rows)
           PYCODE
+      - name: Verify exact registered timing divider prefix and resource exits
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_timing_divider.py --split development --timing-root receiver-diagnostics/timing-development --capture-root receiver-diagnostics/capture-fine --selected-root receiver-diagnostics/selected-frame --output receiver-diagnostics/timing-divider-development >timing-divider-development.log 2>&1 || status=$?
+          cat timing-divider-development.log
+          test "$status" = 1
+          status=0
+          uv run --frozen --no-sync python scripts/model_timing_divider.py --split validation --freeze receiver-diagnostics/timing-divider-development/freeze.json --output receiver-diagnostics/timing-divider-validation >timing-divider-validation.log 2>&1 || status=$?
+          cat timing-divider-validation.log
+          test "$status" = 1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import hashlib,json
+          from pathlib import Path
+          for split in ("development","validation"):
+              p=Path("receiver-diagnostics/timing-divider-"+split)
+              d=json.loads((p/"model.json").read_text())
+              assert d["values_exact"] and d["before_full"] == d["after_full"]
+              assert d["success_losses"] == d["recoveries"] == d["new_false_deliveries"] == 0
+              assert d["negative_observation_samples"] == (120832 if split == "development" else 122880)
+              assert not any(d["all_RX_gates"].values()) and not d["default_changed"]
+              rows=json.loads((p/"rows.json").read_text())
+              rows += json.loads((p/"fixed-regressions.json").read_text()) if split == "development" else []
+              for r in rows:
+                  if "comparison" not in r:
+                      continue
+                  c=r["comparison"]
+                  assert c["numerical"]["word_state_and_trajectory_delta"] == 0
+                  assert c["modeled_edge_saving"] == 29*c["prefix_checks"]
+                  assert c["timing_cost"]["divider"]["steps"] == 34
+                  assert c["timing_cost"]["state_register_bits_upper"] - c["timing_cost_before"]["state_register_bits_upper"] == 64
+                  assert c["complete_latency_cycles"] is None and not c["full_receiver16MSps"]
+              assert all(hashlib.sha256((p/k).read_bytes()).hexdigest()==v for k,v in json.loads((p/"manifest.json").read_text()).items())
+          d=json.loads(Path("receiver-diagnostics/timing-divider-development/model.json").read_text())
+          for variant,rows in d["periodic_prefixes"].items():
+              assert variant in ("full","bounded-prefix") and len(rows) == 9
+              assert all(r["history_peak_live"] <= 512 and r["resource_drop_contexts"] == 1 for r in rows)
+              assert all(r["complete_latency_cycles"] is None and not r["full_receiver16MSps"] for r in rows)
+          PYCODE
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -903,6 +944,7 @@ jobs:
             unit-budget-*.json
             hold-pipeline-*.log
             normalization-*.log
+            timing-divider-*.log
             timing-development.log
             timing-validation.log
             timing-handoff-development.log
@@ -980,11 +1022,11 @@ jobs:
       - name: Measure core coverage
         if: matrix.shard == 'core'
         run: |
-          COVERAGE_FILE=coverage-core.data uv run --frozen --no-sync pytest tests/ --ignore=tests/test_stream_rrc_word.py --ignore=tests/test_selected_word.py --ignore=tests/test_alignment_guard.py --ignore=tests/test_receive_scope.py --ignore=tests/test_rrc_pair_boundary.py --ignore=tests/test_rrc_memory.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-core.xml --durations=20 >coverage-core.log 2>&1
+          COVERAGE_FILE=coverage-core.data uv run --frozen --no-sync pytest tests/ --ignore=tests/test_timing_divider_prefix.py --ignore=tests/test_timing_divider_model.py --ignore=tests/test_stream_rrc_word.py --ignore=tests/test_selected_word.py --ignore=tests/test_alignment_guard.py --ignore=tests/test_receive_scope.py --ignore=tests/test_rrc_pair_boundary.py --ignore=tests/test_rrc_memory.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-core.xml --durations=20 >coverage-core.log 2>&1
       - name: Measure frontend coverage
         if: matrix.shard == 'front'
         run: |
-          COVERAGE_FILE=coverage-front.data uv run --frozen --no-sync pytest tests/test_selected_word.py tests/test_alignment_guard.py tests/test_receive_scope.py tests/test_rrc_pair_boundary.py tests/test_rrc_memory.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-front.xml --durations=20 >coverage-front.log 2>&1
+          COVERAGE_FILE=coverage-front.data uv run --frozen --no-sync pytest tests/test_timing_divider_prefix.py tests/test_timing_divider_model.py tests/test_selected_word.py tests/test_alignment_guard.py tests/test_receive_scope.py tests/test_rrc_pair_boundary.py tests/test_rrc_memory.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-front.xml --durations=20 >coverage-front.log 2>&1
       - name: Measure RRC word coverage
         if: matrix.shard == 'rrc'
         run: |

@@ -11,6 +11,7 @@ from nearlink_sdr.phy.sync_fit_word import unsigned
 from nearlink_sdr.sim.hold_timing_flow import PipelinedPacketTimingService
 from nearlink_sdr.sim.normalization_pipeline import PipelinedNormalizationService
 from nearlink_sdr.sim.normalized_word_replay import NormalizedWordFrameReplay
+from nearlink_sdr.sim.timing_word_flow import validate_divider
 
 __all__ = ["OverlappedNormalizationFrameReplay"]
 
@@ -18,12 +19,17 @@ __all__ = ["OverlappedNormalizationFrameReplay"]
 class OverlappedNormalizationFrameReplay(NormalizedWordFrameReplay):
     """Four joint credits,one cache read/word;no extra original-sample history."""
 
+    def __init__(self, profile, prepared, *, timing_divider="full", **options):
+        self.timing_divider = validate_divider(timing_divider)
+        super().__init__(profile, prepared, **options)
+
     def _make_timing_service(self, state):
         self.normalization_service = PipelinedNormalizationService(
             self.consumer.claim_normalization_state()
         )
         return PipelinedPacketTimingService(
-            state, self.cache, self.cycle, word_sink=self.normalization_service
+            state, self.cache, self.cycle, word_sink=self.normalization_service,
+            divider=self.timing_divider,
         )
 
     def _join(self, item, normalized):
@@ -108,7 +114,7 @@ class OverlappedNormalizationFrameReplay(NormalizedWordFrameReplay):
                 "peek observations alias actual output registers,not hardware copies",
             join_combinational_comparisons="52bit source equality;18bit ordered counts;"
                 "existing40bit normalization and96bit timing progression;64bit counter checks",
-            data_timing_or_PI_schedule_changed=False,
+            data_timing_or_PI_schedule_changed=self.timing_divider != "full",
             normalization_and_timing_DSP_shared=False,
             full_receiver_cycles=None,
         )

@@ -121,6 +121,7 @@ timing-service-handoff
 known-sync-pipeline
 finite-normalization-words
 normalization-overlap
+timing-divider-prefix
 coverage-isolation
 rrc-memory
 spline-preparation

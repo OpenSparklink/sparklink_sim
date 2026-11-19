@@ -13,7 +13,11 @@ from nearlink_sdr.phy.sync_fit_constants import GAIN_FLOOR
 from nearlink_sdr.phy.sync_fit_word import INPUT_FORMAT, signed, unsigned
 from nearlink_sdr.phy.timing_word import TimingWordFormat, WordTimingState, compare_scaled, positive
 from nearlink_sdr.sim.initial_interpolant_flow import InitialInterpolantPort
-from nearlink_sdr.sim.timing_word_flow import TimingWordService, two_real_products
+from nearlink_sdr.sim.timing_word_flow import (
+    TimingWordService,
+    two_real_products,
+    validate_divider,
+)
 
 __all__ = ["HoldTimingPipeline", "PipelinedPacketTimingService"]
 
@@ -306,7 +310,8 @@ class HoldTimingPipeline:
 class PipelinedPacketTimingService:
     """One4DSP bank:hold pipeline drains before original data feedback activates."""
 
-    def __init__(self, state, cache, clock_origin, *, word_sink=None):
+    def __init__(self, state, cache, clock_origin, *, word_sink=None, divider="full"):
+        self.divider = validate_divider(divider)
         self.state = state
         self.hold = HoldTimingPipeline(state, cache, clock_origin, word_sink=word_sink)
         self.normal = None
@@ -351,7 +356,7 @@ class PipelinedPacketTimingService:
                 self.hold._count("credit_stall_edges")
                 return False  # One real bank-selection edge,not same-edge handoff.
             self.hold.release()
-            self.normal = TimingWordService(self.state)
+            self.normal = TimingWordService(self.state, divider=self.divider)
             self.normal.cycle = self.cycle
         return self.normal.issue(current, midpoint)
 
@@ -379,7 +384,7 @@ class PipelinedPacketTimingService:
         (self.hold if self.normal is None else self.normal).release()
 
     def estimate(self):
-        normal = TimingWordService(self.state).estimate()
+        normal = TimingWordService(self.state, divider=self.divider).estimate()
         extra = self.hold.estimate()
         return normal | dict(
             known_sync_pipeline=extra,

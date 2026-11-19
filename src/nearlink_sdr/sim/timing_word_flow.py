@@ -22,6 +22,13 @@ from nearlink_sdr.phy.timing_word import (
 __all__ = ["TimingWordService"]
 
 
+def validate_divider(mode):
+    """Select a compiled schedule before any packet owner is claimed."""
+    if mode not in ("full", "bounded-prefix"):
+        raise ValueError("Need full or bounded-prefix timing divider")
+    return mode
+
+
 def two_real_products(a, b, c, d):
     """Each signed25x22 uses two real DSP tiles;unsigned low17 fits signed18."""
     return [(a, b & 131071, 0), (a, b >> 17, 17), (c, d & 131071, 0), (c, d >> 17, 17)]
@@ -44,9 +51,10 @@ class TimingWordService:
     These are unsynthesized scheduling assumptions,not free combinational work.
     """
 
-    def __init__(self, state):
+    def __init__(self, state, *, divider="full"):
         if not isinstance(state, WordTimingState):
             raise ValueError("Need one explicit finite timing packet state")
+        self.divider = validate_divider(divider)
         self.state = state
         self.cycle = 0
         self.mode, self.job, self.result = "idle", None, None
@@ -61,6 +69,8 @@ class TimingWordService:
             output_stall_edges=0,
             aborted=0,
         )
+        if divider == "bounded-prefix":
+            self.stats["prefix_checks"] = 0
 
     def _count(self, key, amount=1):
         self.stats[key] = unsigned(self.stats[key] + amount, 64)
@@ -175,7 +185,20 @@ class TimingWordService:
                 division["negative"],
             )
             self.quotient = self.remainder = self.div_index = 0
-            self.mode = "divide"
+            self.mode = "prefix_check" if self.divider == "bounded-prefix" else "divide"
+
+    def _prefix_check(self):
+        # division_job bounds N/D <= 2**(E+1). After B-(E+2) high bits,
+        # the quotient is zero and the remainder is N>>(E+2) < D.
+        # One actual registered edge reuses the existing50bit compare/load path.
+        f = self.state.fmt
+        prefix = unsigned(self.num >> (f.error_bits + 2), 49)
+        if not 0 < self.den < 1 << 49 or prefix >= self.den:
+            raise ArithmeticError("Timing divider quotient prefix is not proven zero")
+        self._count("prefix_checks")  # Preflight before altering live arithmetic registers.
+        self.remainder = prefix
+        self.div_index = f.division_bits - (f.error_bits + 2)
+        self.mode = "divide"
 
     def _after_error(self):
         if self.job["error"]:
@@ -257,6 +280,8 @@ class TimingWordService:
             self._ratio()
         elif self.mode == "divide":
             self._divide()
+        elif self.mode == "prefix_check":
+            self._prefix_check()
         elif self.mode == "round_ratio":
             doubled = unsigned(2 * self.remainder, 50)
             q = self.quotient + (doubled > self.den or (doubled == self.den and self.quotient & 1))
@@ -295,7 +320,9 @@ class TimingWordService:
         f = self.state.fmt
         persistent = 192 + 52 + f.power_bits + 10 + 35 + f.error_bits + 3 + 6 * 64
         registers = persistent + 104 + 160 + 516 + 320 + 224 + 7 * 64
-        return dict(
+        if self.divider == "bounded-prefix":
+            registers += 64  # Observable finite prefix-check counter; existing FSM stays4bit.
+        result = dict(
             DSP25x18=4,
             DSP_latency=3,
             DSP_II=1,
@@ -334,3 +361,11 @@ class TimingWordService:
             synthesized=False,
             full_receiver16MSps=False,
         )
+        if self.divider == "bounded-prefix":
+            result["divider"].update(
+                mode=self.divider, steps=f.error_bits + 2, registered_prefix_check_edges=1,
+                zero_quotient_prefix_bits=f.division_bits - f.error_bits - 2,
+                extra_state_bits=64, extra_operand_mux_bits_upper=100,
+                compare_reuses_existing_50bit_divider=True,
+            )
+        return result

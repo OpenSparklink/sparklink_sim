@@ -648,6 +648,27 @@
         "remaining_float": "residual carrier/header/LLR/decoder",
         "whole_receiver_accepted": false,
         "system_schedule_verified": false
+      },
+      "partial_timing_divider_prefix": {
+        "evidence": "SYS-C2E2H3 finite value/cycle model;not synthesis",
+        "compiled_option": "bounded-prefix;default full unchanged",
+        "replaces_original_divider_schedule": true,
+        "additional_state_bits": 64,
+        "additional_DSP": 0,
+        "additional_raw_RAM_bits": 0,
+        "additional_source_cache_ports": 0,
+        "operand_mux_bits_upper": 100,
+        "registered_guard_edges": 1,
+        "guard_compare": "reuse existing50bit restoring compare",
+        "normal_nonbypass_steps": 34,
+        "normal_nonbypass_cycles": 75,
+        "old_nonbypass_cycles": 104,
+        "timing_node_state_bits": 5561,
+        "old4096_budget_passed": false,
+        "cross_RX_TX_decoder_MAC_sharing_proven": false,
+        "remaining_header_residual_carrier_LLR_decoder_cycles": null,
+        "LUT_FF_mapping_and_frequency": null,
+        "full_receiver16MSps": false
       }
     },
     {
