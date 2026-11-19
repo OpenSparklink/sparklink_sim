@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 from audit_capture_hardware import sha, write
 from audit_carrier_fixed import validate_profiles
-from model_capture_fine import bridge
+from model_capture_fine import INPUTS, MEMBERS, bridge, verify_input_container
 from model_initial_reuse import cases, verify_manifest
 from model_selected_frame import TRACE_KEYS, metrics, normalized
 from tests.test_selected_frame_replay import prepare
@@ -296,21 +296,44 @@ def fresh(out, split, policy, formats, partitions):
     return rows
 
 
+def fixed_input_provenance(capture, stream, original_sha):
+    """Retain original SHA;accept derived containers only with exact frozen NPY bytes."""
+    index = json.loads(MEMBERS.read_text())
+    if index["source_index_sha256"] != sha(INPUTS):
+        raise ValueError("Original input index does not match frozen member provenance")
+    expected = index["entries"][stream]
+    if expected["original_archive_sha256"] != original_sha:
+        raise ValueError("Original archive provenance mismatch")
+    protocol = json.loads((capture / "protocol.json").read_text())
+    mode = protocol["input_mode"]
+    if mode not in ("frozen", "derived-container-original-members-verified"):
+        raise ValueError("Unknown input container mode")
+    if protocol["input_index_sha256"] != sha(INPUTS) or protocol["input_members_sha256"] != sha(
+        MEMBERS
+    ):
+        raise ValueError("Capture input provenance index mismatch")
+    actual = verify_input_container(
+        capture / (stream + "-input.npz"), expected, require_original=mode == "frozen"
+    )
+    recorded = json.loads((capture / "input-containers.json").read_text())[stream]
+    if actual != recorded:
+        raise ValueError("Capture container receipt mismatch")
+    return actual
+
+
 def fixed(out, parent, capture, selected_root, fmt, policy):
     verify_manifest(parent)
     verify_manifest(capture)
     parents = json.loads((parent / "model.json").read_text())["parent_manifests"]
-    assert (
-        str(selected_root) in parents
-        and verify_manifest(selected_root) == parents[str(selected_root)]
-    )
+    for root in (selected_root, capture):
+        assert str(root) in parents and verify_manifest(root) == parents[str(root)]
     rows = []
     for old in json.loads((parent / "fixed-regressions.json").read_text()):
         record = dict(id=old["id"], original=old)
         if old.get("handoff_available"):
             r, meta = old["original_request"], old["input"]
             path = capture / (r["stream"] + "-input.npz")
-            assert sha(path) == old["original_input_sha256"]
+            provenance = fixed_input_provenance(capture, r["stream"], old["original_input_sha256"])
             profile = validate_profiles(
                 [(meta["frame_type"], meta["mcs"], meta["pilot"], meta["length"])], meta["pid"]
             )[0]
@@ -332,7 +355,9 @@ def fixed(out, parent, capture, selected_root, fmt, policy):
             )
             candidate.update(
                 handoff_available=True,
-                input_archive_sha256=old["original_input_sha256"],
+                input_archive_sha256=provenance["current_archive_sha256"],
+                original_input_archive_sha256=provenance["original_archive_sha256"],
+                input_container_provenance=provenance,
                 input_archive_file=str(path),
                 original_window_origin=r["origin"],
                 original_path=r["request"]["path"],

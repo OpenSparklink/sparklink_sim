@@ -162,6 +162,14 @@ TED差增至25位仍恰好适配同一DSP的25位输入。增加2个44位能量�
 首版误读另一制品的字段导致退出，原日志/源码保留，没有用新插值改写同步答案。
 原输入IQ只读，派生文件独立保存。
 
+首轮远端CI44432949858在固定回归输入SHA检查退出：驱动误将跨平台生成的派生NPZ
+压缩字节与冻结原件封装SHA比较。官方失败制品中的IQ、静默及载荷NPY成员与原冻结
+索引逐字节SHA一致。修复复用捕获层已有的`verify_input_container()`，冻结原件模式
+仍严格要求整包SHA；派生模式只接受全部成员大小与原始字节SHA一致的封装，并校验
+父级manifest、冻结成员索引及已记录回执。结果同时保存原件及当前派生封装SHA，
+不把派生文件标为原件。算法、参数、数值预算及期待载荷不变；已查看保留集重跑只作
+修复回归，不重新选型，也不宣称是另一份独立保留集。首轮失败日志及完整官方制品保留。
+
 ```sh
 PYTHONPATH=src uv run --frozen --no-sync python scripts/model_timing_words.py \
   --split development --handoff-root "$HANDOFF" --capture-root "$CAPTURE" \
