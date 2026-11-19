@@ -176,7 +176,7 @@ def pair(out, name, profile, words, selection, payload, policy, *, partitions):
                 cost=cost, complete_latency_cycles=None, full_receiver16MSps=False)
 
 
-def periodic_prefixes(out):
+def periodic_prefixes(out, *, flow_class=NormalizedWordFrameReplay):
     """Continuous ADC, actual normalization, no zero-cycle header/decoder resolution."""
     from tests.test_selected_rx import ordinary, selected_input
     from tests.test_selected_word import quantize_input
@@ -213,7 +213,7 @@ def periodic_prefixes(out):
                 if flow is None:
                     init.step()
                     if init.ready:
-                        flow = NormalizedWordFrameReplay(
+                        flow = flow_class(
                             profile, init, normalization_format=NORM, word_timing_format=FMT,
                             reuse_stencil=True, **selection,
                         )
@@ -241,6 +241,8 @@ def periodic_prefixes(out):
                            normalizer_statistics=flow.normalization_service.stats,
                            blocked_service=flow.pending_service,
                            actual_services=flow.event.get("normalization_service"))
+                if "normalization_pipeline" in flow.event:
+                    row["normalization_pipeline"] = flow.event["normalization_pipeline"]
             rows.append(row)
     write(out / "periodic-prefixes.json", rows)
     return rows

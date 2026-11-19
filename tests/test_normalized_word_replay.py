@@ -14,10 +14,10 @@ from tests.test_selected_rx import ordinary, selected_input
 from tests.test_selected_word import quantize_input
 
 
-def run(profile, words, selection, pattern=(32,)):
+def run(profile, words, selection, pattern=(32,), *, flow_type=NormalizedWordFrameReplay):
     prepared, pos = prepare(profile, words, selection)
     seen, services = [], []
-    flow = NormalizedWordFrameReplay(
+    flow = flow_type(
         profile, prepared, normalization_format=NormalizationFormat("linear"),
         word_timing_format=FMT, reuse_stencil=True, observer=seen.append,
         service_observer=services.append, **selection,

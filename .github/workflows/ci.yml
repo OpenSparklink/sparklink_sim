@@ -39,6 +39,8 @@ jobs:
           uv run --frozen --no-sync ruff check scripts/model_timing_words.py
           uv run --frozen --no-sync ruff check scripts/model_timing_handoff.py
           uv run --frozen --no-sync ruff check scripts/model_normalization_words.py
+          uv run --frozen --no-sync ruff check scripts/model_normalization_overlap.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_normalization_overlap.py src/nearlink_sdr/sim/normalization_pipeline.py src/nearlink_sdr/sim/overlapped_normalization_replay.py tests/test_normalization_pipeline.py tests/test_overlapped_normalization_replay.py tests/test_normalization_overlap_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_normalization_words.py src/nearlink_sdr/phy/normalization_word.py src/nearlink_sdr/phy/normalized_word_rx.py src/nearlink_sdr/sim/normalization_word_flow.py src/nearlink_sdr/sim/normalized_word_replay.py tests/normalization_reference.py tests/test_normalization_word.py tests/test_normalization_word_flow.py tests/test_normalized_word_replay.py tests/test_normalization_word_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 tests/test_timing_handoff_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 src/nearlink_sdr/sim/timing_query_flow.py src/nearlink_sdr/sim/finite_timing_replay.py tests/test_timing_query_flow.py tests/test_finite_timing_replay.py scripts/model_timing_handoff.py
@@ -841,6 +843,48 @@ jobs:
           assert all(r["history_peak_live"] <= 512 and r["resource_drop_contexts"] == 1 for r in rows)
           assert all(r["complete_latency_cycles"] is None and not r["full_receiver16MSps"] for r in rows)
           assert all(r["unmodeled_header_residual_carrier_LLR_decoder_cycles"] is None for r in rows)
+          PYCODE
+      - name: Verify finite cache broadcast and ordered normalization overlap
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_normalization_overlap.py --split development --timing-root receiver-diagnostics/timing-development --capture-root receiver-diagnostics/capture-fine --selected-root receiver-diagnostics/selected-frame --output receiver-diagnostics/normalization-overlap-development >normalization-overlap-development.log 2>&1 || status=$?
+          cat normalization-overlap-development.log
+          test "$status" = 1
+          status=0
+          uv run --frozen --no-sync python scripts/model_normalization_overlap.py --split validation --freeze receiver-diagnostics/normalization-overlap-development/freeze.json --output receiver-diagnostics/normalization-overlap-validation >normalization-overlap-validation.log 2>&1 || status=$?
+          cat normalization-overlap-validation.log
+          test "$status" = 1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import hashlib,json
+          from pathlib import Path
+          for split in ("development","validation"):
+              p=Path("receiver-diagnostics/normalization-overlap-"+split)
+              d=json.loads((p/"model.json").read_text())
+              assert d["numeric_H1_values_exact"] and d["before_full"] == d["after_full"]
+              assert d["success_losses"] == d["recoveries"] == d["new_false_deliveries"] == 0
+              assert d["negative_observation_samples"] == (116736 if split == "development" else 118784)
+              assert not any(d["all_RX_gates"].values()) and not d["default_changed"]
+              node=d["node_cost"]
+              assert node["state_register_bits_upper"] == 7825 and node["symbol_credits"] == 4
+              assert node["additional_DSP25x18"] == 4 and node["coefficient_ROM_read_ports"] == 2
+              rows=json.loads((p/"rows.json").read_text())
+              rows += json.loads((p/"fixed-regressions.json").read_text()) if split == "development" else []
+              for r in rows:
+                  if "comparison" not in r:
+                      continue
+                  c=r["comparison"]
+                  assert c["numerical"]["exact_H1_words_states_services"]
+                  assert c["cost"]["known_sync_registered_cache_broadcast"]
+                  assert c["cost"]["extra_source_or_cache_read_ports"] == 0
+                  assert c["actual_pipeline"]["peak_owned"] <= 4
+                  assert c["complete_latency_cycles"] is None and not c["full_receiver16MSps"]
+              assert all(hashlib.sha256((p/k).read_bytes()).hexdigest()==v for k,v in json.loads((p/"manifest.json").read_text()).items())
+          d=json.loads(Path("receiver-diagnostics/normalization-overlap-development/model.json").read_text())
+          for variant,rows in d["periodic_prefixes"].items():
+              assert variant in ("serial","overlap") and len(rows) == 9
+              assert all(r["history_peak_live"] <= 512 for r in rows)
+              assert all(r["complete_latency_cycles"] is None and not r["full_receiver16MSps"] for r in rows)
           PYCODE
       - name: Upload tests and diagnostics even on failure
         if: always()

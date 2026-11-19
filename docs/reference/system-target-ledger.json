@@ -103,7 +103,33 @@
         }
       },
       "ports_verified": false,
-      "deadline_verified": false
+      "deadline_verified": false,
+      "partial_normalization_overlap_candidate": {
+        "evidence": "H2 actual finite4slot/ROM/DSP value model and cache/timing join;not synthesis or full scheduling",
+        "replaces_H1_normalization_not_additive": true,
+        "external_register_bits_upper": 7825,
+        "controller_bits": 192,
+        "DSP_internal_pipeline_bits": 536,
+        "dedicated_DSP25x18": 4,
+        "coefficient_ROM_bits": 17408,
+        "ROM_RAMB18_estimate": 1,
+        "ROM_read_ports": 2,
+        "native_products_per_symbol": 10,
+        "ROM_reads_per_symbol": 4,
+        "additional_original_source_RAM_bits": 0,
+        "additional_source_cache_read_ports": 0,
+        "register_contexts": 4,
+        "registered_output_slots": 1,
+        "prepared_single_node_II_candidate": 7,
+        "private_phase_prediction_edges": 1,
+        "H1_words_and_owner_states_required_exact": true,
+        "other_RX_TX_MAC_sharing_credit": false,
+        "stage_macro_ALU_mux_LUT_FF_cost": "distinct concurrent stage macros and4slot mux;not reliably mapped,not zero",
+        "old_failures_retained": true,
+        "remaining_float": "residual carrier/header/LLR/decoder",
+        "whole_receiver_accepted": false,
+        "system_schedule_verified": false
+      }
     },
     {
       "id": "rx_fine_timing_carrier",

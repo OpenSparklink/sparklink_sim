@@ -1,0 +1,194 @@
+{
+  "stage": "SYS-C2E2H2-OVERLAP",
+  "baseline": "2fd67aa8c40a30abb310b3f9365b9a2e086788e6",
+  "candidate": "same H1 arithmetic;4registered contexts,predictor edge,one4DSP bank2RROM;real cache broadcast and atomic hold join;normal data remains serial",
+  "node_budgets": {
+    "original_success_loss": 0,
+    "new_false_delivery": 0,
+    "extra_DSP_max": 4,
+    "extra_quarter_ROM_RAMB18_max": 1,
+    "extra_raw_source_RAM_bits": 0,
+    "extra_source_or_cache_read_ports": 0,
+    "new_logic_state_bits_upper_max": 8192,
+    "node_relative_RMS_max": 3e-05,
+    "node_relative_peak_max": 5e-05,
+    "packet_relative_RMS_max": 5e-05,
+    "packet_relative_peak_max": 0.0001,
+    "timing_trajectory_delta": 0
+  },
+  "receiver_gates": {
+    "streaming": false,
+    "full_fixed": false,
+    "system_resources": false,
+    "continuous16MSps": false
+  },
+  "adoption": "explicit only;H1 words/state/trajectories/frame exact;original successes preserved;old resource and numerical failures retained;no CRC/truth/retry selection",
+  "old_failures_retained": true,
+  "development": {
+    "seed": 1122239,
+    "pid": 4,
+    "profiles": [
+      [
+        2,
+        12,
+        4,
+        79
+      ],
+      [
+        3,
+        8,
+        8,
+        211
+      ],
+      [
+        4,
+        6,
+        0,
+        413
+      ],
+      [
+        2,
+        0,
+        16,
+        29
+      ],
+      [
+        3,
+        10,
+        4,
+        347
+      ],
+      [
+        4,
+        12,
+        8,
+        769
+      ]
+    ],
+    "kinds": [
+      "noise",
+      "wrong_sync",
+      "tone_burst",
+      "two_tone",
+      "amplitude_step",
+      "burst"
+    ],
+    "cfo_hz": [
+      -87000,
+      73000
+    ],
+    "sro_ppm": [
+      -275,
+      325
+    ],
+    "offset": 0.337,
+    "payload_transform": [
+      173,
+      53,
+      217
+    ]
+  },
+  "validation": {
+    "seed": 1129913,
+    "pid": 1,
+    "profiles": [
+      [
+        4,
+        12,
+        16,
+        457
+      ],
+      [
+        2,
+        8,
+        4,
+        103
+      ],
+      [
+        3,
+        6,
+        8,
+        563
+      ],
+      [
+        4,
+        0,
+        0,
+        47
+      ],
+      [
+        2,
+        10,
+        16,
+        397
+      ],
+      [
+        3,
+        12,
+        4,
+        191
+      ]
+    ],
+    "kinds": [
+      "amplitude_step",
+      "tone",
+      "wrong_sync",
+      "noise",
+      "double_burst",
+      "clean"
+    ],
+    "cfo_hz": [
+      -93000,
+      57000
+    ],
+    "sro_ppm": [
+      -375,
+      225
+    ],
+    "offset": 0.823,
+    "payload_transform": [
+      163,
+      67,
+      109
+    ]
+  },
+  "negative_samples": {
+    "development": [
+      27648,
+      28672,
+      29696,
+      30720
+    ],
+    "validation": [
+      28160,
+      29184,
+      30208,
+      31232
+    ]
+  },
+  "negative_templates": {
+    "development": {
+      "tone_frequency": 0.127,
+      "phase": 0.7,
+      "wrong_pid": 2,
+      "wrong_payload": "bounded-fanout-development-independent-content"
+    },
+    "validation": {
+      "tone_frequency": -0.083,
+      "phase": -0.9,
+      "wrong_pid": 3,
+      "wrong_payload": "bounded-fanout-unseen-independent-content"
+    }
+  },
+  "negative_kinds": [
+    "silence",
+    "noise",
+    "tone",
+    "wrong_sync"
+  ],
+  "input_amplitudes": "unchanged independent generator cycles0.2/0.35/0.7,with configured amplitude-step;node arithmetic also spans full representation",
+  "arithmetic_development_seed": 1122233,
+  "arithmetic_validation_seed": 1129927,
+  "held_generated": false,
+  "no_theoretical_unrecoverability_claim": true
+}

@@ -21,7 +21,7 @@ __all__ = ["HoldTimingPipeline", "PipelinedPacketTimingService"]
 class HoldTimingPipeline:
     """Four total contexts,two output slots;no CRC,payload,truth or alternative phase."""
 
-    def __init__(self, state, cache, clock_origin=0):
+    def __init__(self, state, cache, clock_origin=0, *, word_sink=None):
         if (
             not isinstance(state, WordTimingState)
             or state.count != 0
@@ -46,6 +46,7 @@ class HoldTimingPipeline:
         if type(clock_origin) is not int or not 0 <= clock_origin < 2**63 - 1:
             raise ValueError("Need bounded actual cache epoch")
         self.state, self.cache, self.clock_origin = state, cache, clock_origin
+        self.word_sink = word_sink
         self.cycle = 0
         self.first_cycle = self.ready_cycle = None
         self.start_q32 = state.next_q32
@@ -97,9 +98,10 @@ class HoldTimingPipeline:
     def peek(self):
         return self.outputs[0] | dict(ready=self.commit_ready) if self.ready else None
 
-    def take(self):
+    def validate_take(self):
+        """Read-only owner/counter preflight before a joint symbol transfer."""
         if not self.ready or self.taken_this_cycle:
-            return None
+            return False
         j = self.outputs[0]
         s = self.state
         if (
@@ -109,6 +111,13 @@ class HoldTimingPipeline:
             or s.error_word
         ):
             raise RuntimeError("Known-sync packet state changed before ordered acceptance")
+        unsigned(self.stats["accepted"] + 1, 64)
+        return True
+
+    def take(self):
+        if not self.validate_take():
+            return None
+        j, s = self.outputs[0], self.state
         # Transfer the actual registered result. No NCO/power recomputation in take.
         accepted = unsigned(self.stats["accepted"] + 1, 64)
         result = deepcopy(self.prepared_state)
@@ -208,12 +217,14 @@ class HoldTimingPipeline:
                     j["word"], j["power"], 0, False, j["erased"], 0, j["floored"], 0, 0
                 )
                 self.commit_ready = self.cycle + 1
-            if self.energy is None:
+            if self.energy is None and (self.word_sink is None or self.word_sink.can_issue):
                 reply = self.cache.take(c)
                 if reply is not None:
                     index, word = reply
                     if index != self.stats["cache_returns"]:
                         raise RuntimeError("Registered sync-cache reply changed order")
+                    if self.word_sink is not None and not self.word_sink.issue(word):
+                        raise RuntimeError("Broadcast consumed a reply without both input credits")
                     _, _, exponent = unpack_interpolated_word(word, INPUT_FORMAT)
                     self.energy = dict(
                         index=index, word=word, exponent=exponent, issued=self.cycle, age=0
@@ -295,9 +306,9 @@ class HoldTimingPipeline:
 class PipelinedPacketTimingService:
     """One4DSP bank:hold pipeline drains before original data feedback activates."""
 
-    def __init__(self, state, cache, clock_origin):
+    def __init__(self, state, cache, clock_origin, *, word_sink=None):
         self.state = state
-        self.hold = HoldTimingPipeline(state, cache, clock_origin)
+        self.hold = HoldTimingPipeline(state, cache, clock_origin, word_sink=word_sink)
         self.normal = None
         self.cycle = 0
         self.first_cycle = self.ready_cycle = None
