@@ -672,6 +672,55 @@ jobs:
           assert bound["timing_only_known_sync_lower_bound_edges"] == 2268
           assert bound["current_serial_hold_timing_alone_exceeds_margin"]
           PYCODE
+      - name: Verify exact known-sync pipeline and preserve whole-RX resource gaps
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_hold_pipeline.py --split development --timing-root receiver-diagnostics/timing-development --capture-root receiver-diagnostics/capture-fine --selected-root receiver-diagnostics/selected-frame --output receiver-diagnostics/hold-pipeline-development >hold-pipeline-development.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/hold-pipeline-development/model.json")); assert d["node_value_eligible"] and d["fixed_before_full"] == d["fixed_after_full"] == 13'
+          status=0
+          uv run --frozen --no-sync python scripts/model_hold_pipeline.py --split validation --freeze receiver-diagnostics/hold-pipeline-development/freeze.json --output receiver-diagnostics/hold-pipeline-validation >hold-pipeline-validation.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import hashlib,json
+          from pathlib import Path
+          for split in ("development","validation"):
+              p=Path("receiver-diagnostics")/("hold-pipeline-"+split)
+              d=json.loads((p/"model.json").read_text())
+              assert d["node_value_eligible"] and d["before_full"] == d["after_full"]
+              assert d["success_losses"] == d["recoveries"] == d["new_false_deliveries"] == 0
+              assert d["negative_observation_samples"] == (72704 if split == "development" else 74752)
+              assert not any(d["all_RX_gates"].values()) and not d["default_changed"]
+              rows=json.loads((p/"rows.json").read_text())
+              rows += json.loads((p/"fixed-regressions.json").read_text()) if split == "development" else []
+              for r in rows:
+                  if "comparison" not in r:
+                      continue
+                  c=r["comparison"];cost=c["cost"];t=cost["timing_service"]
+                  assert c["values_states_trajectories_exact"] and c["cache_passes"] == 1
+                  assert t["DSP25x18"] == 4 and t["state_register_bits_upper"] == 5497
+                  assert not t["old4096_state_budget_passed"]  # Preserve the original node cap failure.
+                  assert t["known_sync_pipeline"]["additional_state_bits_upper"] == 2987
+                  assert t["known_sync_pipeline"]["total_credits"] == 4
+                  assert t["known_sync_pipeline"]["output_slots"] == 2
+                  assert t["known_sync_pipeline"]["constant_rate_NCO_commit_edges"] == 1
+                  assert t["known_sync_pipeline"]["shared_bank_switch_edges"] == 1
+                  assert cost["new_controller_state_bits"] == 2090 and cost["extra_hold_controller_bits"] == 0
+                  assert c["complete_latency_cycles"] is None
+              assert all(hashlib.sha256((p/k).read_bytes()).hexdigest()==v for k,v in json.loads((p/"manifest.json").read_text()).items())
+          rows=json.loads(Path("receiver-diagnostics/hold-pipeline-development/periodic-prefixes.json").read_text())
+          assert len(rows) == 18
+          assert sum(r["status"] == "hold_ready" for r in rows if r["variant"] == "serial") == 5
+          assert sum(r["status"] == "hold_ready" for r in rows if r["variant"] == "pipeline") == 7
+          for r in rows:
+              assert r["history_peak_live"] <= 512 and r["no_MAC_delivery"]
+              assert r["complete_latency_cycles"] is None and r["normalization_carrier_header_decoder_cycles"] is None
+              if r["variant"] == "pipeline" and r["status"] == "hold_ready":
+                  assert r["hold_edges"] == 6*r["known_words"]+7
+          ft4=next(r for r in rows if r["frame_type"] == 4 and r["clock_hz"] == 200000000 and r["variant"] == "pipeline")
+          assert ft4["hold_edges"] == 763 < ft4["initial_snapshot"]["margin_edges"] == 1039
+          PYCODE
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -683,6 +732,7 @@ jobs:
             test-*.log
             build.log
             backend.json
+            hold-pipeline-*.log
             timing-development.log
             timing-validation.log
             timing-handoff-development.log

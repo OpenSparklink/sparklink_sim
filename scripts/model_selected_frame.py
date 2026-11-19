@@ -172,6 +172,9 @@ def fresh_cases(split, policy):
             if j % 3 == 1
             else rng.integers(0, 256, length)
         )
+        if 'payload_transform' in spec:
+            a, b, mask = spec['payload_transform']
+            values = ((np.asarray(values, np.int64) * a + b) % 256) ^ mask
         payload = np.asarray(values, np.uint8).tobytes()
         cfo, ppm = spec["cfo_hz"][j % 2], spec["sro_ppm"][j % 2]
         clean, _, start, step = iq_record(

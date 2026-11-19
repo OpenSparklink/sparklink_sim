@@ -1,0 +1,194 @@
+{
+  "stage": "SYS-C2E2G-HOLD-PIPELINE",
+  "baseline": "99f16642b2ff69779e62885a6cab3307edc9f9b6",
+  "candidate": "exact known-sync constant-rate lookahead;overlap four-DSP energy and six-edge finite power;one sealed cache pass;two held replies;four total credits",
+  "formats": [
+    30,
+    32
+  ],
+  "node_budgets": {
+    "word_state_difference": 0,
+    "payload_difference": 0,
+    "additional_center_error": 0,
+    "additional_DSP": 0,
+    "new_raw_RAM_bits": 0,
+    "new_cache_read_ports": 0,
+    "extra_state_bits_max": 4096,
+    "output_queue": 2,
+    "total_context_credits": 4,
+    "original_success_loss": 0,
+    "new_false_delivery": 0
+  },
+  "receiver_gates": {
+    "streaming": false,
+    "full_fixed": false,
+    "system_resources": false,
+    "continuous16MSps": false
+  },
+  "old_failures_retained": true,
+  "adoption": "explicit experiment only;node scheduling cannot certify full receiver;norm/carrier/header/decoder never zero",
+  "development": {
+    "seed": 1081117,
+    "pid": 3,
+    "profiles": [
+      [
+        2,
+        10,
+        8,
+        67
+      ],
+      [
+        3,
+        6,
+        16,
+        241
+      ],
+      [
+        4,
+        8,
+        0,
+        389
+      ],
+      [
+        2,
+        12,
+        4,
+        811
+      ],
+      [
+        3,
+        0,
+        8,
+        31
+      ],
+      [
+        4,
+        12,
+        16,
+        557
+      ]
+    ],
+    "kinds": [
+      "noise",
+      "wrong_sync",
+      "tone_burst",
+      "two_tone",
+      "amplitude_step",
+      "burst"
+    ],
+    "cfo_hz": [
+      -71000,
+      89000
+    ],
+    "sro_ppm": [
+      -450,
+      225
+    ],
+    "offset": 0.353,
+    "payload_transform": [
+      197,
+      53,
+      167
+    ]
+  },
+  "validation": {
+    "seed": 1083337,
+    "pid": 5,
+    "profiles": [
+      [
+        4,
+        6,
+        4,
+        109
+      ],
+      [
+        2,
+        8,
+        16,
+        347
+      ],
+      [
+        3,
+        12,
+        0,
+        53
+      ],
+      [
+        4,
+        10,
+        8,
+        877
+      ],
+      [
+        2,
+        0,
+        16,
+        173
+      ],
+      [
+        3,
+        8,
+        4,
+        71
+      ]
+    ],
+    "kinds": [
+      "amplitude_step",
+      "two_tone",
+      "noise",
+      "double_burst",
+      "wrong_sync",
+      "clean"
+    ],
+    "cfo_hz": [
+      61000,
+      -93000
+    ],
+    "sro_ppm": [
+      450,
+      -225
+    ],
+    "offset": 0.767,
+    "payload_transform": [
+      113,
+      211,
+      89
+    ]
+  },
+  "negative_samples": {
+    "development": [
+      16640,
+      17664,
+      18688,
+      19712
+    ],
+    "validation": [
+      17152,
+      18176,
+      19200,
+      20224
+    ]
+  },
+  "negative_templates": {
+    "development": {
+      "tone_frequency": -0.083,
+      "phase": 0.7,
+      "wrong_pid": 4,
+      "wrong_payload": "hold-pipeline-diverse-development"
+    },
+    "validation": {
+      "tone_frequency": 0.129,
+      "phase": -0.8,
+      "wrong_pid": 2,
+      "wrong_payload": "hold-pipeline-independent-validation"
+    }
+  },
+  "selection": "exact arithmetic/positions;no threshold,loop-gain,search/profile change;new held only after implementation freeze;all viewed sets fixed regressions",
+  "negative_kinds": [
+    "silence",
+    "noise",
+    "tone",
+    "wrong_sync"
+  ],
+  "data_generation_scope": "affine/XOR byte permutation changes actual transmitted payload before independent pulse shaping;never modify expected answer after generation"
+}

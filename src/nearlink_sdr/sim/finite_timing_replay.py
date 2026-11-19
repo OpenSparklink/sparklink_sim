@@ -25,7 +25,7 @@ class FiniteTimingFrameReplay(SelectedFrameReplay):
         self.service_observer = service_observer
         self.timing_service = self.query_service = None
         super().__init__(profile, prepared, word_timing_format=word_timing_format, **options)
-        self.timing_service = TimingWordService(self.consumer.claim_timing_state())
+        self.timing_service = self._make_timing_service(self.consumer.claim_timing_state())
         self.query_service = TimingQueryService()
         self.service_epoch = self.cycle
         self.stats.update(dict.fromkeys([
@@ -34,6 +34,9 @@ class FiniteTimingFrameReplay(SelectedFrameReplay):
             "blocked_normalization_edges", "stale_query_rejections",
         ], 0))
         self._plan()
+
+    def _make_timing_service(self, state):
+        return TimingWordService(state)
 
     def _plan(self):
         if self.timing_service is None:

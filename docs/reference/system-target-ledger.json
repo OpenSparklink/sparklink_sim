@@ -546,6 +546,58 @@
         "old_controller_state_budget_passed": false,
         "old_controller_state_overrun_bits": 42,
         "prospective_experiment_increment_budget_is_not_old_budget_relaxation": true
+      },
+      "experimental_known_sync_pipeline": {
+        "stage": "SYS-C2E2G-HOLD-PIPELINE",
+        "reference": "known-sync-pipeline.md",
+        "placement": "FPGA structural candidate;explicit experiment",
+        "existing_DSP25x18": 4,
+        "new_DSP_over_existing_timing": 0,
+        "new_raw_RAM_bits": 0,
+        "extra_cache_read_ports": 0,
+        "cache_passes": 1,
+        "total_context_credits": 4,
+        "output_slots": 2,
+        "registered_state_preparation_bits": 686,
+        "additional_state_register_bits_upper": 2987,
+        "combined_timing_node_bits_upper": 5497,
+        "original_node_state_budget_bits": 4096,
+        "original_node_budget_passed": false,
+        "original_node_overrun_bits": 1401,
+        "prospective_increment_limit_bits": 4096,
+        "whole_system_budget_approved": false,
+        "holding_output_II": 6,
+        "holding_cache_to_last_accept_formula": "6*N+7 without stalls",
+        "registered_state_preparation_edges": 1,
+        "drained_bank_switch_edges": 1,
+        "bank_sharing_scope": "known hold and normal data within one packet,after all credits drain;no RX/TX/decoder sharing credit",
+        "continuous_selected_port": {
+          "FT3_100MHz": {
+            "margin": 412,
+            "new_edges": 379,
+            "old": "hold_overflow"
+          },
+          "FT4_200MHz": {
+            "margin": 1039,
+            "new_edges": 763,
+            "old": "hold_overflow"
+          },
+          "FT4_100_160MHz": "initialization overflow unchanged"
+        },
+        "sink_assumption": "timing results always consumed;does not execute normalization/MAC",
+        "normal_data_timing_cycles": 104,
+        "normalization_carrier_header_decoder_cycles": null,
+        "complete_LUT_FF_mapping_or_timing": null,
+        "whole_receiver16MSps": false,
+        "synthesis": false,
+        "default_enabled": false,
+        "old_RRC_interpolation16KiB_and_controller2048_failures_retained": true,
+        "parallel_add45_lanes_required_at_least": 3,
+        "parallel_operand_normalize_RNE44": 2,
+        "statistic_counter_bits": 512,
+        "NCO_prepared_parallel_bus_bits": 686,
+        "additional_ALU_mux_LUT_mapping": "unknown;not credited free",
+        "source_sample_rate_hz": 16000000
       }
     },
     {
@@ -871,6 +923,11 @@
       "item": "single causal RRC output reused by original/tone branches; bank difference/energy and overlapping windows reused",
       "evidence": "existing frozen floating/structure evidence",
       "scope": "algorithmic computation reuse only; whole FPGA arbitration unverified"
+    },
+    {
+      "item": "hold and normal timing phases use one4DSP bank",
+      "evidence": "bounded credits drain,one-edge switch guard,actual integer products and state fixtures",
+      "scope": "one packet timing subgraph under macros only;other modules/whole scheduling unverified"
     }
   ],
   "sharing_unproven": [

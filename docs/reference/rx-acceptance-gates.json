@@ -1,5 +1,5 @@
 {
-  "stage": "SYS-C2E2F-LIVE-TIMING",
+  "stage": "SYS-C2E2G-HOLD-PIPELINE",
   "target": "4Msym/s QPSK/8PSK16MS/s;FT2/3/4 first;FT1 separate",
   "complete": false,
   "gates": {
@@ -27,12 +27,13 @@
         "all RX/TX/Polar/realMAC/crypto/DMA concurrent budgets not closed",
         "old16KiB failure retained",
         "three private tails24BRAM not target adopted",
-        "actual timing handoff controller2090 exceeds original2048bit bound;42bit failure preserved,not automatically relaxed"
+        "actual timing handoff controller2090 exceeds original2048bit bound;42bit failure preserved,not automatically relaxed",
+        "new combined timing5497 exceeds original4096node cap;increment2987 charged,whole budget not approved"
       ]
     },
     "continuous_16msps": {
       "passed": false,
-      "evidence": "isolated executable RRC/fine/word transport calendars;not whole receiver;registered history port tested only with pauseable replay source;isolated interpolation pipeline32/II8,paired feedback margin160MHz0/200MHz10 before raw reads/PI/head;initial source/cache transfer841controlbits modeled,fit/PI/head service unknown;actual initial-source/cache/fit broadcast service modeled;FT4 overflows100/160MHz,initial fit only ready200MHz;known-sync replay power/PI/head/decoder stillunknown;selected value consumer does not execute unknown services in step;off-clock functional resolution invalidates cycle evidence;all-ready source/kernel transaction45edges,read reuse no latency gain;finite timing service104cycles plus known45 serial transport exceeds50@200MHz;current serialized structure rejected,not full ADC schedule;actual continuous selected-prefix/blocking tests retain bounded overflow;FT4/200 postfit1039 vs known-sync timing-only2268 necessary-condition failure;unknown services not assigned zero cycles",
+      "evidence": "isolated executable RRC/fine/word transport calendars;not whole receiver;registered history port tested only with pauseable replay source;isolated interpolation pipeline32/II8,paired feedback margin160MHz0/200MHz10 before raw reads/PI/head;initial source/cache transfer841controlbits modeled,fit/PI/head service unknown;actual initial-source/cache/fit broadcast service modeled;FT4 overflows100/160MHz,initial fit only ready200MHz;known-sync replay power/PI/head/decoder stillunknown;selected value consumer does not execute unknown services in step;off-clock functional resolution invalidates cycle evidence;all-ready source/kernel transaction45edges,read reuse no latency gain;finite timing service104cycles plus known45 serial transport exceeds50@200MHz;current serialized structure rejected,not full ADC schedule;actual continuous selected-prefix/blocking tests retain bounded overflow;FT4/200 postfit1039 vs known-sync timing-only2268 necessary-condition failure;unknown services not assigned zero cycles;exact known-sync overlapped pipeline now199/379/763edges to timing-only ready sink;FT3/100 andFT4/200 retention condition improved,not normalization or MAC;normal104cycles unchanged",
       "gaps": [
         "selected decoder/interpolator/head service unknown,not zero",
         "early stop not in actual transport scheduler",

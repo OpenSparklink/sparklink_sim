@@ -110,7 +110,8 @@ def pair(out, name, profile, words, selection, payload, policy, *, partitions):
     )
 
 
-def fresh(out, split, policy, partitions):
+def fresh(out, split, policy, partitions, *, pair_fn=None):
+    compare = pair if pair_fn is None else pair_fn
     rows = []
     for meta, profile, iq, payload in cases(split, policy):
         name = split + "-" + str(meta["id"])
@@ -139,7 +140,7 @@ def fresh(out, split, policy, partitions):
             if rx._sync_fit_result is None or not rx._sync_fit_result["valid"]:
                 row["upstream_rejected"] = True
             else:
-                row["comparison"] = pair(
+                row["comparison"] = compare(
                     out, name, profile, words, selection | dict(sample_limit=len(words)),
                     payload, policy, partitions=partitions,
                 )
@@ -150,7 +151,8 @@ def fresh(out, split, policy, partitions):
     return rows
 
 
-def fixed(out, timing_root, capture_root, selected_root, policy):
+def fixed(out, timing_root, capture_root, selected_root, policy, *, pair_fn=None):
+    compare = pair if pair_fn is None else pair_fn
     parents = {str(p): verify_manifest(p) for p in (timing_root, capture_root, selected_root)}
     rows = []
     for old in json.loads((timing_root / "fixed-regressions.json").read_text()):
@@ -171,7 +173,7 @@ def fixed(out, timing_root, capture_root, selected_root, policy):
             with np.load(selected_root / (old["id"] + "-full-trajectory.npz")) as z:
                 sync = z["selected_sync"].copy()
             selection = old["original"]["selection"] | dict(selected_sync=sync)
-            row["comparison"] = pair(out, old["id"], profile, words, selection, payload,
+            row["comparison"] = compare(out, old["id"], profile, words, selection, payload,
                                      policy, partitions=True)
             assert row["comparison"]["before"] == old["candidate"]["after"]
             row["input_container_provenance"] = provenance
