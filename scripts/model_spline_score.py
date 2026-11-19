@@ -61,7 +61,10 @@ def packets(held=False):
             head_llid=None if ft == 2 else 0x234567,
             symbol_rate_mhz=4,
         )
-        p = PSKReceiveProfile.ordinary(cfg)
+        # This published corpus predates the standard B1 wire-length correction.
+        p = PSKReceiveProfile.ordinary(
+            cfg, length_contract="standard" if ft == 2 else "legacy-b1-payload-length"
+        )
         length = lengths[j % 4]
         content = (
             (np.arange(length) * 91 + j * 37) % 256
@@ -158,7 +161,12 @@ def dataset(held, frozen=None):
                 head_llid=None if meta["frame_type"] == 2 else 0x234567,
                 symbol_rate_mhz=4,
             )
-            profile = PSKReceiveProfile.ordinary(cfg)
+            profile = PSKReceiveProfile.ordinary(
+                cfg,
+                length_contract=(
+                    "standard" if cfg.frame_type == 2 else "legacy-b1-payload-length"
+                ),
+            )
             with np.load(frozen / (meta["id"] + "-input.npz")) as ar:
                 cases.append((meta, profile, ar["iq"], ar["quiet"], ar["payload"].tobytes()))
     for meta, profile, x, quiet, payload in cases:

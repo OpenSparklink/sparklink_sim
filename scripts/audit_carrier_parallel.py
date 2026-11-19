@@ -12,6 +12,7 @@ from audit_capture_hardware import sha, write
 from audit_carrier_fixed import numerical, validate_profiles
 from audit_carrier_prefix import verdict
 from audit_spline_fixed import independent_packet, summarize
+from check_frozen_corpora import require_frozen_identity, verify_group
 from tests.test_strict_receive import iq_record
 
 from nearlink_sdr.phy.carrier_fixed import track_fixed_carrier
@@ -195,7 +196,9 @@ def run(args):
     if held:
         selected = json.loads(Path("tests/data/carrier_parallel_selection.json").read_text())
         assert selected["eligible"] and selected["policy_sha256"] == sha(POLICY)
-        assert all(sha(Path(k)) == v for k, v in selected["source"].items())
+        for key, original in selected["source"].items():
+            require_frozen_identity(key, original, sha(Path(key)))
+        verify_group("parallel-validation")
     out = args.output
     out.mkdir(parents=True, exist_ok=False)
     sources = {

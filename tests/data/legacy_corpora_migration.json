@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "original_source_commit": "54dd378982c868b2c196dcb76d35fc2fc715c1f0",
+  "already_viewed_fixed_regression_only": true,
+  "original_input_policy_SHA256": "10cdb6a6adf57384d5487882fc0a03e43265b54baf35f12aa0c0634787403f9d",
+  "original_frozen_selection_files_unchanged": [
+    "carrier_loop_policy.json",
+    "carrier_fixed_format.json",
+    "carrier_parallel_selection.json"
+  ],
+  "identities": {
+    "scripts/audit_carrier_parallel.py": {
+      "original": "9def790d3b9e436299b1dbc6fc6cb1e1f8de512426a02b24e8ac1ed503aab35c",
+      "migrated": "600065a5047eb697221dfe745916677a324b107b7ab9daeb9c7c83a56e6efb73",
+      "reason": "explicit legacy input contract or postselection BER length;no carrier algorithm/parameter change"
+    },
+    "scripts/audit_carrier_loop.py": {
+      "original": "bd91739c156235d0bb1c4fa7df5ee04b16d8989546ff5de3d6aa8df359665be8",
+      "migrated": "3926a921139d6dfd550ca3131aab55218b1c92b197e230f85cb13ceba7b4cc49",
+      "reason": "explicit legacy input contract or postselection BER length;no carrier algorithm/parameter change"
+    },
+    "scripts/audit_carrier_fixed.py": {
+      "original": "31fb002705e64725233c870a43fcbef946ffb433d2e4b0ab3b282351552ce01f",
+      "migrated": "03406000e0654f796a404bdd3b3758973ceb82ac28defe545b20aee53749d304",
+      "reason": "explicit legacy input contract or postselection BER length;no carrier algorithm/parameter change"
+    },
+    "scripts/audit_rx_soft_capture.py": {
+      "original": "a07f0abccd62b69fc5f69f6fb0eca15a9ba0842abe353c9219e463e041eb443b",
+      "migrated": "595bbcb62dd4c55d8450a5f49e5cae63dfa5eb5bccd23e0a223902effb4692b1",
+      "reason": "explicit legacy input contract or postselection BER length;no carrier algorithm/parameter change"
+    },
+    "generator_AST:scripts/audit_carrier_loop.py:development": {
+      "original": "12d9a0705d43ab5cb419dddd026f9901bf56a7c63a362d59d2c3acbcdb0322bc",
+      "migrated": "f7f1443b2d6fd6465a2ad9f22165f55385424eec86cdbfe4257330de869db4ad",
+      "reason": "only explicit B1 length-contract keyword;13groups/156 original input hashes verified"
+    }
+  }
+}

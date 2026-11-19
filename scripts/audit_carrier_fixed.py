@@ -11,6 +11,7 @@ import numpy as np
 from audit_capture_hardware import sha, write
 from audit_carrier_prefix import verdict
 from audit_spline_fixed import independent_packet, summarize
+from check_frozen_corpora import verify_group
 from tests.test_strict_receive import iq_record
 
 from nearlink_sdr.phy.carrier_fixed import track_fixed_carrier
@@ -35,7 +36,10 @@ def validate_profiles(configs, pid):
             ctrl_bits_len=28 if ft == 2 else 27,
             head_llid=None if ft == 2 else 0x234567,
         )
-        p = PSKReceiveProfile.ordinary(cfg)
+        # This published corpus predates the standard B1 wire-length correction.
+        p = PSKReceiveProfile.ordinary(
+            cfg, length_contract="standard" if ft == 2 else "legacy-b1-payload-length"
+        )
         p.sync_symbols()
         profiles.append(p)
     return profiles
@@ -256,6 +260,7 @@ def run(args):
         recipe = json.loads(Path("tests/data/carrier_fixed_validation.json").read_text())
         assert recipe["selected_format_sha256"] == sha(selection)
         assert recipe["budget_sha256"] == sha(Path("tests/data/carrier_fixed_budget.json"))
+        verify_group("fixed-validation")
     arms = ("float", "q10") if held else ("float", "q10", "q12")
     out = args.output
     out.mkdir(parents=True, exist_ok=False)

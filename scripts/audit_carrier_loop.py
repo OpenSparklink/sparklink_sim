@@ -13,6 +13,7 @@ import numpy as np
 from audit_capture_hardware import sha, write
 from audit_carrier_prefix import verdict
 from audit_spline_fixed import independent_packet, receive, summarize
+from check_frozen_corpora import require_frozen_identity, verify_group
 from tests.test_strict_receive import iq_record
 
 from nearlink_sdr.phy import stream_rx, strict_rx
@@ -57,7 +58,10 @@ def development(held=False):
             head_llid=None if ft == 2 else 0x234567,
             symbol_rate_mhz=4,
         )
-        p = PSKReceiveProfile.ordinary(cfg)
+        # This published corpus predates the standard B1 wire-length correction.
+        p = PSKReceiveProfile.ordinary(
+            cfg, length_contract="standard" if ft == 2 else "legacy-b1-payload-length"
+        )
         values = (
             (np.arange(length) * 113 + j * 29) % 256
             if j % 3 == 0
@@ -338,10 +342,12 @@ def run(args):
             for n in ast.parse(Path(__file__).read_text()).body
             if isinstance(n, ast.FunctionDef) and n.name == "development"
         )
-        assert (
-            hashlib.sha256(ast.dump(generator, include_attributes=False).encode()).hexdigest()
-            == policy["input_generator_ast_sha256"]
+        require_frozen_identity(
+            "generator_AST:scripts/audit_carrier_loop.py:development",
+            policy["input_generator_ast_sha256"],
+            hashlib.sha256(ast.dump(generator, include_attributes=False).encode()).hexdigest(),
         )
+        verify_group("loop-validation")
     arms = (
         ["full", policy["selected_arm"]]
         if held

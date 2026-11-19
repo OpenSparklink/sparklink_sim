@@ -40,6 +40,35 @@ FT2空帧末控制导频省略保持；FT3/4按§6.3.4/.5每4个控制符号后�
 这个合同必须在接收前由输入来源决定，只允许B1；不提供自动探测、CRC回退或重复试解。
 新普通链路默认及新长度向量使用标准合同。WS63 A3不受这项B1修复影响。
 
+实际CI `44601513142`进一步暴露迁移遗漏：旧`audit_carrier_prefix`、
+`audit_carrier_loop`、`audit_carrier_fixed.validate_profiles`及`model_spline_score`
+仍调用新默认，导致生成的B1 IQ改变。原两个算法作业失败和随后缺少覆盖率分片的失败均保留；
+这不是随机抖动，也不通过调整原误码数断言解决。
+
+`tests/data/legacy_corpora_sha256.json`从修复前`54dd378`生成，覆盖13组156个
+正/负记录，包括上述载波、原样条、分数相关及已选窗口的开发/已查看保留集。
+记录IQ、静默参考、期待载荷的dtype、shape、字节数及SHA；已选窗口无静默输入时显式null。
+它只作为固定回归，不能再称独立新保留集。旧源提交与原始输入哈希均保留。
+
+```sh
+PYTHONPATH=.:src:scripts uv run --frozen python scripts/check_frozen_corpora.py --output /tmp/old-iq-contract-new
+```
+
+两种实际后端的CI先核对这些原始数组字节，再运行原来的能力/数值/资源断言。
+普通接收器仍默认标准合同，旧合同只根据实验来源预先选择；不依据接收CRC或期待答案选合同。
+修复没有接收算法增益，不改变原失败包、数值预算或四项验收状态。
+
+旧载波实验的源码冻结也继续保留：没有重写`carrier_loop_policy.json`、
+`carrier_fixed_format.json`或`carrier_parallel_selection.json`。新增独立迁移表精确绑定
+4个已审计脚本的原/新完整SHA及载波生成器原/新AST SHA；表本身和156输入索引的SHA
+在检查器中冻结。只接受原版本或该一次具体迁移，不忽略脚本SHA、不通配版本。
+
+直接执行已查看validation重放时，原载波模块/参数/选择仍按原SHA校验，
+迁移脚本还在接收前核对对应组所有原始IQ、静默及载荷数组字节。
+新的未知改动、错误原SHA、改变迁移表或输入索引均有拒绝反例。
+这些集合现在明确是固定回归，不因保留旧名称而重新成为独立新保留集。
+第一次迁移在本地触发原AST/脚本冻结拒绝的记录也保留，没有绕过后算通过。
+
 ## 复现与结果边界
 
 在未安装Rust扩展的锁定Python环境执行（输出目录必须不存在）：

@@ -43,6 +43,8 @@ jobs:
           uv run --frozen --no-sync ruff check scripts/model_timing_divider.py
           uv run --frozen --no-sync ruff check scripts/model_control_polar.py
           uv run --frozen --no-sync ruff check scripts/check_b1_length.py
+          uv run --frozen --no-sync ruff check scripts/check_frozen_corpora.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/check_frozen_corpora.py tests/test_legacy_corpora.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/check_b1_length.py tests/test_control_length.py tests/test_b1_wire_length.py src/nearlink_sdr/phy/control_length.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_control_polar.py src/nearlink_sdr/phy/control_polar_word.py src/nearlink_sdr/sim/control_polar_flow.py tests/test_control_polar_word.py tests/test_control_polar_flow.py tests/test_control_polar_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_timing_divider.py tests/test_timing_divider_prefix.py tests/test_timing_divider_model.py
@@ -226,6 +228,11 @@ jobs:
                   assert actual[key] == base[key], (shard, key)
           PY
           uv run --frozen --no-sync python scripts/check_test_shards.py report-core.xml report-front.xml report-rrc.xml --output test-budget.json
+      - name: Verify original published waveform recipes before algorithm regressions
+        if: always()
+        run: |
+          PYTHONPATH=.:src:scripts uv run --frozen --no-sync python scripts/check_frozen_corpora.py --output receiver-diagnostics/frozen-corpora >frozen-corpora.log 2>&1
+          cat frozen-corpora.log
       - name: Preserve carrier workload and explicit system resource gap
         if: always()
         run: |
@@ -965,6 +972,7 @@ jobs:
           path: |
             report-*.xml
             B1-length.log
+            frozen-corpora.log
             test-budget.json
             test-*.log
             build.log

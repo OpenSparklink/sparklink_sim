@@ -44,7 +44,10 @@ def development_cases():
             head_llid=None if ft == 2 else 0x234567,
             symbol_rate_mhz=4,
         )
-        profile = PSKReceiveProfile.ordinary(cfg)
+        # This published corpus predates the standard B1 wire-length correction.
+        profile = PSKReceiveProfile.ordinary(
+            cfg, length_contract="standard" if ft == 2 else "legacy-b1-payload-length"
+        )
         values = (
             np.resize([255, 0, 128, 1, 91], length) if j % 3 == 0 else rng.integers(0, 256, length)
         )
