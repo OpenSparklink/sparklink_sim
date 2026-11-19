@@ -122,6 +122,7 @@ known-sync-pipeline
 finite-normalization-words
 normalization-overlap
 timing-divider-prefix
+control-polar-word
 coverage-isolation
 rrc-memory
 spline-preparation

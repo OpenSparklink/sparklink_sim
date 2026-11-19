@@ -737,7 +737,43 @@
         }
       },
       "ports_verified": false,
-      "deadline_verified": false
+      "deadline_verified": false,
+      "partial_control_SSC_candidate": {
+        "evidence": "H4A executable integer control SSC;not full header/payload decoder or synthesis",
+        "formats": [
+          [
+            64,
+            40
+          ],
+          [
+            256,
+            51
+          ]
+        ],
+        "extra_DSP": 0,
+        "logical_bits_max": 32841,
+        "RAMB18_equivalent_max": 6,
+        "BRAM36_sites_lower": 3,
+        "BRAM36_sites_upper": 5,
+        "registered_data_bank_ports": 2,
+        "registered_ROM_ports": 1,
+        "contexts": 4,
+        "macro_latency_edges": {
+          "RAM_read": 1,
+          "ALU": 1,
+          "writeback": 1
+        },
+        "N256_dense_cycles": 5512,
+        "N256_parity_cycles": 4042,
+        "LLR_signed_bits": 10,
+        "LLR_absolute_bound": 256,
+        "LUT": null,
+        "FF": null,
+        "header_CRC_cycles": null,
+        "RF_throughput_accepted": false,
+        "actual_synthesis": false,
+        "shared_with_payload_or_TX": false
+      }
     },
     {
       "id": "tx_prepare",

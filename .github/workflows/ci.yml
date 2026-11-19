@@ -41,6 +41,8 @@ jobs:
           uv run --frozen --no-sync ruff check scripts/model_normalization_words.py
           uv run --frozen --no-sync ruff check scripts/model_normalization_overlap.py
           uv run --frozen --no-sync ruff check scripts/model_timing_divider.py
+          uv run --frozen --no-sync ruff check scripts/model_control_polar.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_control_polar.py src/nearlink_sdr/phy/control_polar_word.py src/nearlink_sdr/sim/control_polar_flow.py tests/test_control_polar_word.py tests/test_control_polar_flow.py tests/test_control_polar_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_timing_divider.py tests/test_timing_divider_prefix.py tests/test_timing_divider_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_normalization_overlap.py src/nearlink_sdr/sim/normalization_pipeline.py src/nearlink_sdr/sim/overlapped_normalization_replay.py tests/test_normalization_pipeline.py tests/test_overlapped_normalization_replay.py tests/test_normalization_overlap_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_normalization_words.py src/nearlink_sdr/phy/normalization_word.py src/nearlink_sdr/phy/normalized_word_rx.py src/nearlink_sdr/sim/normalization_word_flow.py src/nearlink_sdr/sim/normalized_word_replay.py tests/normalization_reference.py tests/test_normalization_word.py tests/test_normalization_word_flow.py tests/test_normalized_word_replay.py tests/test_normalization_word_model.py
@@ -926,6 +928,25 @@ jobs:
               assert variant in ("full","bounded-prefix") and len(rows) == 9
               assert all(r["history_peak_live"] <= 512 and r["resource_drop_contexts"] == 1 for r in rows)
               assert all(r["complete_latency_cycles"] is None and not r["full_receiver16MSps"] for r in rows)
+          PYCODE
+      - name: Verify bounded integer control SSC and physical bank costs
+        if: always()
+        run: |
+          uv run --frozen --no-sync python scripts/model_control_polar.py --output receiver-diagnostics/control-polar-word --random-cases 512 >control-polar-word.log 2>&1
+          cat control-polar-word.log
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("receiver-diagnostics/control-polar-word/model.json").read_text())
+          assert d["known_standard_matrix_vectors"] == 6
+          assert not d["full_RX_gates_passed"] and not d["RF_holdout_evaluation"]
+          assert d["reception_gain"] is None and not d["default_receiver_changed"]
+          for row in d["rows"]:
+              assert row["vectors"] == 525 and row["decoded_bit_differences"] == 0
+              assert row["CRC"] == "not_checked"
+              assert row["cycles_min"] == row["cycles_max"] > 0
+              assert row["cost"]["prospective_capacity_budget_met"]
+              assert row["cost"]["unmodeled_head_demap_descramble_CRC_fields_cycles"] is None
           PYCODE
       - name: Upload tests and diagnostics even on failure
         if: always()
