@@ -13,7 +13,7 @@ from nearlink_sdr.phy.psk import rrc_filter
 from nearlink_sdr.phy.psk_fields import psk_field_layout
 from nearlink_sdr.phy.psk_sync import PSKCaptureConfig, _RustIntegerScreen, search_psk_sync
 from nearlink_sdr.phy.rx_pipeline import payload_coded_length
-from nearlink_sdr.phy.strict_rx import PSKReceiveProfile, decode_psk_frame
+from nearlink_sdr.phy.strict_rx import PSKReceiveProfile, _decode_psk_payload, decode_psk_frame
 from nearlink_sdr.phy.timing import GardnerPIState, PSKTimingConfig
 
 try:
@@ -754,15 +754,24 @@ class PSKStreamReceiver:
                                    **self._carrier_weight_options)
             self.capture_stats['header_crc_ok'] += int(row['header_crc'] is True)
             self.capture_stats['header_crc_failed'] += int(row['header_crc'] is False)
+            if (row['header_crc'] is True and row['length_ok'] is True
+                    and 'frame_end_symbol' in row):
+                a['end'], a['header'] = row['frame_end_symbol'], row
+                if a['end'] > self.max_frame_symbols:
+                    raise RuntimeError("Verified length exceeded frame bound")
             if row['status'] != 'truncated_data':
                 return self._event(row)
-            a['end'], a['header'] = row['frame_end_symbol'], row
-            if a['end'] > self.max_frame_symbols:
-                raise RuntimeError("Verified length exceeded frame bound")
         if a['end'] is not None and a['count'] == a['end']:
-            row = decode_psk_frame(self._values[:a['count']], self.profile,
-                                   carrier_method=self.carrier_method,
-                                   **self._carrier_weight_options)
+            if self.profile.head_backend == "reference":
+                row = decode_psk_frame(self._values[:a['count']], self.profile,
+                                       carrier_method=self.carrier_method,
+                                       **self._carrier_weight_options)
+            else:
+                # This active frame owns this CRC/geometry receipt. Never decode
+                # another header or retry a different receiver answer at payload end.
+                row = _decode_psk_payload(self._values[:a['count']], self.profile, a['header'],
+                                          carrier_method=self.carrier_method,
+                                          **self._carrier_weight_options)
             return self._event(row)
         return None
 

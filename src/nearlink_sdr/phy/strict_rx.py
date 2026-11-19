@@ -40,6 +40,7 @@ class PSKReceiveProfile:
     noise_variance: float | None = None
     llr_method: str = "maxlog"
     length_contract: str = "standard"
+    head_backend: str = "reference"
 
     def __post_init__(self):
         try:
@@ -83,6 +84,12 @@ class PSKReceiveProfile:
                 if cfg.head_crc_seed is not None and cfg.head_crc_seed != self.sync_word & 0xFFF:
                     raise ValueError("Header CRC context disagrees with explicit sync word")
                 cfg = replace(cfg, head_crc_seed=self.sync_word & 0xFFF)
+        if self.head_backend not in ("reference", "word-dense", "word-depth-parity"):
+            raise ValueError("Unknown head backend")
+        if self.head_backend != "reference" and (
+                self.control_format not in ("A2", "B1") or self.mcs_from_lqi
+                or (cfg.frame_type == 2 and not self.has_lqi)):
+            raise ValueError("Word header is compiled only for ordinary A2+LQI and B1")
         head_crc_parameters(cfg)
         object.__setattr__(self, "config", cfg)
 
@@ -125,6 +132,75 @@ class PSKReceiveProfile:
         return PSKModulator(kind, sps=1).map_symbols(self.sync_bits())
 
 
+def control_field_limits(profile):
+    """Compile scalar comparisons from known configuration,never received answers."""
+    standard_b1 = profile.control_format == "B1" and profile.length_contract == "standard"
+    minimum = profile.config.crc_len // 8 if standard_b1 else 0
+    maximum = min(2047, profile.max_payload_bytes + minimum)
+    return minimum, maximum
+
+
+def control_field_policy(profile, head, lqi, *, limits=None):
+    """Shared scalar policy after a real CRC gate;this function does not check CRC.
+
+    No payload allocation or choice among receiver answers. The finite controller
+    models length/empty and membership comparisons as an explicit policy edge.
+    """
+    mcs = (head.mcs if profile.control_format == "B1" else
+           (lqi & 15) if profile.mcs_from_lqi else profile.config.mcs_index)
+    result = dict(mcs=mcs, mcs_source="header" if profile.control_format == "B1"
+                  or profile.mcs_from_lqi else "negotiated_profile", length_ok=None, status=None)
+    if mcs not in profile.allowed_mcs:
+        result["status"] = "unsupported_mcs"
+        return result
+    minimum, maximum = control_field_limits(profile) if limits is None else limits
+    length_ok = (0 <= head.data_length <= maximum
+                 and not 0 < head.data_length < minimum
+                 and not (getattr(head, "empty_packet", 0) and head.data_length != 0))
+    result.update(length_ok=bool(length_ok), status=None if length_ok else "invalid_length")
+    return result
+
+
+def _reference_header(raw, profile, required, nsync, nwire):
+    from nearlink_sdr.phy.rx_pipeline import decode_head, payload_coded_length
+
+    cfg = profile.config
+    row = {}
+    decoded, ok = decode_head(raw, cfg)
+    if not ok:
+        row.update(status="bad_header_crc", header_crc=False)
+        return row
+    if profile.control_format == "B1":
+        head = ControlInfoB1.unpack(decoded, cfg.head_llid)
+        lqi = None
+    else:
+        parser = ControlInfoA2 if profile.control_format == "A2" else ControlInfoA3
+        lqi, head = parser.unpack(decoded, head_crc_parameters(cfg)[2], has_lqi=profile.has_lqi)
+
+    policy = control_field_policy(profile, head, lqi)
+    mcs = policy["mcs"]
+    row.update(header_crc=True, header=vars(head), lqi=lqi, mcs=mcs,
+               mcs_source=policy["mcs_source"], header_end_symbol=required,
+               length_ok=policy["length_ok"])
+    if policy["status"] is not None:
+        row["status"] = policy["status"]
+        return row
+    cfg = replace(cfg, mcs_index=mcs)
+    information, present = control_data_length(head.data_length, profile.control_format,
+                                              cfg.crc_len, contract=profile.length_contract)
+    row.update(payload_length_bytes=information, data_crc_present=present,
+               length_contract=profile.length_contract)
+    nbits = payload_coded_length(information * 8, cfg) if present else 0
+    bps = {"BPSK": 1, "QPSK": 2, "8PSK": 3}[cfg.mod_str]
+    positions, nwire_data = psk_field_layout(nbits, bps, cfg.pilot_interval)
+    start = nsync + nwire
+    end = start + nwire_data
+    row.update(data_start_symbol=start, frame_end_symbol=end, coded_bits=nbits,
+               data_symbols=len(positions), wire_data_symbols=nwire_data)
+    row["status"] = "header_valid"
+    return row
+
+
 def decode_psk_frame(symbols: np.ndarray, profile: PSKReceiveProfile, *,
                       carrier_method: str = "coherent", carrier_weight_kappa: int | None = None,
                       carrier_weight_fixed: bool = False) -> dict:
@@ -133,8 +209,6 @@ def decode_psk_frame(symbols: np.ndarray, profile: PSKReceiveProfile, *,
     No phase, header format, seed, MCS or decoder retry is driven by CRC. Length
     and MCS are read only after header CRC. All rejected/truncated rows remain.
     """
-    from nearlink_sdr.phy.rx_pipeline import decode_head, decode_payload, payload_coded_length
-
     if carrier_method not in ("coherent", "phase_regression"):
         raise ValueError("Carrier method must be coherent or phase_regression")
     if carrier_weight_kappa is not None:
@@ -160,48 +234,57 @@ def decode_psk_frame(symbols: np.ndarray, profile: PSKReceiveProfile, *,
     if len(y) < required:
         return row
     raw = demap_psk_field(y[nsync:required], kind, nsync, interval)[:nhead]
-    decoded, ok = decode_head(raw, cfg)
-    if not ok:
-        row.update(status="bad_header_crc", header_crc=False)
-        return row
-    if profile.control_format == "B1":
-        head = ControlInfoB1.unpack(decoded, cfg.head_llid)
-        lqi, mcs = None, head.mcs
+    if profile.head_backend == "reference":
+        header = _reference_header(raw, profile, required, nsync, nwire)
     else:
-        parser = ControlInfoA2 if profile.control_format == "A2" else ControlInfoA3
-        lqi, head = parser.unpack(decoded, head_crc_parameters(cfg)[2], has_lqi=profile.has_lqi)
-        mcs = (lqi & 15) if profile.mcs_from_lqi else cfg.mcs_index
-    row.update(header_crc=True, header=vars(head), lqi=lqi, mcs=mcs,
-               mcs_source="header" if profile.control_format == "B1" or profile.mcs_from_lqi
-               else "negotiated_profile", header_end_symbol=required)
-    if mcs not in profile.allowed_mcs:
-        row["status"] = "unsupported_mcs"
+        from nearlink_sdr.sim.header_word_flow import HeaderWordService
+
+        service = HeaderWordService(profile, layout=profile.head_backend.removeprefix("word-"))
+        if not service.issue([int(bit) for bit in raw]):
+            raise RuntimeError("New finite header context was not ready")
+        for _ in range(10000):
+            if service.ready:
+                break
+            service.step()
+        if not service.ready:
+            raise RuntimeError("Finite header did not meet its explicit host drain bound")
+        header = service.take()
+        header["head_word_model"] = dict(backend=profile.head_backend,
+                                         service_edges=service.cycle,
+                                         statistics=service.stats.copy(),
+                                         geometry_statistics=service.geometry.stats.copy(),
+                                         demap_service_cycles=None,
+                                         whole_RX_cycle_acceptance=False)
+    row.update(header)
+    if row["status"] != "header_valid":
         return row
-    try:
-        payload_bytes, data_crc_present = control_data_length(
-            head.data_length, profile.control_format, cfg.crc_len, contract=profile.length_contract)
-    except ValueError:
-        row.update(status="invalid_length", length_ok=False)
-        return row
-    if payload_bytes > profile.max_payload_bytes or (
-            getattr(head, "empty_packet", 0) and head.data_length != 0):
-        row.update(status="invalid_length", length_ok=False)
-        return row
-    row["length_ok"] = True
-    row.update(payload_length_bytes=payload_bytes, data_crc_present=data_crc_present,
-               length_contract=profile.length_contract)
-    cfg = replace(cfg, mcs_index=mcs)
-    nbits = payload_coded_length(payload_bytes * 8, cfg) if data_crc_present else 0
-    bps = {"BPSK": 1, "QPSK": 2, "8PSK": 3}[cfg.mod_str]
-    positions, nwire_data = psk_field_layout(nbits, bps, cfg.pilot_interval)
-    start = nsync + nwire
-    end = start + nwire_data
-    row.update(data_start_symbol=start, frame_end_symbol=end, coded_bits=nbits,
-               data_symbols=len(positions), wire_data_symbols=nwire_data)
+    return _decode_psk_payload(y, profile, row, carrier_method=carrier_method,
+                               carrier_weight_kappa=carrier_weight_kappa,
+                               carrier_weight_fixed=carrier_weight_fixed)
+
+
+def _decode_psk_payload(y, profile, header, *, carrier_method="coherent",
+                        carrier_weight_kappa=None, carrier_weight_fixed=False):
+    """Private continuation of this active frame's real CRC-gated header.
+
+    Used only with the owner's already validated header;not a public unchecked
+    receive API. Preserve the original header receipt,including service counters.
+    """
+    from nearlink_sdr.phy.rx_pipeline import decode_payload
+
+    if (header.get("header_crc") is not True or header.get("length_ok") is not True
+            or header.get("status") not in ("header_valid", "truncated_data")):
+        raise ValueError("Payload continuation requires this frame's valid header")
+    row, cfg = dict(header), profile.config
+    nsync = len(profile.sync_symbols())
+    cfg = replace(cfg, mcs_index=row["mcs"])
+    start, end, nbits = row["data_start_symbol"], row["frame_end_symbol"], row["coded_bits"]
+    positions, _ = psk_field_layout(nbits, {"BPSK": 1, "QPSK": 2, "8PSK": 3}[cfg.mod_str],
+                                    cfg.pilot_interval)
     if len(y) < end:
         row["status"] = "truncated_data"
         return row
-    if not data_crc_present:
+    if not row["data_crc_present"]:
         row["status"] = "valid_empty_control"
         return row
     data = y[start:end]
@@ -229,7 +312,7 @@ def decode_psk_frame(symbols: np.ndarray, profile: PSKReceiveProfile, *,
                                             variance_source=source, llr_bound=64.)
         else:
             row["soft_information"] = dict(method="legacy hard +/-10")
-    payload, ok = decode_payload(bits, cfg, payload_bytes * 8, llr=llr)
+    payload, ok = decode_payload(bits, cfg, row["payload_length_bytes"] * 8, llr=llr)
     pilot_mask = np.ones(len(data), dtype=bool)
     pilot_mask[positions] = False
     pilots = np.flatnonzero(pilot_mask)

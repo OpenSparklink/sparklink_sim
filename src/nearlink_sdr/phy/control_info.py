@@ -20,6 +20,7 @@ __all__ = [
     "ControlInfoB4",
     "ControlInfoB5",
     "ControlInfoType",
+    "control_field_layout",
     "polar_decode_control",
     "polar_encode_control",
 ]
@@ -57,6 +58,29 @@ def _bits_to_int(bits: NDArray[np.int_]) -> int:
     for i, b in enumerate(bits):
         val |= int(b) << i
     return val
+
+
+_CONTROL_FIELDS = {
+    "A2": (("packet_type", 2), ("empty_packet", 1), ("tx_sn", 1), ("rx_sn", 1),
+           ("flow_ctrl", 1), ("sys_mgmt_rx", 1), ("reserved", 2), ("data_length", 11)),
+    "B1": (("frame_format", 1), ("harq_feedback", 8), ("packet_sn", 1), ("mcs", 4),
+           ("data_length", 11), ("flow_ctrl", 1), ("upper_link", 1)),
+}
+
+
+def control_field_layout(kind: str) -> tuple[tuple[str, int], ...]:
+    """Shared LSB-first field wiring,not CRC validation or frame admission."""
+    if kind not in _CONTROL_FIELDS:
+        raise ValueError("Only A2 and B1 field wiring is compiled")
+    return _CONTROL_FIELDS[kind]
+
+
+def _control_values(kind, info):
+    values, offset = {}, 0
+    for name, width in control_field_layout(kind):
+        values[name] = _bits_to_int(info[offset:offset + width])
+        offset += width
+    return values
 
 
 class ControlInfoType(IntEnum):
@@ -171,24 +195,7 @@ class ControlInfoA2:
     def unpack(cls, bits: NDArray[np.int_], sync_seed: int,
                has_lqi: bool = False) -> tuple[int | None, ControlInfoA2]:
         lqi, info = _a_group_unpack(bits, sync_seed, has_lqi)
-        off = 0
-        packet_type = _bits_to_int(info[off:off + 2])
-        off += 2
-        empty_packet = _bits_to_int(info[off:off + 1])
-        off += 1
-        tx_sn = _bits_to_int(info[off:off + 1])
-        off += 1
-        rx_sn = _bits_to_int(info[off:off + 1])
-        off += 1
-        flow_ctrl = _bits_to_int(info[off:off + 1])
-        off += 1
-        sys_mgmt_rx = _bits_to_int(info[off:off + 1])
-        off += 1
-        reserved = _bits_to_int(info[off:off + 2])
-        off += 2
-        data_length = _bits_to_int(info[off:off + 11])
-        return lqi, cls(packet_type, empty_packet, tx_sn, rx_sn,
-                        flow_ctrl, sys_mgmt_rx, reserved, data_length)
+        return lqi, cls(**_control_values("A2", info))
 
 
 # ---------------------------------------------------------------------------
@@ -485,22 +492,7 @@ class ControlInfoB1:
     @classmethod
     def unpack(cls, bits: NDArray[np.int_], llid: int) -> ControlInfoB1:
         info = _b_group_check(bits, llid)
-        off = 0
-        frame_format = _bits_to_int(info[off:off + 1])
-        off += 1
-        harq_feedback = _bits_to_int(info[off:off + 8])
-        off += 8
-        packet_sn = _bits_to_int(info[off:off + 1])
-        off += 1
-        mcs = _bits_to_int(info[off:off + 4])
-        off += 4
-        data_length = _bits_to_int(info[off:off + 11])
-        off += 11
-        flow_ctrl = _bits_to_int(info[off:off + 1])
-        off += 1
-        upper_link = _bits_to_int(info[off:off + 1])
-        return cls(frame_format, harq_feedback, packet_sn, mcs,
-                   data_length, flow_ctrl, upper_link)
+        return cls(**_control_values("B1", info))
 
 
 # ---------------------------------------------------------------------------

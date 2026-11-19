@@ -46,6 +46,8 @@ jobs:
           uv run --frozen --no-sync ruff check scripts/check_frozen_corpora.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/check_frozen_corpora.py tests/test_legacy_corpora.py
           uv run --frozen --no-sync ruff check scripts/model_header_geometry.py
+          uv run --frozen --no-sync ruff check scripts/model_header_words.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_header_words.py src/nearlink_sdr/sim/header_word_flow.py tests/test_header_word_flow.py tests/test_header_word_receive.py tests/test_header_word_standard.py tests/test_header_word_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_header_geometry.py tests/test_header_geometry_flow.py src/nearlink_sdr/sim/header_geometry_flow.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/check_b1_length.py tests/test_control_length.py tests/test_b1_wire_length.py src/nearlink_sdr/phy/control_length.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_control_polar.py src/nearlink_sdr/phy/control_polar_word.py src/nearlink_sdr/sim/control_polar_flow.py tests/test_control_polar_word.py tests/test_control_polar_flow.py tests/test_control_polar_model.py
@@ -984,6 +986,64 @@ jobs:
           assert all(r["cost"]["DSP"] == r["cost"]["RAMB18"] == 0 for r in d["rows"])
           assert all(not r["live_stream_handoff"] and r["head_CRC_service_cycles"] is None for r in d["original_length_handoff"])
           PYCODE
+      - name: Verify real CRC word header and preserve remaining full-RX gaps
+        if: always()
+        run: |
+          PYTHONPATH=src uv run --frozen --no-sync python -m scripts.model_header_words --split development --output receiver-diagnostics/header-word-development >header-word-development.log 2>&1
+          PYTHONPATH=src uv run --frozen --no-sync python -m scripts.model_header_words --split validation --freeze receiver-diagnostics/header-word-development/freeze.json --output receiver-diagnostics/header-word-validation >header-word-validation.log 2>&1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          for split in ("development", "validation"):
+              root = Path("receiver-diagnostics/header-word-" + split)
+              model = json.loads((root / "model.json").read_text())
+              assert model["input_cases"] == 6 and model["rows"] == 54
+              assert model["full_by_backend"] == dict.fromkeys(
+                  ("reference", "word-dense", "word-depth-parity"), 5)
+              assert model["all_frames_trajectories_and_deliveries_match"]
+              assert model["negative_samples"] == 65536
+              assert all(row["delivered"] == 0 for row in model["negatives"])
+              assert not model["full_RX_gates_passed"] and not model["default_changed"]
+              assert model["no_Rust_word_implementation"]
+              assert model["whole_RX_latency_cycles"] is None
+              for cost in model["costs"].values():
+                  assert cost["profile_context_suballocated_bits"] == 237
+                  assert sum(cost["profile_context_allocation_bits"].values()) == 237
+                  assert cost["extra_state_bits"]["profile_context_upper"] == 256
+                  assert cost["demap_cycles"] is None and cost["payload_cycles"] is None
+                  assert not cost["synthesis"] and not cost["full_RX_acceptance"]
+          PYCODE
+      - name: Verify actual B1 MCS differs from negotiated reference on three head paths
+        if: always()
+        run: |
+          uv run --frozen --no-sync python - <<'PYCODE' >header-word-MCS.log 2>&1
+          from dataclasses import replace
+          import numpy as np
+          from nearlink_sdr.phy.strict_rx import PSKReceiveProfile
+          from nearlink_sdr.phy.tx_pipeline import TxConfig
+          from scripts.model_header_words import receive
+          from tests.test_strict_receive import iq_record, transmitted
+          for ft, mcs in ((3, 6), (3, 12), (4, 0), (4, 10)):
+              cfg = TxConfig(frame_type=ft, mcs_index=mcs, symbol_rate_mhz=4,
+                             ctrl_bits_len=27, head_llid=0x234567, pilot_interval=8,
+                             whitening_seed=0x52, crc_seed=0x123456)
+              tx = PSKReceiveProfile.ordinary(cfg)
+              wire, payload = transmitted(tx, length=41, payload_seed=923 + mcs)
+              npre = 48 if ft == 3 else 64
+              wire = np.r_[np.exp(1j * np.tile([np.pi/4, 0], npre//2)), wire[40:]]
+              iq, quiet, _, _ = iq_record(wire, cfo=17000, ppm=19, offset=.413)
+              for backend in ("reference", "word-dense", "word-depth-parity"):
+                  rx = replace(tx, config=replace(cfg, mcs_index=8), head_backend=backend)
+                  packets, events, _, _ = receive(rx, iq, quiet, "random")
+                  assert [packet.mac_payload for packet in packets] == [payload]
+                  assert len(events) == 1
+                  frame = events[0]["frame"]
+                  assert frame["mcs"] == mcs and frame["header"]["data_length"] == 44
+                  assert frame["payload_length_bytes"] == 41
+                  assert frame["header_crc"] is True and frame["data_crc"] is True
+                  print(ft, mcs, backend, "complete original payload")
+          PYCODE
+          cat header-word-MCS.log
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -993,6 +1053,7 @@ jobs:
             report-*.xml
             B1-length.log
             frozen-corpora.log
+            header-word-*.log
             header-geometry.log
             test-budget.json
             test-*.log

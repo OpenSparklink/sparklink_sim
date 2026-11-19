@@ -717,7 +717,7 @@
       },
       "finite_geometry_node": {
         "reference": "head-length-words.md",
-        "status": "standalone finite scalar,not live header/RX integration",
+        "status": "reused inside explicit finite real-CRC header;not full RX scheduling",
         "FT2_logical_bits": 8452,
         "B1_standard_logical_bits": 7684,
         "DSP": 0,
@@ -742,6 +742,64 @@
         "head_CRC_and_demap_cycles": null,
         "full_RX16MSps": false,
         "synthesis": false
+      },
+      "finite_head_service": {
+        "reference": "head-word-gate.md",
+        "scope": "ordinary A2+LQI/B1;explicit experimental;hard bit bus",
+        "contains_existing_SSC_and_geometry_not_additive": true,
+        "logic_bits_FT2_dense_parity": [
+          18384,
+          18392
+        ],
+        "logic_bits_B1_dense_parity": [
+          42074,
+          42078
+        ],
+        "RAMB18_FT2_dense_parity": [
+          3,
+          5
+        ],
+        "RAMB18_B1_dense_parity": [
+          6,
+          6
+        ],
+        "BRAM36_upper_FT2_dense_parity": [
+          3,
+          5
+        ],
+        "BRAM36_upper_B1_dense_parity": [
+          4,
+          5
+        ],
+        "DSP_component_estimate": 0,
+        "LUT_total": null,
+        "FF_total": null,
+        "profile_reserved_bits": 256,
+        "profile_allocated_bits": 237,
+        "descriptor_ROM_in_profile_reservation_bits": 80,
+        "held_receipt_additional_bits": 12,
+        "input_parallel_hard_bits_FT2_B1": [
+          64,
+          256
+        ],
+        "output_contexts": 1,
+        "request_FIFO": 0,
+        "CRC_and_field_read_bits_per_edge": 1,
+        "field_length_parallel_comparators_11bit": 3,
+        "observed_service_range_dense": [
+          1837,
+          5920
+        ],
+        "observed_service_range_depth_parity": [
+          1579,
+          4450
+        ],
+        "global_worst_service_proved": false,
+        "demap_service_cycles": null,
+        "payload_service_cycles": null,
+        "full_RX_cycle_acceptance": false,
+        "synthesis": false,
+        "Fmax_verified": false
       }
     },
     {
