@@ -725,12 +725,18 @@ class PSKStreamReceiver:
     def _accept_selected_symbol(self, current, midpoint):
         """Shared float Gardner/PI and normalization,including every sync power update."""
         a = self._active
-        count, t, loop = a['count'], a['next'], a['loop']
+        t, loop = a['next'], a['loop']
         step, error = loop.advance(current, a['previous'], midpoint)
+        self._store_selected_symbol(current, t+step, error, (loop.omega/self.sps-1)*1e6)
+
+    def _store_selected_symbol(self, current, next_position, error, rate_ppm):
+        """Common value/trace storage;word timing supplies its own absolute next coordinate."""
+        a = self._active
+        count, t = a['count'], a['next']
         self._values[count] = current*np.exp(-1j*(a['phase']+a['slope']*count))/a['gain']
         self._centers[count], self._rates[count], self._errors[count] = (
-            t, (loop.omega/self.sps-1)*1e6, error)
-        a.update(count=count+1, previous=current, previous_t=t, next=t+step)
+            t, rate_ppm, error)
+        a.update(count=count+1, previous=current, previous_t=t, next=next_position)
 
     def _check_selected_boundary(self):
         """Real header/length and payload gates shared with external word consumers."""

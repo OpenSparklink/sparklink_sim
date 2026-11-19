@@ -116,6 +116,7 @@ initial-interpolant-reuse
 alignment-guard-order
 known-sync-word-fit
 selected-symbol-handoff
+finite-timing-words
 rrc-memory
 spline-preparation
 spline-fixed

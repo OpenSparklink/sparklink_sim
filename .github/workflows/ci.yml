@@ -36,6 +36,8 @@ jobs:
           make lint
           uv run --frozen --no-sync ruff check scripts/check_test_shards.py
           uv run --frozen --no-sync ruff check scripts/model_selected_handoff.py
+          uv run --frozen --no-sync ruff check scripts/model_timing_words.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_timing_words.py src/nearlink_sdr/phy/timing_word.py src/nearlink_sdr/phy/timing_word_rx.py src/nearlink_sdr/sim/timing_word_flow.py tests/test_timing_word.py tests/test_timing_word_flow.py tests/test_timing_word_rx.py tests/test_timing_word_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_selected_handoff.py tests/test_selected_frame_replay.py tests/test_interpolant_rx.py src/nearlink_sdr/phy/interpolant_rx.py src/nearlink_sdr/sim/selected_frame_replay.py
           uv run --frozen --no-sync ruff check scripts/model_sync_initial_fit.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_sync_initial_fit.py tests/test_sync_fit_word.py tests/test_sync_fit_flow.py tests/test_selected_sync_fit.py tests/test_initial_sync_fit_flow.py src/nearlink_sdr/phy/sync_fit_word.py src/nearlink_sdr/sim/sync_fit_flow.py src/nearlink_sdr/sim/initial_sync_fit_flow.py
@@ -580,6 +582,43 @@ jobs:
               assert all(hashlib.sha256((p/k).read_bytes()).hexdigest()==v
                          for k,v in json.loads((p/"manifest.json").read_text()).items())
           PYCODE
+      - name: Verify finite timing words and preserve serialized feedback rejection
+        if: always()
+        run: |
+          status=0
+          uv run --frozen --no-sync python scripts/model_timing_words.py --split development --handoff-root receiver-diagnostics/handoff-development --capture-root receiver-diagnostics/capture-fine --selected-root receiver-diagnostics/selected-frame --output receiver-diagnostics/timing-development >timing-development.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/timing-development/model.json")); assert d["experimental_numeric_node_eligible"] and d["fixed_original_full"] == d["fixed_candidate_full"] == 13'
+          status=0
+          uv run --frozen --no-sync python scripts/model_timing_words.py --split validation --freeze receiver-diagnostics/timing-development/freeze.json --output receiver-diagnostics/timing-validation >timing-validation.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import hashlib,json
+          from pathlib import Path
+          for split in ("development","validation"):
+              p=Path("receiver-diagnostics")/("timing-"+split)
+              d=json.loads((p/"model.json").read_text())
+              assert d["experimental_numeric_node_eligible"] and not d["target_live_adopted"]
+              assert d["selected_format"] == {"power_bits":30,"error_bits":32}
+              assert d["baseline_full"] == d["candidate_full"] == 5
+              assert d["successes_lost"] == d["false_deliveries"] == 0
+              assert d["service_cycles_max"] == 104
+              assert d["service_critical_path_budget"]["remaining_serial_feedback_cycles"] == 5
+              assert not any(d["all_RX_gates"].values()) and not d["default_RX_changed"]
+              assert d["negatives_observed_samples"] == (51200 if split == "development" else 54272)
+              rows=json.loads((p/"rows.json").read_text())
+              candidates=[r["candidates"]["30"] for r in rows if "30" in r["candidates"]]
+              candidates += [r["candidate"] for r in json.loads((p/"fixed-regressions.json").read_text()) if "candidate" in r] if split == "development" else []
+              for r in candidates:
+                  n=r["numerical"];c=n["cost"]
+                  assert n["actual_DSP_divider_word_states_exact"]
+                  assert c["DSP25x18"] == 4 and c["state_register_bits_upper"] == 2510
+                  assert c["extra_raw_RAM_bits"] == c["additional_source_RAM_ports"] == 0
+                  assert n["power_relative_max"] <= 1e-6 and n["TED_absolute_max"] <= 2e-5
+                  assert r["center_delta_max"] <= .001
+                  assert r["complete_latency_cycles"] is None and r["remaining_carrier_head_decoder_cycles"] is None
+              assert all(hashlib.sha256((p/k).read_bytes()).hexdigest()==v for k,v in json.loads((p/"manifest.json").read_text()).items())
+          PYCODE
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -591,6 +630,8 @@ jobs:
             test-*.log
             build.log
             backend.json
+            timing-development.log
+            timing-validation.log
             handoff-development.log
             handoff-validation.log
             fit-development.log

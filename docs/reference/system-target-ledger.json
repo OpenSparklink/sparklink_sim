@@ -484,6 +484,38 @@
         "default_RX_changed": false,
         "whole_system_approved": false,
         "synthesis_or_timing": false
+      },
+      "experimental_finite_timing": {
+        "stage": "SYS-C2E2E-TIMING",
+        "status": "numeric experimental only;serial realtime rejected",
+        "formats": {
+          "selected": [
+            30,
+            32
+          ],
+          "comparison": [
+            38,
+            32
+          ]
+        },
+        "extra_DSP25x18": 4,
+        "logical_register_bits_upper": 2510,
+        "logical_constant_bits": 212,
+        "raw_RAM_increment_bits": 0,
+        "input_staging_bits": 104,
+        "source_ports_added": 0,
+        "DSP_latency": 3,
+        "holding_service_cycles": 18,
+        "tracked_service_cycles_worst": 104,
+        "current_serial_transport_plus_timing": 149,
+        "normalization_header_decoder_cycles": null,
+        "intermodule_sharing_credited": false,
+        "complete_LUT_FF_mapping_or_timing": null,
+        "full_system_resources_accepted": false,
+        "synthesis": false,
+        "query_coordinate_and_interface_cycles": null,
+        "immediate_take_service_II_min": 105,
+        "current_serial_transport_plus_timing_is_lower_bound": true
       }
     },
     {
@@ -696,7 +728,7 @@
       "function": "packet/descriptor/candidate/output/completion queues",
       "baseline_relationship": "partly_baseline",
       "concurrency": "all producers/consumers",
-      "word_and_ports": "draft2TX+2RX+1reply×2048B not qualified",
+      "word_and_ports": "draft2TX+2RX+1reply\u00d72048B not qualified",
       "clock_ii_latency": "port arbitration and downstream maximum stall unknown",
       "overflow_policy": "bounded queues;admission/drop/abort explicit",
       "resources": {

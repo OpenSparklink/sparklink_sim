@@ -26,7 +26,8 @@ class SelectedFrameReplay:
     combined into a complete16MS/s claim.
     """
 
-    def __init__(self, profile, prepared, *, reuse_stencil=False, observer=None, **selection):
+    def __init__(self, profile, prepared, *, reuse_stencil=False, observer=None,
+                 word_timing_format=None, **selection):
         if type(reuse_stencil) is not bool:
             raise ValueError("Need explicit within-symbol stencil reuse choice")
         if observer is not None and not callable(observer):
@@ -35,7 +36,13 @@ class SelectedFrameReplay:
             raise ValueError("Need a completed unclaimed source/cache/fit service")
         stencil = prepared.stencil
         history, cache = stencil.history, stencil.output
-        consumer = InterpolantPSKReceiver(profile, initial_fit=prepared.fit.result, **selection)
+        if word_timing_format is None:
+            consumer = InterpolantPSKReceiver(profile, initial_fit=prepared.fit.result, **selection)
+        else:
+            from nearlink_sdr.phy.timing_word_rx import WordTimingPSKReceiver
+
+            consumer = WordTimingPSKReceiver(profile, initial_fit=prepared.fit.result,
+                                             word_timing_format=word_timing_format, **selection)
         first = consumer.selected_start
         cell = math.floor(first)
         phase = round((first - cell) * 65536)
@@ -113,15 +120,19 @@ class SelectedFrameReplay:
 
     def _observe_word(self, role, word):
         if self.observer is not None:
-            positions = self.consumer.sample_positions
-            position = positions[role]
-            cell = math.floor(position)
+            if hasattr(self.consumer, 'word_queries'):
+                query = self.consumer.word_queries[role]
+                cell, phase = query['cell'], query['phase']
+            else:
+                position = self.consumer.sample_positions[role]
+                cell = math.floor(position)
+                phase = round((position - cell) * 65536)
             self.observer(
                 dict(
                     symbol=self.consumer._active["count"],
                     role=role,
                     cell=cell,
-                    phase=round((position - cell) * 65536),
+                    phase=phase,
                     word=word,
                     transport_edge=self.cycle,
                     clock_evidence_valid=self.cycle_evidence_valid,
@@ -134,7 +145,8 @@ class SelectedFrameReplay:
             self._barrier(kind)
             return
         current, midpoint = self.consumer.sample_positions
-        self.future_end = math.ceil(current + 3)  # Preserve the existing extra future guard.
+        self.future_end = (self.consumer.future_sample_end
+                           if hasattr(self.consumer, 'word_queries') else math.ceil(current + 3))
         self.words = [None, None]
         if self.consumer._active["count"] < len(self.consumer.reference):
             self.mode = "cache"
@@ -143,10 +155,14 @@ class SelectedFrameReplay:
         positions = [(0, current), (1, midpoint)]
         if self.reuse_stencil:
             positions.reverse()
-        self.queries = [
-            dict(role=role, cell=math.floor(t), phase=round((t - math.floor(t)) * 65536))
-            for role, t in positions
-        ]
+        if hasattr(self.consumer, 'word_queries'):
+            self.queries = [dict(role=role, **self.consumer.word_queries[role])
+                            for role, _ in positions]
+        else:
+            self.queries = [
+                dict(role=role, cell=math.floor(t), phase=round((t - math.floor(t)) * 65536))
+                for role, t in positions
+            ]
         self.query_index = 0
         self.staged = []
         self.stage_start = self.queries[0]["cell"] - 1
