@@ -1140,6 +1140,22 @@
         "RF_throughput_accepted": false,
         "actual_synthesis": false,
         "shared_with_payload_or_TX": false
+      },
+      "packed_hard_control_candidate": {
+        "reference": "packed-head-retention.md",
+        "scope": "one owned hard-control N64/K40 orN256/K51 context,not whole payload Polar item",
+        "compiled_sites": {
+          "A2_dense": 2,
+          "B1_parity": 3
+        },
+        "native_banks_B1": "1RAMB36E1+4independentRAMB18E1,explicitTDPhalves",
+        "DSP_added": 0,
+        "logical_state_delta": 0,
+        "read_latency_assumption": 1,
+        "cross_packet_or_RX_TX_sharing_proved": false,
+        "all_lut_ff_fmax_unknown": true,
+        "synthesis": false,
+        "old_independent_site_upper_and_module_budget_failure_retained": true
       }
     },
     {

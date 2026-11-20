@@ -180,7 +180,7 @@ class HeaderFromWordsService:
         if observer is not None and not callable(observer):
             raise ValueError("Observer must be callable")
         self.observer = observer
-        self.header = HeaderWordService(profile, layout=layout, observer=self._header_event)
+        self.header = self._make_header(profile, layout, self._header_event)
         self.hard = HardPSKWordService(observer=self._hard_event)
         profile = self.header.profile
         self.modulation = "BPSK" if profile.config.frame_type == 4 else "QPSK"
@@ -215,6 +215,9 @@ class HeaderFromWordsService:
     def _emit(self, event, **fields):
         if self.observer:
             self.observer(dict(cycle=self.cycle, event=event, **fields))
+
+    def _make_header(self, profile, layout, observer):
+        return HeaderWordService(profile, layout=layout, observer=observer)
 
     def _hard_event(self, event):
         self._emit("hard", local=event)

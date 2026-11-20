@@ -55,7 +55,7 @@ class HeaderWordService:
         self.format = (
             ControlPolarFormat(64, 40) if cfg.frame_type == 2 else ControlPolarFormat(256, 51)
         )
-        self.codec = ControlPolarService(self.format, layout=layout, observer=self._codec_event)
+        self.codec = self._make_codec(self.format, layout, self._codec_event)
         self.geometry = HeaderGeometryService(
             cfg.frame_type, cfg.crc_len, cfg.pilot_interval,
             length_contract=profile.length_contract, observer=self._geometry_event
@@ -86,6 +86,9 @@ class HeaderWordService:
             ),
             0,
         )
+
+    def _make_codec(self, fmt, layout, observer):
+        return ControlPolarService(fmt, layout=layout, observer=observer)
 
     def _count(self, key):
         self.stats[key] = unsigned(self.stats[key] + 1, 64)

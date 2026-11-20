@@ -111,7 +111,7 @@ class ControlPolarService:
         if observer is not None and not callable(observer):
             raise ValueError("Observer must be callable or absent")
         self.fmt, self.layout, self.observer = fmt, layout, observer
-        self.memory = _Memory(fmt, layout)
+        self.memory = self._make_memory(fmt, layout)
         self.cycle = 0
         self.mode, self.block, self.result = "idle", None, None
         self.slots = [None] * 4
@@ -127,6 +127,9 @@ class ControlPolarService:
              "ram_reads", "ram_writes", "f_operations", "g_operations", "xor_operations",
              "hard_decisions", "node_visits"), 0,
         )
+
+    def _make_memory(self, fmt, layout):
+        return _Memory(fmt, layout)
 
     def _count(self, key, amount=1):
         self.stats[key] = unsigned(self.stats[key] + amount, 64)

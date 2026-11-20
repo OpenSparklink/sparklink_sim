@@ -135,5 +135,38 @@
     "numeric_or_receiver_default_adopted": false,
     "complete_ADC_RRC_capture_payload_schedule": false,
     "four_RX_gates_passed": false
+  },
+  "packed_head_candidate": {
+    "reference": "packed-head-retention.md",
+    "scope": "explicit compiled A2-dense/B1-parity,exclusive native plane backing",
+    "DSP_added": 0,
+    "sites_A2_B1": [
+      2,
+      3
+    ],
+    "B1_codec_edges_dense_parity": [
+      5512,
+      4042
+    ],
+    "source_words": 512,
+    "new_development_full": [
+      5,
+      12
+    ],
+    "new_holdout_full": [
+      5,
+      12
+    ],
+    "captured_resource_exits_development_dense_packed": [
+      6,
+      0
+    ],
+    "captured_resource_exits_holdout_dense_packed": [
+      5,
+      0
+    ],
+    "source_continuous_only_after_prepared": true,
+    "new_default": false,
+    "four_RX_gates_passed": false
   }
 }

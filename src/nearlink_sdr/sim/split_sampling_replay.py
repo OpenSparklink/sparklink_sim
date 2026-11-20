@@ -95,7 +95,7 @@ class SplitSamplingFrameReplay(SelectedFrameReplay):
             raise ValueError("Need a read-only optional service observer")
         self.error_age, self.capacity = error_age, error_age + 2
         self.normalization_format, self.service_observer = normalization_format, service_observer
-        self.head_owner = HeaderFromWordsService(profile, layout=head_layout)
+        self.head_owner = self._make_head_owner(profile, head_layout)
         self.head_owner.begin()
         self.detector_service = None
         super().__init__(profile, prepared, word_timing_format=word_timing_format, **options)
@@ -122,6 +122,9 @@ class SplitSamplingFrameReplay(SelectedFrameReplay):
         ], 0))
         self.mode = "waiting"
         self._plan()
+
+    def _make_head_owner(self, profile, layout):
+        return HeaderFromWordsService(profile, layout=layout)
 
     def _make_consumer(self, profile, initial_fit, word_timing_format, selection):
         return _SplitReceiver(

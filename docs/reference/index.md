@@ -136,6 +136,7 @@ feedback-error-age
 feedback-age-sampling
 split-timing-owners
 split-sampling-integration
+packed-head-retention
 coverage-isolation
 rrc-memory
 spline-preparation
