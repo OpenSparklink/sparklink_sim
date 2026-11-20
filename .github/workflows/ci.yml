@@ -99,6 +99,24 @@ jobs:
             src/nearlink_sdr/sim/initial_interpolant_flow.py \
             tests/test_initial_interpolant.py tests/test_initial_interpolant_flow.py \
             scripts/model_initial_reuse.py
+      - name: Check actual module CLI environments before long regressions
+        run: |
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import os
+          import re
+          import subprocess
+          import sys
+          from pathlib import Path
+          text = Path(".github/workflows/ci.yml").read_text()
+          entries = sorted(set(re.findall(
+              r"^\s*PYTHONPATH=(\S+).*?-m (scripts\.\w+)\b", text, flags=re.M)))
+          assert entries, "No actual module entrypoints were checked"
+          for path, module in entries:
+              subprocess.run([sys.executable, "-m", module, "--help"],
+                             env=dict(os.environ, PYTHONPATH=path), check=True)
+              print(module, "actual PYTHONPATH", path, flush=True)
+          PYCODE
+
 
   rust:
     name: Rust Quality
@@ -1049,8 +1067,8 @@ jobs:
       - name: Verify actual normalized-word hard header and retain whole-RX gaps
         if: always()
         run: |
-          PYTHONPATH=src uv run --frozen --no-sync python -m scripts.model_hard_header --split development --output receiver-diagnostics/hard-head-development >hard-head-development.log 2>&1
-          PYTHONPATH=src uv run --frozen --no-sync python -m scripts.model_hard_header --split validation --freeze receiver-diagnostics/hard-head-development/freeze.json --output receiver-diagnostics/hard-head-validation >hard-head-validation.log 2>&1
+          PYTHONPATH=src:scripts uv run --frozen --no-sync python -m scripts.model_hard_header --split development --output receiver-diagnostics/hard-head-development >hard-head-development.log 2>&1
+          PYTHONPATH=src:scripts uv run --frozen --no-sync python -m scripts.model_hard_header --split validation --freeze receiver-diagnostics/hard-head-development/freeze.json --output receiver-diagnostics/hard-head-validation >hard-head-validation.log 2>&1
           uv run --frozen --no-sync python - <<'PYCODE'
           import json
           from pathlib import Path
