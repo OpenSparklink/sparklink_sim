@@ -138,6 +138,7 @@ feedback-age-sampling
 split-timing-owners
 split-sampling-integration
 packed-head-retention
+initialized-frame-input
 coverage-isolation
 rrc-memory
 spline-preparation

@@ -26,6 +26,7 @@ class SelectedFrameReplay:
     combined into a complete16MS/s claim.
     """
 
+    _history_capacity = 512  # Fixed subclass compilation,not a runtime capacity override.
     _retain_completed_stencil = False  # Compiled subclass choice;not a packet-time fallback.
 
     def __init__(self, profile, prepared, *, reuse_stencil=False, observer=None,
@@ -43,7 +44,7 @@ class SelectedFrameReplay:
         cell = math.floor(first)
         phase = round((first - cell) * 65536)
         if (
-            history.capacity != 512
+            history.capacity != self._history_capacity
             or history.pending is not None
             or stencil.interpolator.live
             or cache.pending is not None

@@ -15,6 +15,38 @@ from nearlink_sdr.phy.sync_coherent import coherent_sync_confirmation
 __all__ = ["SelectedPSKReceiver"]
 
 
+def _validate_selected_geometry(profile, start_tick, delta, differential_score,
+                                selected_sync, sample_limit):
+    """Shared bounded descriptor validation;no acquisition or payload selection."""
+    if not isinstance(profile, PSKReceiveProfile):
+        raise ValueError("Need an explicit PSKReceiveProfile")
+    if profile.config.sps != 4 or profile.config.symbol_rate_mhz != 4:
+        raise ValueError("Selected reference port currently validates 4Msym/SPS4 only")
+    if (
+        type(sample_limit) is not int
+        or not 4 <= sample_limit <= 2**20
+        or type(start_tick) is not int
+        or not 0 <= start_tick < 8 * 2**20
+        or isinstance(delta, (bool, np.bool_))
+        or not np.isscalar(delta)
+        or not np.isfinite(delta)
+        or abs(delta) > np.pi
+        or isinstance(differential_score, (bool, np.bool_))
+        or not np.isscalar(differential_score)
+        or not np.isfinite(differential_score)
+        or not 0 <= differential_score <= 1
+    ):
+        raise ValueError("Need bounded selected eighth-tick, finite CFO/score and sample limit")
+    sync = np.asarray(selected_sync, dtype=complex)
+    if (
+        sync.ndim != 1
+        or len(sync) != len(profile.sync_symbols())
+        or not np.isfinite(sync).all()
+    ):
+        raise ValueError("Need exactly the supplied selected sync vector")
+    return sync
+
+
 class SelectedPSKReceiver(PSKStreamReceiver):
     """Consume one selected candidate; stop at the strictly parsed frame end.
 
@@ -40,32 +72,9 @@ class SelectedPSKReceiver(PSKStreamReceiver):
         carrier_method="coherent",
         history_capacity=None,
     ):
-        if not isinstance(profile, PSKReceiveProfile):
-            raise ValueError("Need an explicit PSKReceiveProfile")
-        if profile.config.sps != 4 or profile.config.symbol_rate_mhz != 4:
-            raise ValueError("Selected reference port currently validates 4Msym/SPS4 only")
-        if (
-            type(sample_limit) is not int
-            or not 4 <= sample_limit <= 2**20
-            or type(start_tick) is not int
-            or not 0 <= start_tick < 8 * 2**20
-            or isinstance(delta, (bool, np.bool_))
-            or not np.isscalar(delta)
-            or not np.isfinite(delta)
-            or abs(delta) > np.pi
-            or isinstance(differential_score, (bool, np.bool_))
-            or not np.isscalar(differential_score)
-            or not np.isfinite(differential_score)
-            or not 0 <= differential_score <= 1
-        ):
-            raise ValueError("Need bounded selected eighth-tick, finite CFO/score and sample limit")
-        sync = np.asarray(selected_sync, dtype=complex)
-        if (
-            sync.ndim != 1
-            or len(sync) != len(profile.sync_symbols())
-            or not np.isfinite(sync).all()
-        ):
-            raise ValueError("Need exactly the supplied selected sync vector")
+        sync = _validate_selected_geometry(
+            profile, start_tick, delta, differential_score, selected_sync, sample_limit
+        )
         super().__init__(
             profile,
             np.zeros(65, complex),

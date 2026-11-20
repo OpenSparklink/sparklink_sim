@@ -876,6 +876,29 @@
         "synthesis": false,
         "FIFO_access_semantics": "logical pop/push once;shift-register physical reads and writes age words each tracked symbol;not freeRAM ports",
         "sampling_reference": "feedback-age-sampling.md"
+      },
+      "initialized_selected_candidate": {
+        "evidence": "initialized-frame-input.md",
+        "scope": "one configured selected context;not whole ADC/RX",
+        "source_owner": "packet_queues.initialized_history",
+        "shared_init_frame_interpolator_DSP": 6,
+        "dedicated_initial_fit_DSP": 1,
+        "dedicated_detector_PI_normalization_DSP": 12,
+        "static_DSP_without_unproved_sharing": 19,
+        "old18DSP_pass": false,
+        "source_cache_head_BRAM36_minimum_A2_B1": [
+          5,
+          6
+        ],
+        "head_already_counted_in": "polar_rate_match.packed_hard_control_candidate",
+        "cache_BRAM36": 1,
+        "installer_controller_bits_upper": 373,
+        "wrapper_known_controller_bits_upper": 392,
+        "other_LUT_FF_descriptor_RAM_and_Fmax": null,
+        "inter_packet_or_RX_TX_sharing_credit": false,
+        "capture_producer_and_payload_cycles": null,
+        "full_receiver16MSps": false,
+        "synthesized": false
       }
     },
     {
@@ -1326,7 +1349,24 @@
         }
       },
       "ports_verified": false,
-      "deadline_verified": false
+      "deadline_verified": false,
+      "initialized_history": {
+        "capacity_words": 1024,
+        "word_bits": 46,
+        "logical_bits": 47104,
+        "native_bits": 73728,
+        "BRAM36": 2,
+        "global_R_W_ports": [
+          1,
+          1
+        ],
+        "bank_mapping": "twoSDP72x512,address-high select;one held registered read",
+        "new_bank_decode_and_mux46_LUT_FF": null,
+        "initial_abort_discard_counted": true,
+        "unconsumed_suffix_returned": true,
+        "one_ownership_credit": true,
+        "not_additive_to_borrowed_history_in_composite": true
+      }
     },
     {
       "id": "statistics_debug",
@@ -1436,5 +1476,6 @@
     "old_16KiB_4096_2048_failures_retained": true,
     "RX_TX_decoder_MAC_reservations_unchanged": true,
     "synthesis": false
-  }
+  },
+  "initialized_candidate_note": "No new approved whole-system budget;19DSP/5or6BRAM are selected context only. Existing18DSP/16KiB/4096/2048 failures and decoder/TX/realMAC/DMA reserves retained."
 }

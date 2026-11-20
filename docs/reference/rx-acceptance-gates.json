@@ -1,5 +1,5 @@
 {
-  "stage": "RX-RETAINED-RAW-STENCIL",
+  "stage": "M12-INITIALIZED-SELECTED-WINDOW-PARTIAL",
   "target": "4Msym/s QPSK/8PSK16MS/s;FT2/3/4 first;FT1 separate",
   "complete": false,
   "gates": {
@@ -168,5 +168,36 @@
     "source_continuous_only_after_prepared": true,
     "new_default": false,
     "four_RX_gates_passed": false
+  },
+  "initialized_selected_candidate": {
+    "evidence": "initialized-frame-input.md",
+    "default_changed": false,
+    "source_words": 1024,
+    "source_BRAM36": 2,
+    "installer_edges": 3,
+    "static_dedicated_DSP": 19,
+    "old18DSP_budget_passed": false,
+    "source_cache_head_BRAM36_A2_B1": [
+      5,
+      6
+    ],
+    "new_development": {
+      "legal": 15,
+      "captured": 12,
+      "whole_correct": 10
+    },
+    "new_holdout": {
+      "legal": 15,
+      "captured": 12,
+      "whole_correct": 11
+    },
+    "fields_and_sampling_exact": true,
+    "source_peak_words": 956,
+    "negative_samples_each": 614400,
+    "new_false_candidates": 0,
+    "new_false_MAC": 0,
+    "RRC_capture_compute_payload_schedule_complete": false,
+    "full_receiver16MSps": false,
+    "all_four_gates_passed": false
   }
 }
