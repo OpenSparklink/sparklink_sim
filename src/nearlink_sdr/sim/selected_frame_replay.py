@@ -26,6 +26,8 @@ class SelectedFrameReplay:
     combined into a complete16MS/s claim.
     """
 
+    _retain_completed_stencil = False  # Compiled subclass choice;not a packet-time fallback.
+
     def __init__(self, profile, prepared, *, reuse_stencil=False, observer=None,
                  word_timing_format=None, **selection):
         if type(reuse_stencil) is not bool:
@@ -249,7 +251,8 @@ class SelectedFrameReplay:
                         self.staged = []
                     self.stage_start = following
                 else:
-                    self.staged = []
+                    if not self._retain_completed_stencil:
+                        self.staged = []
                     # Both kernels own their raw copies. Future midpoint cannot precede
                     # the current center because the existing loop step stays positive.
                     self._retire(self.queries[0 if not self.reuse_stencil else 1]["cell"] - 1)

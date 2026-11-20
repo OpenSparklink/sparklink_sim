@@ -131,6 +131,7 @@ live-head-replay
 timing-radix4
 data-joint-service
 power-ted-overlap
+retained-raw-stencil
 coverage-isolation
 rrc-memory
 spline-preparation

@@ -1,5 +1,5 @@
 {
-  "stage": "SYS-C2E2H1-NORMALIZATION",
+  "stage": "RX-RETAINED-RAW-STENCIL",
   "target": "4Msym/s QPSK/8PSK16MS/s;FT2/3/4 first;FT1 separate",
   "complete": false,
   "gates": {
@@ -9,7 +9,8 @@
       "gaps": [
         "capture-slot/history producer and full live/multipacket arithmetic service scheduling",
         "FT1/GFSK complete arbitrary-block path",
-        "target support matrix closure"
+        "target support matrix closure",
+        "raw history/source ownership through payload barrier and next capture not yet closed"
       ]
     },
     "full_fixed_point": {
@@ -17,7 +18,7 @@
       "evidence": "RRC/differential/scoring and isolated carrier nodes exist;integer localLagrange node and opt-in word sampler exist;receiver adoption rejected on fixed regression RMS .000150245>.0001;exact word-cache reuse does not change rejected RMS;guard-before-alignment candidate rejected:old RMS .000150245 to .000284283;no RF held generation;independent arithmetic validation only;finite known-sync initializer opt-in passes frozen per-node and delta gates;remaining loops/carrier/LLR/decoder float;old interpolation rejection unchanged;explicit52bit-word power/TED/PI/NCO candidate now numerically validated with actual DSP/restoring-division node;carrier normalization/header/LLR/decoder still float;old whole-chain numeric failures unchanged;actual finite timing no longer recomputed at floating symbol acceptance;query uses registered96/97bit descriptors;new55bit finite selected-symbol rotation/gain service,independent110digit reference;residual carrier/header/LLR/decoder remain floating",
       "gaps": [
         "word-full12-c18 .0234835255681227 exceeds original .02",
-        "selected interpolation/timing/coherent/header/LLR/decoder chain not all finite words"
+        "selected header and timing have explicit word services;residual carrier/LLR/payload decoder chain still not all finite words"
       ]
     },
     "system_resources": {
@@ -36,12 +37,53 @@
       "passed": false,
       "evidence": "isolated executable RRC/fine/word transport calendars;not whole receiver;registered history port tested only with pauseable replay source;isolated interpolation pipeline32/II8,paired feedback margin160MHz0/200MHz10 before raw reads/PI/head;initial source/cache transfer841controlbits modeled,fit/PI/head service unknown;actual initial-source/cache/fit broadcast service modeled;FT4 overflows100/160MHz,initial fit only ready200MHz;known-sync replay power/PI/head/decoder stillunknown;selected value consumer does not execute unknown services in step;off-clock functional resolution invalidates cycle evidence;all-ready source/kernel transaction45edges,read reuse no latency gain;finite timing service104cycles plus known45 serial transport exceeds50@200MHz;current serialized structure rejected,not full ADC schedule;actual continuous selected-prefix/blocking tests retain bounded overflow;FT4/200 postfit1039 vs known-sync timing-only2268 necessary-condition failure;unknown services not assigned zero cycles;exact known-sync overlapped pipeline now199/379/763edges to timing-only ready sink;FT3/100 andFT4/200 retention condition improved,not normalization or MAC;normal104cycles unchanged;H1 serial normalization adds real24edge service plus1handoff;actual continuous prefixes include it and leave header/decoder blocked;no complete16MS/s claim",
       "gaps": [
-        "selected decoder/interpolator/head service unknown,not zero",
-        "early stop not in actual transport scheduler",
-        "100/160/200MHz full-chain ports/queue/deadlines unresolved"
+        "full residual carrier/payload/decoder service unknown,not zero",
+        "legal head/end and dependency retirement exist;producer/replay/next-capture scheduling remains incomplete",
+        "100/160/200MHz full-chain ports/queue/deadlines unresolved",
+        "serialized selected-symbol feedback still exceeds50cycles/symbol@200MHz even with raw-stencil reuse"
       ]
     }
   },
   "budget_changes": "prospective cost/performance decision,freeze before independent new validation;old failures unchanged",
-  "TX": "resources reserved/planned now;no large implementation before RX gates"
+  "TX": "resources reserved/planned now;no large implementation before RX gates",
+  "historical_evidence_note": "Historical evidence strings retain earlier stage costs/failures;current partial selected-frame state below supersedes only claims that finite head/timing services are absent.",
+  "current_partial_selected_frame": {
+    "scope": "explicit ordinary FT2/3/4,4Msym/s SPS4;selected matched-filtered46bit source,not complete ADC acquisition",
+    "finite_services": [
+      "selected sync initialization",
+      "four-point interpolation",
+      "power/Gardner/PI/NCO",
+      "rotation/gain normalization",
+      "hard head word/SSC/real CRC/legal geometry"
+    ],
+    "optional_structure_chain": [
+      "radix4-prefix divider",
+      "independent timing/normalization bank join",
+      "power/TED overlap",
+      "retained raw4word stencil"
+    ],
+    "current_timing_nonzero_edges": {
+      "bounded_prefix": 67,
+      "radix4_prefix": 51
+    },
+    "selected_feedback_short_prefix_edges": {
+      "before_retained_stencil": 100,
+      "retained_stencil_prototype": 98,
+      "required_at200MHz_4Msym": 50
+    },
+    "retained_stencil_added_control_bits": 64,
+    "retained_stencil_raw_RAM_and_ports_added": 0,
+    "matched_words_to_MAC_function": "payload has explicit off-clock service;functional completion invalidates complete cycle evidence",
+    "raw_history_release": "legal head determines required_end;retirement follows actual interpolation dependencies;ownership returns only after terminal gate,not yet concurrent full next-capture/decoder handoff",
+    "unmodeled_or_float": [
+      "residual payload carrier",
+      "soft demap/LLR",
+      "payload decoder schedule",
+      "continuous capture producer and next-frame ownership"
+    ],
+    "FT1_GFSK_complete": false,
+    "full_word_receiver": false,
+    "full_schedule": false,
+    "synthesis": false
+  }
 }

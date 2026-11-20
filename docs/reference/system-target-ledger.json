@@ -774,6 +774,42 @@
         "remaining_payload_cycles": null,
         "whole_receiver16MSps": false,
         "synthesis": false
+      },
+      "partial_retained_raw_stencil_candidate": {
+        "evidence": "executable selected-frame structure;not synthesis or full capture schedule",
+        "reference": "retained-raw-stencil.md",
+        "baseline": "PowerTEDFrameReplay",
+        "additional_controller_bits": 64,
+        "counter_already_in_common_controller_total": true,
+        "existing_exclusive_raw_staging_bits": 184,
+        "existing_start_index_bits": 64,
+        "additional_DSP": 0,
+        "additional_raw_RAM_bits": 0,
+        "additional_source_ports": 0,
+        "source_ports": "1R+1W;no new bank/query credit;raw registers cannot be borrowed by fine or another packet",
+        "combinational_upper": {
+          "projection_evaluations": 2,
+          "window_end_add65": 4,
+          "carry_guards": 4,
+          "first_address_decrement65": 2,
+          "difference65": 2,
+          "range_compare65": 4,
+          "counter_add65": 2,
+          "count_compare64": 1,
+          "mux2": 368
+        },
+        "logic_sharing_credit": false,
+        "raw_reads_upper_per_symbol": 8,
+        "observed_fixed_prefix_reads": [
+          6,
+          4
+        ],
+        "extra_guard_compaction_edges_assumption": 0,
+        "timing_status": "same existing NCO edge assumed;wide path not synthesized;extra stages can erase2edge gain",
+        "other_LUT_FF_Fmax": null,
+        "whole_receiver16MSps": false,
+        "payload_service_cycles": null,
+        "synthesis": false
       }
     },
     {
@@ -1182,7 +1218,7 @@
       "function": "packet/descriptor/candidate/output/completion queues",
       "baseline_relationship": "partly_baseline",
       "concurrency": "all producers/consumers",
-      "word_and_ports": "draft2TX+2RX+1reply\u00d72048B not qualified",
+      "word_and_ports": "draft2TX+2RX+1reply×2048B not qualified",
       "clock_ii_latency": "port arbitration and downstream maximum stall unknown",
       "overflow_policy": "bounded queues;admission/drop/abort explicit",
       "resources": {

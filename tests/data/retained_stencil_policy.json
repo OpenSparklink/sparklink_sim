@@ -1,0 +1,25 @@
+{
+  "stage": "RX-RETAINED-RAW-STENCIL",
+  "baseline": "fbb4f67f3f294710cd3278830456550c62729c04",
+  "change": "retain same four raw staging registers;exact forward address prefix only",
+  "budgets": {
+    "word_state_frame_trajectory_delta": 0,
+    "original_success_losses": 0,
+    "additional_DSP": 0,
+    "additional_source_RAM_bits": 0,
+    "additional_source_ports": 0,
+    "additional_controller_bits_max": 128,
+    "history_capacity_words": 512,
+    "staging_words": 4
+  },
+  "node_development_cases": 96,
+  "node_validation_cases": 112,
+  "node_scope": "new64bit source-window addresses and opaque46bit data;not RF",
+  "RF_scope": "all viewed waveforms fixed regressions only;no capture/loop parameter selection",
+  "clocks_Hz": [100000000, 160000000, 200000000],
+  "adoption": "explicit compiled4Msym/s SPS4 class;no default promotion;old failures retained",
+  "guard": "before query take/source retirement;uint64 counter and window ends cannot wrap",
+  "timing_assumption": "same registered NCO edge;wide guards/compaction not synthesized or timed",
+  "new_RF_holdout": false,
+  "four_RX_gates_passed": false
+}
