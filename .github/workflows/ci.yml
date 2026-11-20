@@ -174,15 +174,16 @@ jobs:
           SPARKLINK_TEST_DIAGNOSTICS: receiver-diagnostics/unit-${{ matrix.shard }}
           SHARD: ${{ matrix.shard }}
         run: |
-          rrc=tests/test_stream_rrc_word.py
-          head=(tests/test_head_word_replay.py tests/test_live_head_model.py tests/test_selected_history.py tests/test_psk_hard_flow.py tests/test_spline_power.py tests/test_selected_sync_fit.py tests/test_timing_radix4.py tests/test_data_joint_replay.py tests/test_timing_overlap_flow.py tests/test_power_ted_replay.py tests/test_timing_overlap_model.py tests/test_retained_stencil_replay.py tests/test_retained_stencil_model.py tests/test_feedback_timing_word.py tests/test_feedback_timing_replay.py tests/test_split_timing_flow.py tests/test_split_sampling_replay.py tests/test_packed_head_replay.py)
+          rrc=(tests/test_stream_rrc_word.py tests/test_retained_stencil_replay.py tests/test_split_sampling_replay.py tests/test_packed_head_replay.py)
+          head=(tests/test_head_word_replay.py tests/test_live_head_model.py tests/test_selected_history.py tests/test_psk_hard_flow.py tests/test_spline_power.py tests/test_selected_sync_fit.py tests/test_timing_radix4.py tests/test_data_joint_replay.py tests/test_timing_overlap_flow.py tests/test_power_ted_replay.py tests/test_timing_overlap_model.py tests/test_retained_stencil_model.py tests/test_feedback_timing_word.py tests/test_feedback_timing_replay.py tests/test_split_timing_flow.py)
           front=(tests/test_overlapped_normalization_replay.py tests/test_normalized_word_replay.py tests/test_normalization_overlap_model.py tests/test_pipelined_timing_replay.py tests/test_normalization_word.py tests/test_finite_timing_replay.py tests/test_timing_divider_prefix.py tests/test_timing_divider_model.py tests/test_selected_word.py tests/test_alignment_guard.py tests/test_receive_scope.py tests/test_rrc_pair_boundary.py tests/test_rrc_memory.py)
           if [ "$SHARD" = core ]; then
-            paths=(tests/ "--ignore=$rrc")
+            paths=(tests/)
+            for path in "${rrc[@]}"; do paths+=("--ignore=$path"); done
             for path in "${front[@]}"; do paths+=("--ignore=$path"); done
             for path in "${head[@]}"; do paths+=("--ignore=$path"); done
           elif [ "$SHARD" = rrc ]; then
-            paths=("$rrc")
+            paths=("${rrc[@]}")
           elif [ "$SHARD" = head ]; then
             paths=("${head[@]}")
           else
@@ -253,7 +254,7 @@ jobs:
         with:
           pattern: unit-${{ matrix.backend }}-*
           merge-multiple: true
-      - name: Verify all three actual unit shards and unchanged time budget
+      - name: Verify all four actual unit shards and unchanged time budget
         run: |
           cat test-core.log test-front.log test-rrc.log test-head.log
           uv run --frozen --no-sync python - <<'PY'
@@ -1387,11 +1388,11 @@ jobs:
       - name: Measure RRC word coverage
         if: matrix.shard == 'rrc'
         run: |
-          COVERAGE_FILE=coverage-rrc.data uv run --frozen --no-sync pytest tests/test_stream_rrc_word.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-rrc.xml --durations=20 >coverage-rrc.log 2>&1
+          COVERAGE_FILE=coverage-rrc.data uv run --frozen --no-sync pytest tests/test_stream_rrc_word.py tests/test_retained_stencil_replay.py tests/test_split_sampling_replay.py tests/test_packed_head_replay.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-rrc.xml --durations=20 >coverage-rrc.log 2>&1
       - name: Measure head and schedule coverage
         if: matrix.shard == 'head'
         run: |
-          COVERAGE_FILE=coverage-head.data uv run --frozen --no-sync pytest tests/test_head_word_replay.py tests/test_live_head_model.py tests/test_selected_history.py tests/test_psk_hard_flow.py tests/test_spline_power.py tests/test_selected_sync_fit.py tests/test_timing_radix4.py tests/test_data_joint_replay.py tests/test_timing_overlap_flow.py tests/test_power_ted_replay.py tests/test_timing_overlap_model.py tests/test_retained_stencil_replay.py tests/test_retained_stencil_model.py tests/test_feedback_timing_word.py tests/test_feedback_timing_replay.py tests/test_split_timing_flow.py tests/test_split_sampling_replay.py tests/test_packed_head_replay.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-head.xml --durations=20 >coverage-head.log 2>&1
+          COVERAGE_FILE=coverage-head.data uv run --frozen --no-sync pytest tests/test_head_word_replay.py tests/test_live_head_model.py tests/test_selected_history.py tests/test_psk_hard_flow.py tests/test_spline_power.py tests/test_selected_sync_fit.py tests/test_timing_radix4.py tests/test_data_joint_replay.py tests/test_timing_overlap_flow.py tests/test_power_ted_replay.py tests/test_timing_overlap_model.py tests/test_retained_stencil_model.py tests/test_feedback_timing_word.py tests/test_feedback_timing_replay.py tests/test_split_timing_flow.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-head.xml --durations=20 >coverage-head.log 2>&1
       - uses: actions/upload-artifact@v4
         if: always()
         with:

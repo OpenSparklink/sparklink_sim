@@ -84,6 +84,7 @@
 :maxdepth: 2
 
 rx-chain-hardening
+ci-test-partitions
 rx-capture-front
 rx-acquisition-hardware
 rx-interference-capture
