@@ -129,6 +129,7 @@ head-word-gate
 hard-header-words
 live-head-replay
 timing-radix4
+data-joint-service
 coverage-isolation
 rrc-memory
 spline-preparation

@@ -1,0 +1,37 @@
+{
+  "stage": "RX-DATA-JOINT-SERVICE",
+  "baseline": "24a05b9836c1e94f3abcc378352f401949b8b45e",
+  "timing_divider": "bounded-prefix",
+  "changed": "data service schedule only;existing independent4DSP banks;one ordered pair",
+  "budgets": {
+    "word_state_trajectory_delta": 0,
+    "original_success_losses": 0,
+    "new_false_deliveries": 0,
+    "new_DSP": 0,
+    "new_raw_source_RAM_bits": 0,
+    "new_source_ports": 0,
+    "new_controller_bits_max": 256,
+    "pair_credits": 1,
+    "history_words": 512
+  },
+  "node_development": [
+    [2, 8, 8, "random-steady"],
+    [3, 12, 4, "zero-current"],
+    [4, 10, 16, "exponent-switch"],
+    [2, 6, 0, "edge-signs"]
+  ],
+  "node_validation": [
+    [4, 8, 4, "zero-current"],
+    [2, 12, 16, "edge-signs"],
+    [3, 6, 8, "random-steady"],
+    [3, 10, 0, "exponent-switch"]
+  ],
+  "node_words_per_cell": 16,
+  "development_seed": 11201347,
+  "validation_seed": 11201389,
+  "node_scope": "synthetic52bit current/midpoint ports;transport supplies valid causal indices;not RF passing packets",
+  "RF_scope": "all viewed inputs fixed regressions only;no RF parameter selection or new reception holdout",
+  "adoption": "explicit experimental class only;no default promotion;old resource/numeric failures retained",
+  "clocks_Hz": [100000000, 160000000, 200000000],
+  "four_RX_gates_passed": false
+}

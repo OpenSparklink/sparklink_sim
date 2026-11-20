@@ -174,11 +174,11 @@ def functional(output, name, p, words, selection, expected):
 
 
 def suffix(output, p, words, selection, *, input_id, layout, clock, continue_data,
-           timing_divider="bounded-prefix"):
+           timing_divider="bounded-prefix", flow_class=HeadWordsFrameReplay):
     """Finite word-port arrival after the head boundary; earlier source was pausable."""
     prepared, pos = prepare(p, words, selection)
     calendar = []
-    flow = HeadWordsFrameReplay(
+    flow = flow_class(
         p,
         prepared,
         normalization_format=NormalizationFormat(),

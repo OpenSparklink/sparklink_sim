@@ -697,6 +697,40 @@
         "synthesis": false,
         "Fmax_verified": false,
         "whole16MSps": false
+      },
+      "partial_data_joint_service": {
+        "reference": "data-joint-service.md",
+        "status": "explicit exact data schedule experiment;not whole-RX acceptance",
+        "primary_divider": "bounded-prefix;no automaticradix4promotion",
+        "additional_controller_bits": 128,
+        "controller_counters_already_in_common_total": true,
+        "additional_DSP": 0,
+        "existing_independent_timing_and_normalization_DSP": 8,
+        "bank_sharing_credit": false,
+        "additional_source_RAM_bits": 0,
+        "additional_source_cache_ports": 0,
+        "pair_credits": 1,
+        "held_output_registers": "existing timing and normalization results;no new FIFO",
+        "existing_normalization_four_contexts_not_removed": true,
+        "new_FSM_mode_codes": 0,
+        "current_word_broadcast_bits": 52,
+        "comparison_widths_upper": {
+          "source": [
+            52,
+            52
+          ],
+          "ordered_counts": [
+            64,
+            18,
+            18
+          ]
+        },
+        "remaining_payload_service_cycles": null,
+        "whole_LUT": null,
+        "whole_FF": null,
+        "Fmax": null,
+        "synthesis": false,
+        "whole16MSps": false
       }
     },
     {
