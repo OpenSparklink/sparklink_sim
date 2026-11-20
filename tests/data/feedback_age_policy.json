@@ -1,0 +1,41 @@
+{
+  "stage": "RX-FEEDBACK-AGE-FUNCTIONAL",
+  "error_ages": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "formats": [
+    [
+      30,
+      24
+    ],
+    [
+      30,
+      32
+    ],
+    [
+      38,
+      32
+    ]
+  ],
+  "FIFO_initialization": "zeros;do not advance during known sync",
+  "packet_end": "discard queued errors without PI flush",
+  "budgets": {
+    "integer_error_delta": 0,
+    "additional_functional_persistent_bits_max": 160,
+    "baseline_delay0_state_delta": 0
+  },
+  "not_adoption": "no word closed-loop,schedule or fresh RF holdout yet;existing cycle service must reject",
+  "floating_development": {
+    "streams": 36,
+    "legal_packets": 36,
+    "full_packets_each_age": 22,
+    "captured_each_age": 29,
+    "negative_observation_samples_per_age": 44663,
+    "new_holdout": false
+  },
+  "old_budgets_retained": true,
+  "four_RX_gates_passed": false
+}

@@ -84,6 +84,27 @@
     "FT1_GFSK_complete": false,
     "full_word_receiver": false,
     "full_schedule": false,
-    "synthesis": false
+    "synthesis": false,
+    "feedback_age_functional_reference": {
+      "reference": "feedback-error-age.md",
+      "state": "standalone finite functional error FIFO/PI order only;not wired into selected sampler or existing cycle service",
+      "compiled_ages": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "new_word_validation_nodes": 9252,
+      "new_persistent_bits_error32_age1_2_3": [
+        71,
+        106,
+        141
+      ],
+      "closed_loop_word_numeric_pass": false,
+      "executable_parallel_cycle_service": false,
+      "new_RF_holdout_evaluated": false,
+      "default_changed": false,
+      "four_gates_unchanged": true
+    }
   }
 }

@@ -810,6 +810,35 @@
         "whole_receiver16MSps": false,
         "payload_service_cycles": null,
         "synthesis": false
+      },
+      "partial_feedback_age_functional_reference": {
+        "reference": "feedback-error-age.md",
+        "evidence": "finite functional state and independent FIFO/PI Fraction tests;not closed-loop word or cycle proof",
+        "additional_persistent_bits_error32_by_age": {
+          "0": 36,
+          "1": 71,
+          "2": 106,
+          "3": 141
+        },
+        "increment_budget_bits_before_test": 160,
+        "FIFO_word_bits": 35,
+        "FIFO_implementation": "fixed shift registers,zero-fill,known-sync hold,packet end discard",
+        "FIFO_only_BRAM": 0,
+        "canonical_persistent_state_reused_once": true,
+        "last_applied_error_and_closed_flag_charged": true,
+        "pipeline_contexts_tags_arbiter_bits": null,
+        "pipeline_additional_DSP": null,
+        "pipeline_RAM_ports": null,
+        "full_LUT_FF": null,
+        "II": null,
+        "complete_latency_cycles": null,
+        "existing_cycle_service_rejects_composed_state": true,
+        "sharing_MAC_TX_decoder_credit": false,
+        "old4096_2048_16KiB_and_numeric_failures_retained": true,
+        "default_changed": false,
+        "full_receiver16MSps": false,
+        "synthesis": false,
+        "FIFO_access_semantics": "logical pop/push once;shift-register physical reads and writes age words each tracked symbol;not freeRAM ports"
       }
     },
     {
