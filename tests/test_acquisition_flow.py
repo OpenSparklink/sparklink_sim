@@ -92,3 +92,107 @@ def test_elaboration_input_bounds_and_real_queue_depth_are_enforced():
         AcquisitionFlow().simulate(0)
     with pytest.raises(OverflowError):
         AcquisitionFlow().simulate(2**63)
+
+
+@pytest.mark.parametrize('clock', [100, 160, 200])
+def test_explicit_ideal_arrivals_keep_legacy_queues_and_every_reservation(clock):
+    flow = AcquisitionFlow(FlowAssumptions(clock_hz=clock * 1_000_000))
+    ideal, tagged = [], []
+    old = flow.simulate(2048, sink=ideal.append)
+    arrivals = ((n, (n * clock + 15) // 16) for n in range(2048))
+    new = flow.simulate(2048, arrivals=arrivals, sink=tagged.append)
+    assert new == old and ideal == tagged
+    assert sum(e['event'] == 'sample_drop' for e in tagged) == new['dropped_sample_tags']
+    assert sum(e['event'] == 'query_drop' for e in tagged) == new['query_drops']
+
+
+def test_external_latency_is_not_erased_and_observer_does_not_steer_schedule():
+    count, shift = 128, 719
+    flow = AcquisitionFlow()
+    a, b = [], []
+    ideal = [(n, (n * 25 + 1) // 2) for n in range(count)]
+    first = flow.simulate(count, arrivals=ideal, sink=a.append)
+    shifted = flow.simulate(count, arrivals=((n, c + shift) for n, c in ideal), sink=b.append)
+    assert shifted == dict(
+        first, pipeline_drain_end_cycle=first['pipeline_drain_end_cycle'] + shift
+    )
+    for left, right in zip(a, b, strict=True):
+        assert left.keys() == right.keys()
+        for key in left:
+            assert right[key] == (left[key] + shift if key.endswith('_cycle') else left[key])
+    assert flow.simulate(count, arrivals=ideal) == first
+    # Query reservations may be returned before a later sample's reservation
+    # in observer order. A controller must wait for ready_cycle,not call order.
+    query = next(e for e in a if e['event'] == 'query_reservation')
+    later = next(e for e in a if e['sample'] == query['sample'] + 1)
+    assert later['ready_cycle'] < query['ready_cycle']
+
+
+def test_actual_rrc_emissions_join_by_tag_without_resetting_arrival_time():
+    from nearlink_sdr.phy.rrc_pair_flow import PairRRCFlow
+
+    rrc = PairRRCFlow().simulate(1024, trace=True)
+    outputs = [(e['sample'], e['cycle']) for e in rrc['trace'] if e['event'] == 'output']
+    assert not rrc['dropped'] and not rrc['invalid']
+    assert [n for n, _ in outputs] == list(range(1024))
+    events = []
+    flow = AcquisitionFlow()
+    result = flow.simulate(1024, arrivals=iter(outputs), sink=events.append)
+    assert not result['dropped_sample_tags'] and not result['query_drops']
+    samples = [e for e in events if e['event'] == 'sample_reservation']
+    assert [(e['sample'], e['arrived_cycle']) for e in samples] == outputs
+    assert samples[0]['arrived_cycle'] == 60
+    assert samples[0]['core_ready_cycle'] == 60 + flow.estimate['core_no_queue_latency_cycles']
+    assert all(e['ready_cycle'] >= e['arrived_cycle'] for e in events)
+    assert result['pipeline_drain_end_cycle'] > rrc['cycles']
+
+
+@pytest.mark.parametrize('clock', [100, 160])
+def test_dropped_rrc_tags_cannot_be_relabeled_or_filled_with_zeros(clock):
+    from nearlink_sdr.phy.rrc_pair_flow import PairRRCFlow, PairRRCFlowAssumptions
+
+    rrc = PairRRCFlow(PairRRCFlowAssumptions(clock_hz=clock * 1_000_000)).simulate(1024, trace=True)
+    outputs = [(e['sample'], e['cycle']) for e in rrc['trace'] if e['event'] == 'output']
+    assert rrc['dropped'] > 0
+    with pytest.raises(ValueError, match='sample tag'):
+        AcquisitionFlow().simulate(1024, arrivals=outputs)
+
+
+@pytest.mark.parametrize('arrivals', [
+    3, [], [(True, 0)], [(1, 0)], [(0, -1)], [(0, True)], [(0, 1.0)],
+    [(0, 2**63)], [(0, 0), None], [(0, 0), (1, 1)],
+])
+def test_malformed_or_extra_arrival_calendar_is_not_success(arrivals):
+    with pytest.raises(ValueError):
+        AcquisitionFlow().simulate(1, arrivals=arrivals)
+
+
+@pytest.mark.parametrize('arrivals', [
+    [(0, 0), (0, 13)], [(0, 0), (2, 13)], [(0, 13), (1, 13)], [(0, 13), (1, 12)],
+])
+def test_duplicate_missing_reordered_or_same_edge_tags_are_explicit(arrivals):
+    with pytest.raises(ValueError):
+        AcquisitionFlow().simulate(2, arrivals=arrivals)
+
+
+def test_invalid_observer_rejected_before_reserving_work():
+    with pytest.raises(ValueError, match='observer'):
+        AcquisitionFlow().simulate(1, sink=True)
+
+
+def test_irregular_unblocked_arrivals_have_independent_constant_stage_latency():
+    rng = random.Random(372714)
+    cycle, arrivals = 719, []
+    for n in range(512):
+        cycle += rng.choice([12, 13, 17, 51])
+        arrivals.append((n, cycle))
+    events = []
+    result = AcquisitionFlow().simulate(512, arrivals=iter(arrivals), sink=events.append)
+    assert not result['dropped_sample_tags'] and not result['query_drops']
+    assert max(result['peak_waiting_by_stage']) == 0
+    assert len(events) == 512 + 16
+    for row in events:
+        assert row['arrived_cycle'] == arrivals[row['sample']][1]
+        # Frozen no-queue contract:50 registered edges;the query adds21.
+        latency = 50 if row['event'] == 'sample_reservation' else 71
+        assert row['ready_cycle'] - row['arrived_cycle'] == latency

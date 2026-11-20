@@ -207,7 +207,10 @@ class AcquisitionFlow:
             existing_requester_first_query_input_samples=a.window_samples,
             fine_request_rate_upper_per_second=a.input_hz/(8*a.sps),
             downstream_contract='query result consumed when produced; fine-engine/backpressure/window snapshots not modeled',
-            input_contract='post-RRC integer words and raw detector tags are aligned at the interface; RRC latency/retiming excluded',
+            input_contract=(
+                'post-RRC words/raw detector tags must already align;optional arrival calendar '
+                'includes upstream latency;conversion and retiming hardware remain excluded'
+            ),
             unresolved='RRC/fine search/carrier/timing/payload and actual resource/timing closure',
         )
         raw_window = 8*a.sps
@@ -247,10 +250,25 @@ class AcquisitionFlow:
             raw_join='direct sample-tag modulo depth;1 tag read/1 tag write;valid register bits up to3 updates/cycle',
             restriction='No single shared dual-port RAM can supply all tap reads; banking/replication/mux timing unproven')
 
-    def simulate(self, samples):
-        """Exact integer-time arrivals, bounded waiting FIFOs, and explicit overload losses."""
+    def simulate(self, samples, *, arrivals=None, sink=None):
+        """Reserve bounded work at ideal or actual tagged input arrival clocks.
+
+        Explicit arrivals are an iterator of contiguous(sample,cycle) pairs.
+        Missing RRC outputs cannot be relabeled or replaced with zeros. Observer
+        events describe future reservations,not early live result handoffs.
+        Raw detector flags must already be aligned at this interface;their
+        retiming and the upstream word conversion are not modeled here.
+        """
         if type(samples) is not int or samples < 1:
             raise ValueError('Need positive integer sample count')
+        if sink is not None and not callable(sink):
+            raise ValueError('Need an optional reservation observer')
+        try:
+            source = None if arrivals is None else iter(arrivals)
+        except TypeError as error:
+            raise ValueError('Need iterable tagged arrival clocks') from error
+        exhausted = object()
+        previous_arrival = -1
         a = self.assumptions
         if (samples*a.clock_hz+a.input_hz-1)//a.input_hz >= 2**63-2**32:
             raise OverflowError('Cycle timestamp would exceed signed64-bit model bound')
@@ -261,11 +279,22 @@ class AcquisitionFlow:
         query_latency_max = 0
         raw_flags, raw_slots, raw_flag_peak, raw_flag_drops = [], {}, 0, 0
         for n in range(samples):
-            offered = (n*a.clock_hz+a.input_hz-1)//a.input_hz
+            if source is None:
+                offered = (n*a.clock_hz+a.input_hz-1)//a.input_hz
+            else:
+                item = next(source, None)
+                if (not isinstance(item, (tuple, list)) or len(item) != 2
+                        or type(item[0]) is not int or item[0] != n):
+                    raise ValueError('Missing,duplicate or reordered source sample tag')
+                offered = item[1]
+                if type(offered) is not int or not previous_arrival < offered < 2**63-2**32:
+                    raise ValueError('Need increasing signed64 arrival clocks,one input per edge')
+                previous_arrival = offered
             current = offered
             # Raw detection is parallel. It has its own independent input FIFO.
             detector_finish = None
             complete = False
+            drop_reason = None
             for j in [len(stages)-1, *range(len(self.stages))]:
                 arrival = offered if j == len(stages)-1 else current
                 q = queues[j]
@@ -275,6 +304,7 @@ class AcquisitionFlow:
                 if start > arrival and len(q) >= a.fifo_depth:
                     drops[j] += 1
                     current = arrival
+                    drop_reason = 'stage_fifo_full:' + stages[j].get('name', 'raw_detector')
                     break
                 if start > arrival:
                     q.append(start)
@@ -296,10 +326,16 @@ class AcquisitionFlow:
                 if slot in raw_slots:
                     raw_flag_drops += 1
                     complete = False
+                    drop_reason = 'raw_flag_slot_collision'
                 else:
                     raw_slots[slot] = n
                     heapq.heappush(raw_flags, (max(current, detector_finish), slot, n))
                     raw_flag_peak = max(raw_flag_peak, len(raw_slots))
+            if sink is not None:
+                sink(dict(event='sample_reservation' if complete else 'sample_drop',
+                          sample=n, arrived_cycle=offered, core_ready_cycle=current,
+                          ready_cycle=max(current, detector_finish) if complete else None,
+                          detector_ready_cycle=detector_finish, reason=drop_reason))
             if complete:
                 output += 1
                 delay = current-offered
@@ -313,12 +349,21 @@ class AcquisitionFlow:
                     start = max(arrival, query_busy)
                     if start > arrival and len(query_queue) >= 2:
                         query_drops += 1
+                        if sink is not None:
+                            sink(dict(event='query_drop', sample=n, arrived_cycle=offered,
+                                      offered_cycle=arrival, reason='query_fifo_full'))
                         continue
                     if start > arrival:
                         query_queue.append(start)
                         query_peak = max(query_peak, len(query_queue))
                     query_busy = start+self.query_cycles
                     query_latency_max = max(query_latency_max, query_busy-offered)
+                    if sink is not None:
+                        sink(dict(event='query_reservation', sample=n, arrived_cycle=offered,
+                                  offered_cycle=arrival, start_cycle=start,
+                                  ready_cycle=query_busy))
+        if source is not None and next(source, exhausted) is not exhausted:
+            raise ValueError('Source calendar exceeds declared sample count')
         return dict(input_samples=samples, completed_sample_tags=output,
             dropped_sample_tags=samples-output, drops_by_stage=drops, peak_waiting_by_stage=peaks,
             peak_raw_flag_join=raw_flag_peak, raw_flag_join_drops=raw_flag_drops,
