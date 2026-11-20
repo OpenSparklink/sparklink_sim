@@ -48,6 +48,8 @@ jobs:
           uv run --frozen --no-sync ruff check scripts/model_header_geometry.py
           uv run --frozen --no-sync ruff check scripts/model_header_words.py
           uv run --frozen --no-sync ruff check scripts/model_hard_header.py
+          uv run --frozen --no-sync ruff check scripts/model_live_head.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_live_head.py src/nearlink_sdr/phy/word_head_rx.py src/nearlink_sdr/sim/head_word_replay.py tests/test_head_word_replay.py tests/test_live_head_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_hard_header.py src/nearlink_sdr/phy/psk_hard_word.py src/nearlink_sdr/sim/psk_hard_flow.py tests/test_psk_hard_word.py tests/test_psk_hard_flow.py tests/test_hard_header_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_header_words.py src/nearlink_sdr/sim/header_word_flow.py tests/test_header_word_flow.py tests/test_header_word_receive.py tests/test_header_word_standard.py tests/test_header_word_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_header_geometry.py tests/test_header_geometry_flow.py src/nearlink_sdr/sim/header_geometry_flow.py
@@ -165,12 +167,14 @@ jobs:
           SHARD: ${{ matrix.shard }}
         run: |
           rrc=tests/test_stream_rrc_word.py
+          head=(tests/test_head_word_replay.py tests/test_live_head_model.py)
           front=(tests/test_overlapped_normalization_replay.py tests/test_normalized_word_replay.py tests/test_normalization_overlap_model.py tests/test_pipelined_timing_replay.py tests/test_normalization_word.py tests/test_finite_timing_replay.py tests/test_timing_divider_prefix.py tests/test_timing_divider_model.py tests/test_selected_word.py tests/test_alignment_guard.py tests/test_receive_scope.py tests/test_rrc_pair_boundary.py tests/test_rrc_memory.py)
           if [ "$SHARD" = core ]; then
             paths=(tests/ "--ignore=$rrc")
             for path in "${front[@]}"; do paths+=("--ignore=$path"); done
+            for path in "${head[@]}"; do paths+=("--ignore=$path"); done
           elif [ "$SHARD" = rrc ]; then
-            paths=("$rrc")
+            paths=("$rrc" "${head[@]}")
           else
             paths=("${front[@]}")
           fi
@@ -1093,6 +1097,39 @@ jobs:
                       assert path["cost"]["extra_candidate_capacity_met"]
                       assert not path["cost"]["whole_RX16MSps"]
           PYCODE
+      - name: Verify actual clocked head handoff and preserve continuous suffix failures
+        if: always()
+        run: |
+          set +e
+          PYTHONPATH=src:scripts uv run --frozen --no-sync python -m scripts.model_live_head --output receiver-diagnostics/live-word-head >live-word-head.log 2>&1
+          status=$?
+          set -e
+          test "$status" = 1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          p = Path("receiver-diagnostics/live-word-head")
+          model = json.loads((p / "model.json").read_text())
+          assert model["component_functional_pass"]
+          assert model["input_cases"] == 9 and model["exact_comparisons"] == 54
+          assert model["original_success_losses"] == model["recovered"] == 0
+          assert model["head_wait_completed"] == model["head_wait_resource_exits"] == 6
+          assert model["head_and_data_resource_exits"] == 12
+          assert model["controller_increment_bits"] == 129
+          assert model["source_RAM_increment_bits"] == model["source_ports_increment"] == 0
+          assert not model["four_RX_gates_passed"] and not model["new_RF_holdout"]
+          assert model["complete_latency_cycles"] is None
+          rows = json.loads((p / "resource-prefixes.json").read_text())
+          assert len(rows) == 24
+          for row in rows:
+              assert row["source_peak"] <= 512 and row["exact_source_suffix"]
+              assert row["actual_epoch_valid"] and not row["full_RX16MSps"]
+              if row["frame"] is not None:
+                  assert row["frame"]["status"] == "history_overflow"
+                  assert row["frame"]["data_crc"] is None
+                  if row["checked_head_receipt"] is None:
+                      assert row["frame"]["header_crc"] is None
+          PYCODE
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -1104,6 +1141,7 @@ jobs:
             frozen-corpora.log
             header-word-*.log
             hard-head-*.log
+            live-word-head.log
             header-geometry.log
             test-budget.json
             test-*.log
@@ -1193,7 +1231,7 @@ jobs:
       - name: Measure core coverage
         if: matrix.shard == 'core'
         run: |
-          COVERAGE_FILE=coverage-core.data uv run --frozen --no-sync pytest tests/ --ignore=tests/test_overlapped_normalization_replay.py --ignore=tests/test_normalized_word_replay.py --ignore=tests/test_normalization_overlap_model.py --ignore=tests/test_pipelined_timing_replay.py --ignore=tests/test_normalization_word.py --ignore=tests/test_finite_timing_replay.py --ignore=tests/test_timing_divider_prefix.py --ignore=tests/test_timing_divider_model.py --ignore=tests/test_stream_rrc_word.py --ignore=tests/test_selected_word.py --ignore=tests/test_alignment_guard.py --ignore=tests/test_receive_scope.py --ignore=tests/test_rrc_pair_boundary.py --ignore=tests/test_rrc_memory.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-core.xml --durations=20 >coverage-core.log 2>&1
+          COVERAGE_FILE=coverage-core.data uv run --frozen --no-sync pytest tests/ --ignore=tests/test_overlapped_normalization_replay.py --ignore=tests/test_normalized_word_replay.py --ignore=tests/test_normalization_overlap_model.py --ignore=tests/test_pipelined_timing_replay.py --ignore=tests/test_normalization_word.py --ignore=tests/test_finite_timing_replay.py --ignore=tests/test_timing_divider_prefix.py --ignore=tests/test_timing_divider_model.py --ignore=tests/test_stream_rrc_word.py --ignore=tests/test_selected_word.py --ignore=tests/test_alignment_guard.py --ignore=tests/test_receive_scope.py --ignore=tests/test_rrc_pair_boundary.py --ignore=tests/test_rrc_memory.py --ignore=tests/test_head_word_replay.py --ignore=tests/test_live_head_model.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-core.xml --durations=20 >coverage-core.log 2>&1
       - name: Measure frontend coverage
         if: matrix.shard == 'front'
         run: |
@@ -1201,7 +1239,7 @@ jobs:
       - name: Measure RRC word coverage
         if: matrix.shard == 'rrc'
         run: |
-          COVERAGE_FILE=coverage-rrc.data uv run --frozen --no-sync pytest tests/test_stream_rrc_word.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-rrc.xml --durations=20 >coverage-rrc.log 2>&1
+          COVERAGE_FILE=coverage-rrc.data uv run --frozen --no-sync pytest tests/test_stream_rrc_word.py tests/test_head_word_replay.py tests/test_live_head_model.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-rrc.xml --durations=20 >coverage-rrc.log 2>&1
       - uses: actions/upload-artifact@v4
         if: always()
         with:

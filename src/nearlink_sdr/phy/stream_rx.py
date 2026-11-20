@@ -752,15 +752,9 @@ class PSKStreamReceiver:
             row = decode_psk_frame(self._values[:a['count']], self.profile,
                                    carrier_method=self.carrier_method,
                                    **self._carrier_weight_options)
-            self.capture_stats['header_crc_ok'] += int(row['header_crc'] is True)
-            self.capture_stats['header_crc_failed'] += int(row['header_crc'] is False)
-            if (row['header_crc'] is True and row['length_ok'] is True
-                    and 'frame_end_symbol' in row):
-                a['end'], a['header'] = row['frame_end_symbol'], row
-                if a['end'] > self.max_frame_symbols:
-                    raise RuntimeError("Verified length exceeded frame bound")
-            if row['status'] != 'truncated_data':
-                return self._event(row)
+            event = self._accept_selected_header(row)
+            if event is not None:
+                return event
         if a['end'] is not None and a['count'] == a['end']:
             if self.profile.head_backend == "reference":
                 row = decode_psk_frame(self._values[:a['count']], self.profile,
@@ -772,6 +766,20 @@ class PSKStreamReceiver:
                 row = _decode_psk_payload(self._values[:a['count']], self.profile, a['header'],
                                           carrier_method=self.carrier_method,
                                           **self._carrier_weight_options)
+            return self._event(row)
+        return None
+
+    def _accept_selected_header(self, row):
+        """Internal handoff from this selected frame's actual CRC/field gate only."""
+        a = self._active
+        self.capture_stats['header_crc_ok'] += int(row['header_crc'] is True)
+        self.capture_stats['header_crc_failed'] += int(row['header_crc'] is False)
+        if (row['header_crc'] is True and row['length_ok'] is True
+                and 'frame_end_symbol' in row):
+            a['end'], a['header'] = row['frame_end_symbol'], row
+            if a['end'] > self.max_frame_symbols:
+                raise RuntimeError("Verified length exceeded frame bound")
+        if row['status'] != 'truncated_data':
             return self._event(row)
         return None
 

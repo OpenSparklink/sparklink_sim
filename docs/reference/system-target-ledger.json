@@ -678,7 +678,7 @@
       "baseline_relationship": "target_increment",
       "concurrency": "next capture/previous payload processing",
       "word_and_ports": "actual profile contexts;BCH target usage to audit",
-      "clock_ii_latency": "head deadline and MCS-specific stage service pending",
+      "clock_ii_latency": "head word/CRC/geometry has executable selected-frame service;global payload/CRC/BCH deadline unresolved",
       "overflow_policy": "invalid/truncated head prevents length/payload delivery",
       "resources": {
         "lut": {
@@ -800,6 +800,69 @@
         "full_RX_cycle_acceptance": false,
         "synthesis": false,
         "Fmax_verified": false
+      },
+      "finite_actual_word_head": {
+        "reference": "live-head-replay.md",
+        "status": "explicit selected-frame integration;not full continuous RX acceptance",
+        "contains_SSC_geometry_CRC_demap_collector_not_additive": true,
+        "logical_bits_FT2_dense_parity": [
+          20247,
+          20255
+        ],
+        "logical_bits_B1_dense_parity": [
+          44129,
+          44133
+        ],
+        "RAMB18_FT2_dense_parity": [
+          3,
+          5
+        ],
+        "RAMB18_B1_dense_parity": [
+          6,
+          6
+        ],
+        "BRAM36_upper_FT2_dense_parity": [
+          3,
+          5
+        ],
+        "BRAM36_upper_B1_dense_parity": [
+          4,
+          5
+        ],
+        "DSP_component_estimate": 0,
+        "LUT_total": null,
+        "FF_total": null,
+        "input_word_bits": 55,
+        "absolute_index_bits": 17,
+        "hard_projection_bits": 23,
+        "hard_decision_latency_edges": 2,
+        "hard_decision_unstalled_II": 3,
+        "source_RAM_increment_bits": 0,
+        "source_port_increment": 0,
+        "selected_controller_increment_bits": 129,
+        "counter_bits_already_in_parent_controller": 128,
+        "head_receipt_physical_slot_reused_within_frame": true,
+        "next_context_before_terminal_allowed": false,
+        "base_structure": "existing overlapped known-sync plus bounded-prefix timing division",
+        "observed_resource_inputs": [
+          "viewed legacy B1",
+          "SHA-frozen standard B1 CRC32"
+        ],
+        "observed_head_wait_cases": 12,
+        "observed_head_wait_resource_exits": 6,
+        "observed_head_and_data_cases": 12,
+        "observed_head_and_data_resource_exits": 12,
+        "continuous_arrival_scope": "16MS/s matched-filtered words begins at head wait;earlier source pausable;stops at first resource exit",
+        "source_history_words": 512,
+        "source_history_word_bits": 46,
+        "ports_modeled_for_subset": true,
+        "head_global_worst_delay_proved": false,
+        "payload_service_cycles": null,
+        "full_RX_cycle_acceptance": false,
+        "shared_with_payload_or_TX": false,
+        "synthesis": false,
+        "Fmax_verified": false,
+        "does_not_reserve_or_qualify_whole_head_CRC_scrambler_BCH_item": true
       }
     },
     {

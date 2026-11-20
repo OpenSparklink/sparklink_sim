@@ -127,6 +127,7 @@ b1-length-contract
 head-length-words
 head-word-gate
 hard-header-words
+live-head-replay
 coverage-isolation
 rrc-memory
 spline-preparation
@@ -142,4 +143,6 @@ psk-noise-recovery-results
 /apidocs/nearlink_sdr/nearlink_sdr.sim.header_word_flow
 /apidocs/nearlink_sdr/nearlink_sdr.phy.psk_hard_word
 /apidocs/nearlink_sdr/nearlink_sdr.sim.psk_hard_flow
+/apidocs/nearlink_sdr/nearlink_sdr.phy.word_head_rx
+/apidocs/nearlink_sdr/nearlink_sdr.sim.head_word_replay
 ```

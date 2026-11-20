@@ -1,0 +1,22 @@
+{
+  "stage": "RX-LIVE-WORD-HEAD",
+  "scope": "fixed regression and finite selected-frame integration; no RF parameter selection",
+  "source": "one existing whole-record differential maximum fixture; not bounded live acquisition",
+  "base_topology": "existing overlapped known-sync normalization plus bounded-prefix timing division",
+  "head_layouts": ["dense", "depth-parity"],
+  "groups": ["32", "1-7-31", "random-1-32"],
+  "frame_and_decoded_payload_tolerance": 0,
+  "symbol_and_sampling_trajectory_tolerance": 0,
+  "controller_increment_bits_max": 129,
+  "additional_source_RAM_bits_max": 0,
+  "additional_source_read_write_ports_max": 0,
+  "no_CRC_answer_retry": true,
+  "new_RF_holdout": false,
+  "default_receiver_changed": false,
+  "clocks_Hz": [100000000, 160000000, 200000000],
+  "input_word_rate_Hz": 16000000,
+  "resource_inputs": ["legacy-ft3", "standard-ft3-crc32"],
+  "history_capacity_words": 512,
+  "old_numeric_and_resource_failures_retained": true,
+  "four_RX_gates_passed": false
+}
