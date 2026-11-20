@@ -135,6 +135,7 @@ retained-raw-stencil
 feedback-error-age
 feedback-age-sampling
 split-timing-owners
+split-sampling-integration
 coverage-isolation
 rrc-memory
 spline-preparation

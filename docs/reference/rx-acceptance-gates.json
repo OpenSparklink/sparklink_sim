@@ -118,5 +118,22 @@
       "old4096_node_budget_passed": false,
       "full_cycle_or_receiver_pass": false
     }
+  },
+  "split_sampling_integration": {
+    "reference": "split-sampling-integration.md",
+    "scope": "selected prepared cache/history,actual tagged detector/PI/query/interpolation/normalization/word head",
+    "ages": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "bounded_queue_capacity": "age+2",
+    "query_limit": "real head symbol bound before CRC/legal geometry,then actual frame end",
+    "dedicated_active_sampling_DSP": 18,
+    "shared_banks_proven": false,
+    "numeric_or_receiver_default_adopted": false,
+    "complete_ADC_RRC_capture_payload_schedule": false,
+    "four_RX_gates_passed": false
   }
 }

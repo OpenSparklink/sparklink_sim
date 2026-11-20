@@ -1411,5 +1411,14 @@
     "packet RAM ports",
     "DMA/FFT/codeblock DDR"
   ],
-  "qualification": false
+  "qualification": false,
+  "split_sampling_integration": {
+    "reference": "split-sampling-integration.md",
+    "nodes": "existing6DSP interpolation+detector4+PI4+normalization4;word-head separately costed",
+    "additional_pipeline_and_queues": "explicit age+2 tagged queues and last joined receipt;no source RAM/port replication credit",
+    "continuous_input": "bounded overflow remains;payload unmodeled;not full16MS/s",
+    "old_16KiB_4096_2048_failures_retained": true,
+    "RX_TX_decoder_MAC_reservations_unchanged": true,
+    "synthesis": false
+  }
 }
