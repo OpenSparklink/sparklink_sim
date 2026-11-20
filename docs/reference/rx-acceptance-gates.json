@@ -199,5 +199,14 @@
     "RRC_capture_compute_payload_schedule_complete": false,
     "full_receiver16MSps": false,
     "all_four_gates_passed": false
+  },
+  "packet_configuration_ownership": {
+    "status": "latched_at_selected_window_entry",
+    "evidence": "initialized-frame-input.md#本包配置拥有权",
+    "new_regression_cases": 9,
+    "baseline_init_install_exceptions": 6,
+    "new_RF_gain_measured": false,
+    "source_capacity_unchanged": 1024,
+    "whole_receiver_configuration_and_switch_cost_closed": false
   }
 }

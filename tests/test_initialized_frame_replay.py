@@ -481,3 +481,48 @@ def test_bank_return_allows_next_profile_without_clearing_unrelated_suffix():
     assert g.take_mac_result().packets[0].mac_payload == payload_b
     assert g.frame.head_owner is not f.frame.head_owner and g.install.stats["completed"] == 1
     assert g.release_source() is h and h._initialized_owner is None
+
+
+@pytest.mark.parametrize("ft,mcs,pilot,length", CASES)
+@pytest.mark.parametrize("change_phase", ["initial_fit", "install", "frame"])
+def test_caller_next_packet_config_cannot_change_current_owner(
+    ft, mcs, pilot, length, change_phase
+):
+    profile = ordinary(ft, mcs, pilot)
+    captured_profile = replace(profile)
+    values, payload, selection = selected_input(profile, length=length)
+    words = quantize_input(np.r_[values, np.zeros(4096)])
+    selection["sample_limit"] = len(words)
+    reference, _, _ = run(
+        captured_profile, words, selection, partial(PackedHeadSamplingReplay, error_age=1)
+    )
+    flow, pos, first = boot(profile, words, selection)
+    changed = False
+    while not flow.done:
+        if not changed and flow.phase == change_phase:
+            # The caller reuses its negotiated config for a later packet.
+            # Current packet CRC/length/mapping context must already be latched.
+            profile.config.crc_seed ^= 1
+            changed = True
+        if flow.pending_service is not None:
+            flow.resolve_functional()
+            continue
+        if pos < len(words) and flow.cycle >= math.ceil((pos - first) * 200 / 16):
+            pos += int(flow.write_input(words[pos]))
+        flow.step()
+        assert flow.cycle < 200000
+    assert changed and flow.profile is not profile
+    assert flow.profile.config is not profile.config
+    assert flow.profile == captured_profile == flow.head_owner.header.profile
+    assert flow.event["frame"] == reference["frame"]
+    assert flow.event["frame"]["payload"] == payload
+    for key in ["symbols", "symbol_centers_filtered", "timing_rate_ppm", "timing_detector_error"]:
+        np.testing.assert_array_equal(flow.event[key], reference[key])
+    assert flow.take_mac_result().packets[0].mac_payload == payload
+    flow.release_source()
+    # A fresh owner must latch the NEW config,not a global or previous snapshot.
+    later, _, _ = boot(profile, words, selection)
+    assert later.profile == profile and later.profile != captured_profile
+    assert later.profile.config is not profile.config
+    later.abort()
+    later.release_source()

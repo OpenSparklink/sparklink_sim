@@ -6,6 +6,7 @@ zero cycles. Default512-word replay and all sync/loop/CRC choices remain unchang
 
 import math
 import weakref
+from dataclasses import replace
 
 import numpy as np
 
@@ -196,6 +197,9 @@ class InitializedFrameReplay:
         sync = _validate_selected_geometry(
             profile, start_tick, delta, differential_score, selected_sync, sample_limit
         )
+        # Latch this packet before delayed init/head/payload ownership transfers.
+        # PSKReceiveProfile is frozen,but its negotiated TxConfig is mutable.
+        profile = replace(profile)
         accepted = differential_score >= 0.85
         if coherent_threshold is not None:
             accepted = coherent_sync_confirmation(
