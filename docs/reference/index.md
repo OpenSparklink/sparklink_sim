@@ -134,6 +134,7 @@ power-ted-overlap
 retained-raw-stencil
 feedback-error-age
 feedback-age-sampling
+split-timing-owners
 coverage-isolation
 rrc-memory
 spline-preparation

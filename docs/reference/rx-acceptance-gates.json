@@ -106,6 +106,17 @@
       "default_changed": false,
       "four_gates_unchanged": true,
       "closed_loop_numeric_scope": "29 actual contexts from36 viewed dev streams,4ages,no fresh RF holdout"
+    },
+    "split_timing_owner_nodes": {
+      "reference": "split-timing-owners.md",
+      "detector_PI_state_counts_independent": true,
+      "canonical_integer_word_delta": 0,
+      "dedicated_DSP": 8,
+      "shared4DSP_proven": false,
+      "query_service_component_exists": true,
+      "source_sampler_header_boundary_coupled": false,
+      "old4096_node_budget_passed": false,
+      "full_cycle_or_receiver_pass": false
     }
   }
 }

@@ -52,7 +52,7 @@ class TimingWordService:
     """
 
     def __init__(self, state, *, divider="full"):
-        if not isinstance(state, WordTimingState):
+        if not self._valid_state(state):
             raise ValueError("Need one explicit finite timing packet state")
         self.divider = validate_divider(divider)
         self.state = state
@@ -71,6 +71,9 @@ class TimingWordService:
         )
         if divider != "full":
             self.stats["prefix_checks"] = 0
+
+    def _valid_state(self, state):
+        return isinstance(state, WordTimingState)
 
     def _count(self, key, amount=1):
         self.stats[key] = unsigned(self.stats[key] + amount, 64)

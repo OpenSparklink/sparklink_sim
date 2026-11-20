@@ -139,6 +139,32 @@
         "complete_latency_cycles": null,
         "default_changed": false,
         "full_RX_gates_passed": false
+      },
+      "partial_split_timing_nodes": {
+        "reference": "split-timing-owners.md",
+        "replaces_original_timing4DSP_not_additive": true,
+        "dedicated_DSP25x18": 8,
+        "increment_DSP": 4,
+        "persistent_detector_bits_power30_error32": 455,
+        "persistent_PI_bits_error32": 397,
+        "node_register_bits_upper": 4615,
+        "bench_queues_controller_included_bits_by_age": [
+          7319,
+          8279,
+          9236,
+          10196
+        ],
+        "extra_source_RAM_bits": 0,
+        "input_pair_port_bits": 104,
+        "source_single52bit_assembly_not_coupled": true,
+        "old4096_node_budget_passed": false,
+        "shared4DSP_or_adder_bank_proven": false,
+        "full_source_query_head_handoff_verified": false,
+        "LUT": null,
+        "FF": null,
+        "Fmax": null,
+        "synthesis": false,
+        "full16MSps": false
       }
     },
     {

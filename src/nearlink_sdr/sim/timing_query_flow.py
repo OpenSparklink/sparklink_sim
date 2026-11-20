@@ -37,8 +37,11 @@ class TimingQueryService:
     def ready(self):
         return self.mode == "ready"
 
+    def _valid_state(self, state):
+        return isinstance(state, WordTimingState)
+
     def issue(self, state):
-        if not isinstance(state, WordTimingState):
+        if not self._valid_state(state):
             raise ValueError("Need an explicit stable finite timing state")
         if self.mode in ("released", "aborted"):
             raise RuntimeError("Closed query context cannot resume")
