@@ -129,6 +129,16 @@
         "remaining_float": "residual carrier/header/LLR/decoder",
         "whole_receiver_accepted": false,
         "system_schedule_verified": false
+      },
+      "partial_feedback_sampling_closure": {
+        "reference": "feedback-age-sampling.md",
+        "same_age_word_numeric_pass": true,
+        "source_history_words": 512,
+        "borrowed_interpolator_DSP": 6,
+        "new_pipeline_context_ports_DSP": null,
+        "complete_latency_cycles": null,
+        "default_changed": false,
+        "full_RX_gates_passed": false
       }
     },
     {
@@ -813,7 +823,7 @@
       },
       "partial_feedback_age_functional_reference": {
         "reference": "feedback-error-age.md",
-        "evidence": "finite functional state and independent FIFO/PI Fraction tests;not closed-loop word or cycle proof",
+        "evidence": "finite functional FIFO/PI reference plus same-age selected sampling 30/32 dev closure;no split-owner cycle proof",
         "additional_persistent_bits_error32_by_age": {
           "0": 36,
           "1": 71,
@@ -838,7 +848,8 @@
         "default_changed": false,
         "full_receiver16MSps": false,
         "synthesis": false,
-        "FIFO_access_semantics": "logical pop/push once;shift-register physical reads and writes age words each tracked symbol;not freeRAM ports"
+        "FIFO_access_semantics": "logical pop/push once;shift-register physical reads and writes age words each tracked symbol;not freeRAM ports",
+        "sampling_reference": "feedback-age-sampling.md"
       }
     },
     {

@@ -15,7 +15,7 @@ class WordTimingPSKReceiver(InterpolantPSKReceiver):
 
     def __init__(self, profile, *, word_timing_format, **options):
         super().__init__(profile, **options)
-        self.word_timing = WordTimingState(
+        self.word_timing = self._make_timing_state(
             self.initial_fit["power"],
             options["start_tick"],
             len(self.reference),
@@ -24,6 +24,10 @@ class WordTimingPSKReceiver(InterpolantPSKReceiver):
         )
         self._active["loop"] = self.word_timing
         self._timing_claimed = False
+
+    def _make_timing_state(self, *args):
+        """One canonical state;explicit experimental subclasses can wrap its owner."""
+        return WordTimingState(*args)
 
     def claim_timing_state(self):
         """Transfer one packet state to an external finite service,without advancing it."""

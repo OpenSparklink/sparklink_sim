@@ -86,8 +86,8 @@
     "full_schedule": false,
     "synthesis": false,
     "feedback_age_functional_reference": {
-      "reference": "feedback-error-age.md",
-      "state": "standalone finite functional error FIFO/PI order only;not wired into selected sampler or existing cycle service",
+      "reference": "feedback-age-sampling.md",
+      "state": "explicit selected source/interpolation/strict parser functional closure;same-age 30/32 numeric pass on viewed29contexts;PI/carrier/decoder off-clock",
       "compiled_ages": [
         0,
         1,
@@ -100,11 +100,12 @@
         106,
         141
       ],
-      "closed_loop_word_numeric_pass": false,
+      "closed_loop_word_numeric_pass": true,
       "executable_parallel_cycle_service": false,
       "new_RF_holdout_evaluated": false,
       "default_changed": false,
-      "four_gates_unchanged": true
+      "four_gates_unchanged": true,
+      "closed_loop_numeric_scope": "29 actual contexts from36 viewed dev streams,4ages,no fresh RF holdout"
     }
   }
 }
