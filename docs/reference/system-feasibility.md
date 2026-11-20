@@ -234,3 +234,7 @@ LUT/FF、头部历史回放、归一化及整链并发仍未闭合，不能把�
 
 /apidocs/nearlink_sdr/nearlink_sdr.sim.system_resources
 ```
+
+功率/TED无依赖工作重叠见[有限定时结构](power-ted-overlap.md)。额外104bit状态、
+并发加法/对齐与既有timing/normalization银行分别计费；没有RX/TX/MAC共享收益。
+局部反馈缩短后仍需等待查询、插值、头与载荷服务，不能据此关闭系统资源或16MS/s门。

@@ -19,6 +19,8 @@ __all__ = ["OverlappedNormalizationFrameReplay"]
 class OverlappedNormalizationFrameReplay(NormalizedWordFrameReplay):
     """Four joint credits,one cache read/word;no extra original-sample history."""
 
+    timing_service_type = PipelinedPacketTimingService
+
     def __init__(self, profile, prepared, *, timing_divider="full", **options):
         self.timing_divider = validate_divider(timing_divider)
         super().__init__(profile, prepared, **options)
@@ -27,7 +29,7 @@ class OverlappedNormalizationFrameReplay(NormalizedWordFrameReplay):
         self.normalization_service = PipelinedNormalizationService(
             self.consumer.claim_normalization_state()
         )
-        return PipelinedPacketTimingService(
+        return self.timing_service_type(
             state, self.cache, self.cycle, word_sink=self.normalization_service,
             divider=self.timing_divider,
         )

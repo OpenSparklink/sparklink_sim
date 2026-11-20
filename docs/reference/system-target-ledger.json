@@ -731,6 +731,49 @@
         "Fmax": null,
         "synthesis": false,
         "whole16MSps": false
+      },
+      "partial_power_TED_overlap_candidate": {
+        "evidence": "compiled value-carrying service and actual ordered frame join;not synthesis",
+        "replaces_serial_timing_data_schedule_not_additive": true,
+        "increment_register_bits_upper": 104,
+        "register_parts": {
+          "TED_operands": 94,
+          "preparation_age_valid": 3,
+          "power_age_valid": 4,
+          "power_done": 1,
+          "operand_valid": 1,
+          "reserved": 1
+        },
+        "additional_DSP": 0,
+        "existing_timing_DSP25x18": 4,
+        "additional_source_RAM_bits": 0,
+        "additional_source_cache_ports": 0,
+        "simultaneous_operations": "power45bit add/normalize/align can overlap TED products and 80bit product-tree adds;no shared-adder credit",
+        "power_adder45": 1,
+        "product_pair_adders80": 2,
+        "product_final_adder80": 1,
+        "normalizers44": 2,
+        "aligners44": 2,
+        "tracked_timing_30_32_edges_bounded_prefix": [
+          75,
+          67
+        ],
+        "tracked_timing_30_32_edges_radix4_prefix": [
+          59,
+          51
+        ],
+        "tracked_zero_TED_edges": [
+          29,
+          21
+        ],
+        "normalization_edges": 24,
+        "both_readiness_orders_require_join": true,
+        "concurrent_MAC_TX_decoder_sharing_credit": false,
+        "other_stage_mux_arbiter_LUT_FF_or_Fmax": null,
+        "old4096_and16KiB_failures_retained": true,
+        "remaining_payload_cycles": null,
+        "whole_receiver16MSps": false,
+        "synthesis": false
       }
     },
     {
@@ -1139,7 +1182,7 @@
       "function": "packet/descriptor/candidate/output/completion queues",
       "baseline_relationship": "partly_baseline",
       "concurrency": "all producers/consumers",
-      "word_and_ports": "draft2TX+2RX+1reply×2048B not qualified",
+      "word_and_ports": "draft2TX+2RX+1reply\u00d72048B not qualified",
       "clock_ii_latency": "port arbitration and downstream maximum stall unknown",
       "overflow_policy": "bounded queues;admission/drop/abort explicit",
       "resources": {

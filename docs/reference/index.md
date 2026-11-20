@@ -130,6 +130,7 @@ hard-header-words
 live-head-replay
 timing-radix4
 data-joint-service
+power-ted-overlap
 coverage-isolation
 rrc-memory
 spline-preparation

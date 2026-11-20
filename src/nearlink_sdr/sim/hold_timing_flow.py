@@ -310,6 +310,8 @@ class HoldTimingPipeline:
 class PipelinedPacketTimingService:
     """One4DSP bank:hold pipeline drains before original data feedback activates."""
 
+    normal_service_type = TimingWordService
+
     def __init__(self, state, cache, clock_origin, *, word_sink=None, divider="full"):
         self.divider = validate_divider(divider)
         self.state = state
@@ -356,7 +358,7 @@ class PipelinedPacketTimingService:
                 self.hold._count("credit_stall_edges")
                 return False  # One real bank-selection edge,not same-edge handoff.
             self.hold.release()
-            self.normal = TimingWordService(self.state, divider=self.divider)
+            self.normal = self.normal_service_type(self.state, divider=self.divider)
             self.normal.cycle = self.cycle
         return self.normal.issue(current, midpoint)
 
@@ -384,7 +386,7 @@ class PipelinedPacketTimingService:
         (self.hold if self.normal is None else self.normal).release()
 
     def estimate(self):
-        normal = TimingWordService(self.state, divider=self.divider).estimate()
+        normal = self.normal_service_type(self.state, divider=self.divider).estimate()
         extra = self.hold.estimate()
         return normal | dict(
             known_sync_pipeline=extra,

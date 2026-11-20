@@ -1,0 +1,21 @@
+{
+  "stage": "RX-POWER-TED-OVERLAP",
+  "baseline": "d374900cf37052b1a53d269dedbdb762c395d740",
+  "external_frozen_node_policy": "1678ccb4f065e7018beb2bb47b1c62edaa49add6e2440627ac37dec1449fc50b",
+  "change": "TED operands during energy products;power recurrence during TED products;ratio waits for both",
+  "budgets": {
+    "integer_word_state_trajectory_delta": 0,
+    "original_success_losses": 0,
+    "additional_DSP": 0,
+    "additional_source_RAM_bits": 0,
+    "additional_source_ports": 0,
+    "additional_register_bits_max": 128,
+    "history_capacity_words": 512
+  },
+  "known_node_cells": {"development": 4200, "validation": 4608},
+  "node_sets": "previously frozen external arithmetic sets;now fixed regressions,not new holdouts",
+  "RF_inputs": "viewed fixed regression only;no threshold or loop tuning",
+  "clocks_Hz": [100000000, 160000000, 200000000],
+  "adoption": "explicit compiled candidate only;old numeric/resource failures retained",
+  "full_receiver16MSps": false
+}
