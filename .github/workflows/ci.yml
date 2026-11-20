@@ -154,7 +154,7 @@ jobs:
       fail-fast: false
       matrix:
         backend: [python, rust]
-        shard: [core, front, rrc, head]
+        shard: [core, front, rrc, head, replay]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -174,16 +174,20 @@ jobs:
           SPARKLINK_TEST_DIAGNOSTICS: receiver-diagnostics/unit-${{ matrix.shard }}
           SHARD: ${{ matrix.shard }}
         run: |
-          rrc=(tests/test_stream_rrc_word.py tests/test_retained_stencil_replay.py tests/test_split_sampling_replay.py tests/test_packed_head_replay.py)
+          rrc=(tests/test_stream_rrc_word.py)
+          replay=(tests/test_retained_stencil_replay.py tests/test_split_sampling_replay.py tests/test_packed_head_replay.py)
           head=(tests/test_head_word_replay.py tests/test_live_head_model.py tests/test_selected_history.py tests/test_psk_hard_flow.py tests/test_spline_power.py tests/test_selected_sync_fit.py tests/test_timing_radix4.py tests/test_data_joint_replay.py tests/test_timing_overlap_flow.py tests/test_power_ted_replay.py tests/test_timing_overlap_model.py tests/test_retained_stencil_model.py tests/test_feedback_timing_word.py tests/test_feedback_timing_replay.py tests/test_split_timing_flow.py)
           front=(tests/test_overlapped_normalization_replay.py tests/test_normalized_word_replay.py tests/test_normalization_overlap_model.py tests/test_pipelined_timing_replay.py tests/test_normalization_word.py tests/test_finite_timing_replay.py tests/test_timing_divider_prefix.py tests/test_timing_divider_model.py tests/test_selected_word.py tests/test_alignment_guard.py tests/test_receive_scope.py tests/test_rrc_pair_boundary.py tests/test_rrc_memory.py)
           if [ "$SHARD" = core ]; then
             paths=(tests/)
             for path in "${rrc[@]}"; do paths+=("--ignore=$path"); done
+            for path in "${replay[@]}"; do paths+=("--ignore=$path"); done
             for path in "${front[@]}"; do paths+=("--ignore=$path"); done
             for path in "${head[@]}"; do paths+=("--ignore=$path"); done
           elif [ "$SHARD" = rrc ]; then
             paths=("${rrc[@]}")
+          elif [ "$SHARD" = replay ]; then
+            paths=("${replay[@]}")
           elif [ "$SHARD" = head ]; then
             paths=("${head[@]}")
           else
@@ -254,19 +258,19 @@ jobs:
         with:
           pattern: unit-${{ matrix.backend }}-*
           merge-multiple: true
-      - name: Verify all four actual unit shards and unchanged time budget
+      - name: Verify all five actual unit shards and unchanged time budget
         run: |
-          cat test-core.log test-front.log test-rrc.log test-head.log
+          cat test-core.log test-front.log test-rrc.log test-head.log test-replay.log
           uv run --frozen --no-sync python - <<'PY'
           import json
           base = json.load(open("backend.json"))
-          for shard in ("core", "front", "rrc", "head"):
+          for shard in ("core", "front", "rrc", "head", "replay"):
               actual = json.load(open(f"backend-{shard}.json"))
               assert json.load(open(f"unit-budget-{shard}.json"))["passed"]
               for key in ("commit", "polar_rust", "crc_rust", "stream_timing_rust", "integer_sync_rust"):
                   assert actual[key] == base[key], (shard, key)
           PY
-          uv run --frozen --no-sync python scripts/check_test_shards.py report-core.xml report-front.xml report-rrc.xml report-head.xml --output test-budget.json
+          uv run --frozen --no-sync python scripts/check_test_shards.py report-core.xml report-front.xml report-rrc.xml report-head.xml report-replay.xml --output test-budget.json
       - name: Verify original published waveform recipes before algorithm regressions
         if: always()
         run: |
@@ -1299,6 +1303,8 @@ jobs:
             backend-core.json
             backend-front.json
             backend-rrc.json
+            backend-head.json
+            backend-replay.json
             unit-budget-*.json
             hold-pipeline-*.log
             normalization-*.log
@@ -1368,7 +1374,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [core, front, rrc, head]
+        shard: [core, front, rrc, head, replay]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -1388,7 +1394,11 @@ jobs:
       - name: Measure RRC word coverage
         if: matrix.shard == 'rrc'
         run: |
-          COVERAGE_FILE=coverage-rrc.data uv run --frozen --no-sync pytest tests/test_stream_rrc_word.py tests/test_retained_stencil_replay.py tests/test_split_sampling_replay.py tests/test_packed_head_replay.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-rrc.xml --durations=20 >coverage-rrc.log 2>&1
+          COVERAGE_FILE=coverage-rrc.data uv run --frozen --no-sync pytest tests/test_stream_rrc_word.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-rrc.xml --durations=20 >coverage-rrc.log 2>&1
+      - name: Measure replay coverage
+        if: matrix.shard == 'replay'
+        run: |
+          COVERAGE_FILE=coverage-replay.data uv run --frozen --no-sync pytest tests/test_retained_stencil_replay.py tests/test_split_sampling_replay.py tests/test_packed_head_replay.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-replay.xml --durations=20 >coverage-replay.log 2>&1
       - name: Measure head and schedule coverage
         if: matrix.shard == 'head'
         run: |
@@ -1427,14 +1437,14 @@ jobs:
           combine_status=0
           xml_status=0
           report_status=0
-          uv run --frozen --no-sync coverage combine --keep coverage-core.data coverage-front.data coverage-rrc.data coverage-head.data >coverage-combine.log 2>&1 || combine_status=$?
+          uv run --frozen --no-sync coverage combine --keep coverage-core.data coverage-front.data coverage-rrc.data coverage-head.data coverage-replay.data >coverage-combine.log 2>&1 || combine_status=$?
           if test "$combine_status" -eq 0; then
             uv run --frozen --no-sync coverage xml -o coverage.xml >coverage-xml.log 2>&1 || xml_status=$?
             uv run --frozen --no-sync coverage report --fail-under=90.1 >coverage-report.log 2>&1 || report_status=$?
           fi
           cat coverage-*.log
           test "$combine_status" -eq 0 && test "$xml_status" -eq 0 && test "$report_status" -eq 0
-          uv run --frozen --no-sync python scripts/check_test_shards.py coverage-tests-core.xml coverage-tests-front.xml coverage-tests-rrc.xml coverage-tests-head.xml --output coverage-test-budget.json
+          uv run --frozen --no-sync python scripts/check_test_shards.py coverage-tests-core.xml coverage-tests-front.xml coverage-tests-rrc.xml coverage-tests-head.xml coverage-tests-replay.xml --output coverage-test-budget.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
