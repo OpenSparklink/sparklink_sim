@@ -128,6 +128,7 @@ head-length-words
 head-word-gate
 hard-header-words
 live-head-replay
+timing-radix4
 coverage-isolation
 rrc-memory
 spline-preparation

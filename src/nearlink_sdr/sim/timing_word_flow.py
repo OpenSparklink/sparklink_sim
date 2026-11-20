@@ -24,8 +24,8 @@ __all__ = ["TimingWordService"]
 
 def validate_divider(mode):
     """Select a compiled schedule before any packet owner is claimed."""
-    if mode not in ("full", "bounded-prefix"):
-        raise ValueError("Need full or bounded-prefix timing divider")
+    if mode not in ("full", "bounded-prefix", "radix4-prefix"):
+        raise ValueError("Need full, bounded-prefix or radix4-prefix timing divider")
     return mode
 
 
@@ -69,7 +69,7 @@ class TimingWordService:
             output_stall_edges=0,
             aborted=0,
         )
-        if divider == "bounded-prefix":
+        if divider != "full":
             self.stats["prefix_checks"] = 0
 
     def _count(self, key, amount=1):
@@ -185,7 +185,7 @@ class TimingWordService:
                 division["negative"],
             )
             self.quotient = self.remainder = self.div_index = 0
-            self.mode = "prefix_check" if self.divider == "bounded-prefix" else "divide"
+            self.mode = "divide" if self.divider == "full" else "prefix_check"
 
     def _prefix_check(self):
         # division_job bounds N/D <= 2**(E+1). After B-(E+2) high bits,
@@ -198,7 +198,30 @@ class TimingWordService:
         self._count("prefix_checks")  # Preflight before altering live arithmetic registers.
         self.remainder = prefix
         self.div_index = f.division_bits - (f.error_bits + 2)
-        self.mode = "divide"
+        self.mode = "radix4_prepare" if self.divider == "radix4-prefix" else "divide"
+
+    def _radix4_prepare(self):
+        # 2D is wiring. Only3D requires an actual registered51bit add.
+        self.three_den = unsigned((self.den << 1) + self.den, 51)
+        self.mode = "radix4_divide"
+
+    def _radix4_divide(self):
+        f = self.state.fmt
+        index = f.division_bits - 2 - self.div_index
+        value = unsigned((self.remainder << 2) | ((self.num >> index) & 3), 51)
+        # Three parallel comparisons,priority digit and one selected subtraction.
+        # This is an explicit unsynthesized latency assumption,not two serial
+        # radix2 iterations hidden inside one clock or a Python division.
+        comparisons = (value >= self.den, value >= self.den << 1, value >= self.three_den)
+        digit = sum(comparisons)
+        multiple = (0, self.den, self.den << 1, self.three_den)[digit]
+        remainder = unsigned(value - multiple, 49)
+        quotient = unsigned((self.quotient << 2) | digit, f.error_bits + 2)
+        self._count("divider_steps")
+        self.remainder, self.quotient = remainder, quotient
+        self.div_index += 2
+        if self.div_index == f.division_bits:
+            self.mode = "round_ratio"
 
     def _after_error(self):
         if self.job["error"]:
@@ -282,6 +305,10 @@ class TimingWordService:
             self._divide()
         elif self.mode == "prefix_check":
             self._prefix_check()
+        elif self.mode == "radix4_prepare":
+            self._radix4_prepare()
+        elif self.mode == "radix4_divide":
+            self._radix4_divide()
         elif self.mode == "round_ratio":
             doubled = unsigned(2 * self.remainder, 50)
             q = self.quotient + (doubled > self.den or (doubled == self.den and self.quotient & 1))
@@ -320,8 +347,10 @@ class TimingWordService:
         f = self.state.fmt
         persistent = 192 + 52 + f.power_bits + 10 + 35 + f.error_bits + 3 + 6 * 64
         registers = persistent + 104 + 160 + 516 + 320 + 224 + 7 * 64
-        if self.divider == "bounded-prefix":
+        if self.divider != "full":
             registers += 64  # Observable finite prefix-check counter; existing FSM stays4bit.
+        if self.divider == "radix4-prefix":
+            registers += 51  # One registered3D;digit/2D use wires,existing quotient reused.
         result = dict(
             DSP25x18=4,
             DSP_latency=3,
@@ -361,11 +390,23 @@ class TimingWordService:
             synthesized=False,
             full_receiver16MSps=False,
         )
-        if self.divider == "bounded-prefix":
+        if self.divider != "full":
             result["divider"].update(
                 mode=self.divider, steps=f.error_bits + 2, registered_prefix_check_edges=1,
                 zero_quotient_prefix_bits=f.division_bits - f.error_bits - 2,
                 extra_state_bits=64, extra_operand_mux_bits_upper=100,
                 compare_reuses_existing_50bit_divider=True,
+            )
+        if self.divider == "radix4-prefix":
+            result["divider"].update(
+                mode=self.divider, steps=(f.error_bits + 2) // 2,
+                quotient_bits_per_edge=2, registered_three_denominator_edges=1,
+                extra_state_bits=64 + 51, remainder_bits=51, remainder_register_bits=49,
+                remainder_comparison_bits=51,
+                parallel_comparators=3, selected_subtractors=1,
+                three_denominator_adder_bits=51, extra_operand_mux_bits_upper=202,
+                compare_reuses_existing_50bit_divider=False,
+                latency_assumption="51bit three parallel compares+priority/select+subtract1;"
+                    "registered3D add1;not synthesis or timing evidence",
             )
         return result

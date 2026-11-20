@@ -102,3 +102,5 @@ PYTHONPATH=src python scripts/model_rx_resources.py --output /tmp/rx-resource-re
 
 /apidocs/nearlink_sdr/nearlink_sdr.phy.rx_resource_budget
 ```
+
+[两位商定时实验](timing-radix4.md)在既有前缀节点上增加51bit寄存器、无新DSP/原始RAM/端口，组合定时上界5612bit仍超旧4096bit。三路51bit比较、选择、减法和202bit选择网络单列；75→59边沿仅为非旁路定时节点，128周期/符号的串行子图下界及24连续资源退出继续失败，不能加成整机16MS/s收益。

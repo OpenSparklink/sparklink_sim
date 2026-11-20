@@ -1,0 +1,26 @@
+{
+  "stage": "RX-TIMING-RADIX4",
+  "baseline": "f9b7a7169f12c794edad7a9ca7573d48f244cb6f",
+  "candidate": "bounded-prefix plus registered3D,three parallel51bit compares and one selected subtraction per2 quotient bits",
+  "budgets": {
+    "word_state_trajectory_delta": 0,
+    "original_success_losses": 0,
+    "new_false_deliveries": 0,
+    "additional_DSP": 0,
+    "additional_source_RAM_bits": 0,
+    "additional_source_ports": 0,
+    "additional_register_bits_max": 128,
+    "parallel_divide_comparators_max": 3,
+    "compare_width_max": 51,
+    "history_capacity_words": 512
+  },
+  "development_seed": 11201031,
+  "validation_seed": 11201089,
+  "random_denominators_per_format": 128,
+  "validation_is_arithmetic_only": true,
+  "RF_fixtures": "all viewed;fixed regressions only;no new reception holdout or gain claim",
+  "adoption": "explicit experiment only;exact outputs;no default or old budget revision",
+  "latency_assumption": "three51bit compares plus priority/select/subtract in one edge;registered3D add in one edge;not synthesis evidence",
+  "clocks_Hz": [100000000, 160000000, 200000000],
+  "four_RX_gates_passed": false
+}

@@ -173,7 +173,8 @@ def functional(output, name, p, words, selection, expected):
     return plain(result)
 
 
-def suffix(output, p, words, selection, *, input_id, layout, clock, continue_data):
+def suffix(output, p, words, selection, *, input_id, layout, clock, continue_data,
+           timing_divider="bounded-prefix"):
     """Finite word-port arrival after the head boundary; earlier source was pausable."""
     prepared, pos = prepare(p, words, selection)
     calendar = []
@@ -184,6 +185,7 @@ def suffix(output, p, words, selection, *, input_id, layout, clock, continue_dat
         word_timing_format=TimingWordFormat(30, 32),
         head_layout=layout,
         head_observer=calendar.append,
+        timing_divider=timing_divider,
         reuse_stencil=True,
         **selection,
     )

@@ -48,7 +48,8 @@ jobs:
           uv run --frozen --no-sync ruff check scripts/model_header_geometry.py
           uv run --frozen --no-sync ruff check scripts/model_header_words.py
           uv run --frozen --no-sync ruff check scripts/model_hard_header.py
-          uv run --frozen --no-sync ruff check scripts/model_live_head.py
+          uv run --frozen --no-sync ruff check scripts/model_live_head.py scripts/model_timing_radix4.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_timing_radix4.py tests/test_timing_radix4.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_live_head.py src/nearlink_sdr/phy/word_head_rx.py src/nearlink_sdr/sim/head_word_replay.py tests/test_head_word_replay.py tests/test_live_head_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_hard_header.py src/nearlink_sdr/phy/psk_hard_word.py src/nearlink_sdr/sim/psk_hard_flow.py tests/test_psk_hard_word.py tests/test_psk_hard_flow.py tests/test_hard_header_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_header_words.py src/nearlink_sdr/sim/header_word_flow.py tests/test_header_word_flow.py tests/test_header_word_receive.py tests/test_header_word_standard.py tests/test_header_word_model.py
@@ -146,7 +147,7 @@ jobs:
       fail-fast: false
       matrix:
         backend: [python, rust]
-        shard: [core, front, rrc]
+        shard: [core, front, rrc, head]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -167,14 +168,16 @@ jobs:
           SHARD: ${{ matrix.shard }}
         run: |
           rrc=tests/test_stream_rrc_word.py
-          head=(tests/test_head_word_replay.py tests/test_live_head_model.py tests/test_selected_history.py tests/test_psk_hard_flow.py tests/test_spline_power.py tests/test_selected_sync_fit.py)
+          head=(tests/test_head_word_replay.py tests/test_live_head_model.py tests/test_selected_history.py tests/test_psk_hard_flow.py tests/test_spline_power.py tests/test_selected_sync_fit.py tests/test_timing_radix4.py)
           front=(tests/test_overlapped_normalization_replay.py tests/test_normalized_word_replay.py tests/test_normalization_overlap_model.py tests/test_pipelined_timing_replay.py tests/test_normalization_word.py tests/test_finite_timing_replay.py tests/test_timing_divider_prefix.py tests/test_timing_divider_model.py tests/test_selected_word.py tests/test_alignment_guard.py tests/test_receive_scope.py tests/test_rrc_pair_boundary.py tests/test_rrc_memory.py)
           if [ "$SHARD" = core ]; then
             paths=(tests/ "--ignore=$rrc")
             for path in "${front[@]}"; do paths+=("--ignore=$path"); done
             for path in "${head[@]}"; do paths+=("--ignore=$path"); done
           elif [ "$SHARD" = rrc ]; then
-            paths=("$rrc" "${head[@]}")
+            paths=("$rrc")
+          elif [ "$SHARD" = head ]; then
+            paths=("${head[@]}")
           else
             paths=("${front[@]}")
           fi
@@ -245,17 +248,17 @@ jobs:
           merge-multiple: true
       - name: Verify all three actual unit shards and unchanged time budget
         run: |
-          cat test-core.log test-front.log test-rrc.log
+          cat test-core.log test-front.log test-rrc.log test-head.log
           uv run --frozen --no-sync python - <<'PY'
           import json
           base = json.load(open("backend.json"))
-          for shard in ("core", "front", "rrc"):
+          for shard in ("core", "front", "rrc", "head"):
               actual = json.load(open(f"backend-{shard}.json"))
               assert json.load(open(f"unit-budget-{shard}.json"))["passed"]
               for key in ("commit", "polar_rust", "crc_rust", "stream_timing_rust", "integer_sync_rust"):
                   assert actual[key] == base[key], (shard, key)
           PY
-          uv run --frozen --no-sync python scripts/check_test_shards.py report-core.xml report-front.xml report-rrc.xml --output test-budget.json
+          uv run --frozen --no-sync python scripts/check_test_shards.py report-core.xml report-front.xml report-rrc.xml report-head.xml --output test-budget.json
       - name: Verify original published waveform recipes before algorithm regressions
         if: always()
         run: |
@@ -1130,6 +1133,39 @@ jobs:
                   if row["checked_head_receipt"] is None:
                       assert row["frame"]["header_crc"] is None
           PYCODE
+      - name: Verify exact radix4 timing and preserve finite suffix resource failures
+        if: always()
+        run: |
+          for split in development validation; do
+            args=()
+            if [ "$split" = validation ]; then
+              args=(--freeze receiver-diagnostics/timing-radix4-development/freeze.json)
+            fi
+            set +e
+            PYTHONPATH=src:scripts uv run --frozen --no-sync python -m scripts.model_timing_radix4 --output receiver-diagnostics/timing-radix4-$split "${args[@]}" >timing-radix4-$split.log 2>&1
+            status=$?
+            set -e
+            test "$status" = 1
+          done
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          for split in ("development", "validation"):
+              p = Path("receiver-diagnostics/timing-radix4-" + split)
+              d = json.loads((p / "model.json").read_text())
+              assert d["arithmetic"]["independent_RNE_divmod_exact"]
+              assert d["arithmetic"]["cases"] > 0
+              assert d["fixed_success_losses"] == d["receiver_rate_gain"] == 0
+              assert d["prospective_component_register_increment_bits"] == 51
+              assert not d["full_RX_gates_passed"] and not d["new_RF_holdout"]
+              assert not d["default_changed"] and not d["synthesized"]
+              if split == "development":
+                  assert d["fixed_frame_comparisons"] == 54
+                  assert d["resource_calendars"] == d["complete_scope_resource_exits"] == 24
+                  rows = json.loads((p / "resource-prefixes.json").read_text())
+                  assert all(r["source_peak"] <= 512 and r["exact_source_suffix"] for r in rows)
+                  assert all(r["actual_epoch_valid"] and r["frame"]["data_crc"] is None for r in rows)
+          PYCODE
       - name: Upload tests and diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -1142,6 +1178,7 @@ jobs:
             header-word-*.log
             hard-head-*.log
             live-word-head.log
+            timing-radix4-*.log
             header-geometry.log
             test-budget.json
             test-*.log
@@ -1219,7 +1256,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [core, front, rrc]
+        shard: [core, front, rrc, head]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -1231,7 +1268,7 @@ jobs:
       - name: Measure core coverage
         if: matrix.shard == 'core'
         run: |
-          COVERAGE_FILE=coverage-core.data uv run --frozen --no-sync pytest tests/ --ignore=tests/test_overlapped_normalization_replay.py --ignore=tests/test_normalized_word_replay.py --ignore=tests/test_normalization_overlap_model.py --ignore=tests/test_pipelined_timing_replay.py --ignore=tests/test_normalization_word.py --ignore=tests/test_finite_timing_replay.py --ignore=tests/test_timing_divider_prefix.py --ignore=tests/test_timing_divider_model.py --ignore=tests/test_stream_rrc_word.py --ignore=tests/test_selected_word.py --ignore=tests/test_alignment_guard.py --ignore=tests/test_receive_scope.py --ignore=tests/test_rrc_pair_boundary.py --ignore=tests/test_rrc_memory.py --ignore=tests/test_head_word_replay.py --ignore=tests/test_live_head_model.py --ignore=tests/test_selected_history.py --ignore=tests/test_psk_hard_flow.py --ignore=tests/test_spline_power.py --ignore=tests/test_selected_sync_fit.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-core.xml --durations=20 >coverage-core.log 2>&1
+          COVERAGE_FILE=coverage-core.data uv run --frozen --no-sync pytest tests/ --ignore=tests/test_overlapped_normalization_replay.py --ignore=tests/test_normalized_word_replay.py --ignore=tests/test_normalization_overlap_model.py --ignore=tests/test_pipelined_timing_replay.py --ignore=tests/test_normalization_word.py --ignore=tests/test_finite_timing_replay.py --ignore=tests/test_timing_divider_prefix.py --ignore=tests/test_timing_divider_model.py --ignore=tests/test_stream_rrc_word.py --ignore=tests/test_selected_word.py --ignore=tests/test_alignment_guard.py --ignore=tests/test_receive_scope.py --ignore=tests/test_rrc_pair_boundary.py --ignore=tests/test_rrc_memory.py --ignore=tests/test_head_word_replay.py --ignore=tests/test_live_head_model.py --ignore=tests/test_selected_history.py --ignore=tests/test_psk_hard_flow.py --ignore=tests/test_spline_power.py --ignore=tests/test_selected_sync_fit.py --ignore=tests/test_timing_radix4.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-core.xml --durations=20 >coverage-core.log 2>&1
       - name: Measure frontend coverage
         if: matrix.shard == 'front'
         run: |
@@ -1239,7 +1276,11 @@ jobs:
       - name: Measure RRC word coverage
         if: matrix.shard == 'rrc'
         run: |
-          COVERAGE_FILE=coverage-rrc.data uv run --frozen --no-sync pytest tests/test_stream_rrc_word.py tests/test_head_word_replay.py tests/test_live_head_model.py tests/test_selected_history.py tests/test_psk_hard_flow.py tests/test_spline_power.py tests/test_selected_sync_fit.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-rrc.xml --durations=20 >coverage-rrc.log 2>&1
+          COVERAGE_FILE=coverage-rrc.data uv run --frozen --no-sync pytest tests/test_stream_rrc_word.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-rrc.xml --durations=20 >coverage-rrc.log 2>&1
+      - name: Measure head and schedule coverage
+        if: matrix.shard == 'head'
+        run: |
+          COVERAGE_FILE=coverage-head.data uv run --frozen --no-sync pytest tests/test_head_word_replay.py tests/test_live_head_model.py tests/test_selected_history.py tests/test_psk_hard_flow.py tests/test_spline_power.py tests/test_selected_sync_fit.py tests/test_timing_radix4.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-head.xml --durations=20 >coverage-head.log 2>&1
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -1274,14 +1315,14 @@ jobs:
           combine_status=0
           xml_status=0
           report_status=0
-          uv run --frozen --no-sync coverage combine --keep coverage-core.data coverage-front.data coverage-rrc.data >coverage-combine.log 2>&1 || combine_status=$?
+          uv run --frozen --no-sync coverage combine --keep coverage-core.data coverage-front.data coverage-rrc.data coverage-head.data >coverage-combine.log 2>&1 || combine_status=$?
           if test "$combine_status" -eq 0; then
             uv run --frozen --no-sync coverage xml -o coverage.xml >coverage-xml.log 2>&1 || xml_status=$?
             uv run --frozen --no-sync coverage report --fail-under=90.1 >coverage-report.log 2>&1 || report_status=$?
           fi
           cat coverage-*.log
           test "$combine_status" -eq 0 && test "$xml_status" -eq 0 && test "$report_status" -eq 0
-          uv run --frozen --no-sync python scripts/check_test_shards.py coverage-tests-core.xml coverage-tests-front.xml coverage-tests-rrc.xml --output coverage-test-budget.json
+          uv run --frozen --no-sync python scripts/check_test_shards.py coverage-tests-core.xml coverage-tests-front.xml coverage-tests-rrc.xml coverage-tests-head.xml --output coverage-test-budget.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
