@@ -528,6 +528,10 @@ class Q12Pipeline:
         return output
 
     @property
+    def will_emit(self):
+        return self.cells[-1] is not None
+
+    @property
     def idle(self):
         return self.input is None and not any(cell is not None for cell in self.cells)
 

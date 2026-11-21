@@ -143,6 +143,7 @@ rrc-scaled-bridge
 raw-energy-tag-join
 scaled-window-maximum
 banked-scaled-core
+q12-serial
 coverage-isolation
 rrc-memory
 spline-preparation

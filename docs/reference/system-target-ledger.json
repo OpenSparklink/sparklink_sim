@@ -2238,5 +2238,81 @@
     "default_pipeline_RF_gain_not_claimed": true,
     "whole_RX_16MSps": false,
     "system_qualification": false
+  },
+  "serial_q12_comparison": {
+    "status": "M20 locally experimental-qualified after frozen held;not default;actual CI pending",
+    "normalization_only": true,
+    "serial_register_research_cap_bits": 640,
+    "typed_register_bits_FT2_3_4": {
+      "pipeline": [
+        4833,
+        4924,
+        5041
+      ],
+      "serial1": [
+        554,
+        561,
+        570
+      ],
+      "serial2": [
+        609,
+        617,
+        628
+      ]
+    },
+    "shared_core_queues_unchanged": true,
+    "source_epoch_discard_counter_bits_per_path": 64,
+    "context_scope": "dedicated per raw/notch path;no free sharing",
+    "per_path_DSP_unchanged": 12,
+    "per_path_BRAM36_sites_unchanged": 2,
+    "coarse_plus_discard_register_upper_FT2_3_4": {
+      "pipeline": [
+        26434,
+        26917,
+        32376
+      ],
+      "serial2": [
+        22210,
+        22610,
+        27963
+      ]
+    },
+    "two_FT4_paths_register_upper": {
+      "pipeline": 64752,
+      "serial2": 55926
+    },
+    "physical_compare_units": {
+      "pipeline": 12,
+      "serial1": 1,
+      "serial2": 3
+    },
+    "worst_compares_per_word": {
+      "pipeline": 12,
+      "serial1": 12,
+      "serial2": 18
+    },
+    "node_II": {
+      "pipeline": 1,
+      "serial1": 14,
+      "serial2": 8
+    },
+    "clock_MHz_hypotheses": [
+      100,
+      160,
+      200
+    ],
+    "raw_RRC_arrivals_and_rearm_cycles": null,
+    "fine_packet_decoder_cycles": null,
+    "LUT_FF_mapping_or_Fmax": null,
+    "synthesis": false,
+    "new_approved_system_budget": false,
+    "whole_system_qualified": false,
+    "whole_RX16MSps": false,
+    "held_cases": 24,
+    "development_cases": 36,
+    "new_node_integer_loss": 0,
+    "functional_RF_normal_full_each_split": "8/9;gain0;loss0;untimed context only",
+    "unique_negative_samples": 147456,
+    "continuous_full_chain_qualified": false
   }
 }

@@ -215,7 +215,8 @@ def rf(out, rows):
     return comparisons
 
 
-def timed(out, row, clock, lanes, *, block_queries=False, armed=False):
+def timed(out, row, clock, lanes, *, block_queries=False, armed=False,
+          normalizer="pipeline", continue_aborted_source=False):
     profile = PSKReceiveProfile.ordinary(TxConfig(**row["config"]))
     with np.load(out / row["artifact"]) as z:
         # Finite real RRC output;no alternate TX/RX interpolation identity proof.
@@ -258,19 +259,28 @@ def timed(out, row, clock, lanes, *, block_queries=False, armed=False):
             ]
         )
 
-    core = BankedScaledCore(ref, lanes=lanes, sink=observe)
+    core = BankedScaledCore(ref, lanes=lanes, sink=observe, normalizer=normalizer)
     if armed:
         for _ in range(645):
             core.step()
     input_base = core.cycle
-    sent, last_query = 0, -1
+    sent, last_query, discarded, first_abort_cycle = 0, -1, 0, None
     for _ in range(len(words) * clock // 16 + 30000):
         if sent < len(words) and core.cycle >= input_base + math.ceil(sent * clock / 16):
-            if not core.offer(sent, *words[sent]):
+            if core.failure:
+                discarded += 1
+            elif not core.offer(sent, *words[sent]):
                 core.input_overrun(sent)
-                break
+                if not continue_aborted_source:
+                    break
+                discarded += 1
+                first_abort_cycle = core.cycle
             sent += 1
         core.step()
+        if core.failure:
+            if continue_aborted_source and sent == len(words):
+                break
+            continue
         n = core.committed_count - 1
         if n >= core.k * 4 and n % 32 == 0 and n != last_query:
             upper = n - core.k * 4
@@ -377,6 +387,28 @@ def timed(out, row, clock, lanes, *, block_queries=False, armed=False):
         fine_search_cycles=None,
         full_RX_16MSps=False,
     )
+    if continue_aborted_source:
+        assert sent == len(words) == core.input_count + discarded
+        if core.failure:
+            assert not core.finish()
+        result.update(
+            normalization=normalizer,
+            source_tags_presented=sent,
+            source_epoch_discards=discarded,
+            first_abort_cycle=first_abort_cycle,
+            all_planned_source_arrivals_processed=True,
+            automatic_rearm=False,
+            EOF_epoch_closed=core.closed,
+            source_discard_controller=dict(
+                additional_counter_bits=64, increment_units64=1,
+                input_valid_and_existing_failure_status=True,
+                additional_FIFO_or_IQ_state=0,
+                composed_register_bits=core.estimate()["fabric_register_bits_upper"] + 64,
+                composed_logical_bits=core.estimate()["logical_state_bits_upper"] + 64,
+                actual_synthesis_or_timing=False,
+                upstream_RRC_arrivals_and_rearm_cycles=None,
+            ),
+        )
     baseline.write(out / (tag + ".json"), result)
     return result
 

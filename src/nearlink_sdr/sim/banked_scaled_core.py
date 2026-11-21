@@ -12,6 +12,7 @@ from nearlink_sdr.phy.acquisition_bank import sign_coefficients
 from nearlink_sdr.phy.acquisition_fixed import FixedBankFormat
 from nearlink_sdr.phy.banked_words import BankedDifferenceHistory, input_word
 from nearlink_sdr.sim.maximum_flow import ExponentMaximumService
+from nearlink_sdr.sim.rank_serial import Q12Serial
 from nearlink_sdr.sim.scaled_native import (
     DifferencePipeline,
     DifferenceQueue,
@@ -305,7 +306,7 @@ class BankedScaledCore:
     QUERIES = 2
     _failure_reasons = (None, "input-overrun", "history-expired", "internal-word-or-owner")
 
-    def __init__(self, reference, *, lanes=16, origin=0, sink=None):
+    def __init__(self, reference, *, lanes=16, origin=0, sink=None, normalizer="pipeline"):
         if (
             len(reference) not in (32, 62, 126)
             or type(origin) is not int
@@ -314,6 +315,8 @@ class BankedScaledCore:
             raise ValueError("Need compiledSPS4 target reference and signed origin")
         if sink is not None and not callable(sink):
             raise ValueError("Need an observation callback")
+        if normalizer not in ("pipeline", "serial1", "serial2"):
+            raise ValueError("Need the explicit pipeline/serial1/serial2 normalization study")
         real, imag = sign_coefficients(reference)
         self.cr, self.ci = tuple(map(int, real)), tuple(map(int, imag))
         self.k = len(real)
@@ -327,7 +330,12 @@ class BankedScaledCore:
         self.histogram = ExponentMaximumService(self.k, counter_store="serial1r1w")
         self.fold = _FoldPipeline(self.history, self.cr, self.ci, self.widths)
         self.score = ScorePipeline(self.widths, self.coefficient_energy)
-        self.normalizer = Q12Pipeline(self.widths, self.k, self.coefficient_energy)
+        self.normalizer = (
+            Q12Pipeline(self.widths, self.k, self.coefficient_energy)
+            if normalizer == "pipeline"
+            else Q12Serial(self.widths, self.k, self.coefficient_energy,
+                           digit_bits=1 if normalizer == "serial1" else 2)
+        )
         self.inputs, self.fold_requests, self.ce = (deque() for _ in range(3))
         self.differences = DifferenceQueue()
         self.outgoing = [None] * 4
@@ -628,7 +636,7 @@ class BankedScaledCore:
             self.cycle += 1
             return
         try:
-            planned = self.rank_write_slot if self.normalizer.cells[-1] is not None else None
+            planned = self.rank_write_slot if self.normalizer.will_emit else None
             self._query_step(planned)
             point = self.normalizer.step()
             if point is not None:
