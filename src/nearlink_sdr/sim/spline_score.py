@@ -14,6 +14,7 @@ import numpy as np
 
 from nearlink_sdr.phy.spline_fixed import SplineFixedFormat, _rne_shift
 from nearlink_sdr.phy.uniform_spline import _DIGITS
+from nearlink_sdr.sim.fine_symbol_pipeline import FineSymbolPipeline, FineSymbolRequest
 from nearlink_sdr.sim.score_word_runtime import ScoreWordRuntime
 from nearlink_sdr.sim.spline_flow import SplineFlowAssumptions, _Run, spline_flow_cost
 from nearlink_sdr.sim.word_arithmetic import (
@@ -302,7 +303,7 @@ def _geometry(peaks, n, count, minimum, lookahead, emit):
 
 def _guarded_program(
     peaks, template, n, minimum, lookahead, reuse, threshold, emit, reuse_power,
-    concurrent=False, gauss=False
+    concurrent=False, gauss=False, symbol_pipeline=False
 ):
     positions, deferred = yield from _geometry(
         peaks, n, len(template.words) + 1, minimum, lookahead, emit
@@ -312,7 +313,7 @@ def _guarded_program(
         return _GeometryDecision(None, positions, True)
     best = yield from _program(
         peaks, template, n, minimum, lookahead, reuse, threshold, emit, reuse_power,
-        concurrent, gauss
+        concurrent, gauss, symbol_pipeline
     )
     return _GeometryDecision(best, positions, False)
 
@@ -377,6 +378,7 @@ def _program(
     reuse_power=False,
     concurrent=False,
     gauss=False,
+    symbol_pipeline=False,
 ):
     """Nine contexts, no retained18x128 symbol vectors; replay the chosen phase."""
     count = len(template.words) + 1
@@ -395,10 +397,18 @@ def _program(
             shared = (yield dict(code="read", keys=_needed(ticks))) if reuse and ticks else None
             if concurrent and ticks:
                 jobs = tuple(
+                    _query(shared, tick) if symbol_pipeline else
                     _phase_symbol(shared, tick, state, template, k, cb, eb, reuse_power, gauss)
                     for tick, state in zip(ticks, states, strict=True)
                 )
-                states = yield dict(code="fork", jobs=jobs)
+                result = yield dict(code="fork", jobs=jobs)
+                if symbol_pipeline:
+                    # Reuse the allocated current-word and entry/work state of
+                    # each phase;the node has its own charged registered copies.
+                    states = yield dict(code="symbol_pipeline", words=result, states=states,
+                                        sign=template.words[k - 1] if k else (0, 0))
+                else:
+                    states = result
                 for h, state in enumerate(states):
                     emit("sample", start_tick=starts[h], symbol=k, word=state[0])
                 continue
@@ -468,7 +478,10 @@ class SplineScoreFlow:
     Peak positions are supplied by the already bounded coarse stage, never truth.
     """
 
-    def __init__(self, assumptions=None, *, word_fabric=None, gauss_difference=False):
+    def __init__(
+        self, assumptions=None, *, word_fabric=None, gauss_difference=False,
+        symbol_pipeline=False,
+    ):
         self.a = SplineScoreAssumptions() if assumptions is None else assumptions
         if not isinstance(self.a, SplineScoreAssumptions):
             raise ValueError("Need explicit SplineScoreAssumptions")
@@ -482,6 +495,11 @@ class SplineScoreFlow:
         if type(gauss_difference) is not bool:
             raise ValueError("Need explicit compiled Gauss difference mode")
         self.gauss_difference = gauss_difference
+        if type(symbol_pipeline) is not bool or (symbol_pipeline and (
+            word_fabric is None or not self.a.reuse_symbol_power or not gauss_difference
+        )):
+            raise ValueError("Symbol pipeline needs explicit word fabric,power reuse and Gauss")
+        self.symbol_pipeline = symbol_pipeline
         self.monitor_tags = _monitor_tags(
             self.a.reuse_symbol_power, self.a.defer_all_future, gauss_difference
         )
@@ -555,6 +573,21 @@ class SplineScoreFlow:
                 ),
                 peak_bit_monitor_slots=len(self.monitor_tags),
                 peak_bit_monitor_tags=sorted(self.monitor_tags),
+            )
+        if self.symbol_pipeline:
+            node = FineSymbolPipeline().estimate()
+            # 9 reply-valids,4bit issue/take cursors,16bit batch head,one busy.
+            extra = node["finite_register_bits_upper"] + 34
+            cost.update(
+                fine_symbol_pipeline=node, symbol_batch_controller_bits=34,
+                additional_symbol_pipeline_register_bits=extra,
+                additional_query_state_upper_bits=cost["additional_query_state_upper_bits"] + extra,
+                total_scoring_DSP25x18_count=cost["shared_DSP25x18_count"] + 16,
+                old_word_fabric_and_contexts_retained=True,
+                source_words_and_phase_state_reuse=(
+                    "same existing9 current44bit and entry/work292bit phase slots;"
+                    "node input/output registered copies separately charged;no vector history"
+                ),
             )
         return cost
 
@@ -695,6 +728,7 @@ class SplineScoreFlow:
             self.a.reuse_symbol_power,
             self.word_fabric is not None,
             self.gauss_difference,
+            self.symbol_pipeline,
         )
         counts, peaks_bits, observed_bits = {}, {}, {}
         reads = 0
@@ -742,10 +776,34 @@ class SplineScoreFlow:
                 fabric, word_advance, word_issue, word_complete, self.monitor_tags
             )
         )
+        symbol_node = FineSymbolPipeline() if self.symbol_pipeline else None
         try:
             command = next(program)
             while True:
-                if command["code"] == "fork":
+                if command["code"] == "symbol_pipeline":
+                    batch_words, states = command["words"], command["states"]
+                    issue, received_mask, batch_token = 0, 0, symbol_node.next_token
+                    while issue < len(batch_words) or not symbol_node.idle:
+                        word_advance()
+                        incoming = None
+                        if issue < len(batch_words):
+                            previous, cr, ci, energy, power = states[issue]
+                            incoming = FineSymbolRequest(
+                                symbol_node.next_token, issue, batch_words[issue], previous,
+                                power, cr, ci, energy, command["sign"],
+                            )
+                        accepted, output = symbol_node.step(incoming)
+                        issue += int(accepted)
+                        if output is not None:
+                            if (output.token != batch_token + output.phase or
+                                    received_mask & (1 << output.phase)):
+                                raise RuntimeError("Fine-symbol reply lost its bounded phase owner")
+                            states[output.phase] = output.state
+                            received_mask |= 1 << output.phase
+                    if received_mask != (1 << len(batch_words)) - 1:
+                        raise RuntimeError("Fine-symbol batch lost a reply")
+                    reply = states
+                elif command["code"] == "fork":
                     word_advance()  # Registered phase dispatch; no same-edge RAM forwarding.
                     reply = runtime.fork(command["jobs"])
                     word_advance()  # Registered join before consuming next shared stencil.
@@ -893,6 +951,12 @@ class SplineScoreFlow:
                 word_fabric_state=word_fabric_cost(self.word_fabric),
                 word_context_peak=runtime.peak_live,
                 word_fabric_idle=fabric.idle,
+            )
+        if symbol_node is not None:
+            result.update(
+                symbol_pipeline_statistics=dict(symbol_node.stats),
+                symbol_pipeline_cost=symbol_node.estimate(),
+                symbol_pipeline_idle=symbol_node.idle,
             )
         if self.a.defer_all_future:
             deferred = geometry is not None and geometry.deferred

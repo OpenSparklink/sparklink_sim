@@ -77,6 +77,7 @@ class CaptureFineWorker:
         defer_all_future=False,
         word_fabric=None,
         gauss_difference=False,
+        symbol_pipeline=False,
     ):
         if not isinstance(template, SyncSignTemplate) or (len(template.words) + 1, window) not in (
             (32, 256),
@@ -98,6 +99,7 @@ class CaptureFineWorker:
             ),
             word_fabric=word_fabric,
             gauss_difference=gauss_difference,
+            symbol_pipeline=symbol_pipeline,
         )
 
     def __call__(self, event, owned_words):
@@ -155,7 +157,9 @@ class CaptureFineWorker:
             preparation_DSP25x18_estimate=cost["shared_preparation_banks"][
                 "unrolled_row_peak_scenario"
             ]["dsp25x18_product_tiles"],
-            scoring_DSP25x18_estimate=cost["shared_DSP25x18_count"],
+            scoring_DSP25x18_estimate=cost.get(
+                "total_scoring_DSP25x18_count", cost["shared_DSP25x18_count"]
+            ),
             multiplier_sharing_credit=0,
             note=(
                 'dedicated preparation and scoring estimate;row macro timing still '

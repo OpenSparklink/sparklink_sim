@@ -147,6 +147,7 @@ q12-serial
 rrc-coarse-ingress
 released-capture
 spline-gauss-difference
+fine-symbol-pipeline
 coverage-isolation
 rrc-memory
 spline-preparation

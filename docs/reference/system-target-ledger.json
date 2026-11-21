@@ -2465,5 +2465,52 @@
       0.9382
     ],
     "new_RF_gain_measured": false
+  },
+  "fine_symbol_pipeline": {
+    "reference": "fine-symbol-pipeline.md",
+    "stage": "M24 explicit experiment",
+    "replaces_generic_symbol_microprogram_only": true,
+    "new_DSP25x18": 16,
+    "total_scoring_DSP25x18": 17,
+    "preparation_DSP_separate": 2,
+    "external_register_bits_upper_increment": 11651,
+    "node_bits": 11617,
+    "batch_controller_bits": 34,
+    "old_query_and_word_contexts_not_subtracted": true,
+    "known_query_total_register_upper_bits": 41669,
+    "DSP_internal_pipeline_capacity_bits": 2144,
+    "new_RAM_and_sample_ports": 0,
+    "II_edges": 1,
+    "latency_edges": 16,
+    "width_assumption": "registered adders up to98bit in1edge;not synthesized",
+    "source_and_reply_ports_each": 1,
+    "coarse_and_fine_concurrent_DSP_per_path": 39,
+    "two_path_DSP_upper_before_other_RX_TX_MAC": 78,
+    "system_resource_budget_approved": false,
+    "synthesis": false,
+    "four_RX_gates_passed": false,
+    "performance_result": {
+      "development_cycles": [
+        577320,
+        216932
+      ],
+      "independent_node_validation_cycles": [
+        614096,
+        226958
+      ],
+      "fixed16_scored13_cycles": [
+        804861,
+        332790
+      ],
+      "all_integer_values_exact": true,
+      "incremental_integer_loss": 0,
+      "formal_packet_rate_gain": null,
+      "full_fixed_numeric_qualification": false,
+      "observed_max_service_edges": 70040,
+      "continuous_new_ADC_points_200MHz_lower_projection": 5603,
+      "existing_history_points": 4096,
+      "full_queue_model_closed": false,
+      "adopted_default": false
+    }
   }
 }
