@@ -345,11 +345,19 @@ class ScorePipeline:
     def step(self, incoming, normalizer):
         # Snapshot old states first. Newly computed stages cannot feed another
         # dependent action on the same edge.
+        # A reused physical slot can hold a newer tag than the other slot.
+        # Only the oldest live context owns this edge's output credit,even if
+        # its last arithmetic stage has not completed yet.
+        oldest = 0 if self.jobs[0] is not None else 1
+        if self.jobs[1] is not None and (
+            self.jobs[0] is None or self.jobs[1]["source"].tag < self.jobs[0]["source"].tag
+        ):
+            oldest = 1
         for index, job in enumerate(self.jobs):
             if job is None:
                 continue
             source = job["source"]
-            if job["phase"] == "output" and normalizer.offer(
+            if index == oldest and job["phase"] == "output" and normalizer.offer(
                 source, job["numerator"], job["denominator"].result, job["hit"]
             ):
                 self.jobs[index] = None
@@ -451,6 +459,20 @@ class ScorePipeline:
             numerator_left_shift="constant24-bit wiring",
             constant_tree_per_context=dict(threshold=right, denominator=denominator),
             no_free_constant_multiplier=True,
+            output_arbitration=dict(
+                contexts=2,
+                oldest_live_tag_compare_bits=63,
+                context_valid_tests=2,
+                output_phase_tests=1,
+                data_MUX2_upper=63 + 2 * c + e + 7 + self.w["numerator"]
+                + e + (self.coefficient_energy - 1).bit_length() + 1,
+                new_registered_state_bits=0,
+                new_DSP=0,
+                new_RAM=0,
+                free_sharing_with_product_issue_not_claimed=True,
+                rule="oldest live context only;one retirement/edge;slot index is not age",
+                synthesis_or_Fmax_verified=False,
+            ),
             shared_DSP_scope="two consecutive component issues;prefix DSPs are separate",
             whole_receiver_acceptance=False,
         )

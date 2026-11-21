@@ -101,3 +101,41 @@ def test_registered_normalizer_cannot_be_overwritten_and_preserves_latency():
     result = rank.step()
     assert result["rank"] == (4096 // 62)
     assert rank.idle
+
+
+@pytest.mark.parametrize("hold_edges", [8, 14, 31])
+def test_score_contexts_retire_in_source_order_under_finite_rank_credit(hold_edges):
+    class RankCredit:
+        def __init__(self):
+            self.value, self.remaining = None, 0
+
+        def offer(self, source, numerator, denominator, hit):
+            if self.value is not None:
+                return False
+            self.value, self.remaining = source, hold_edges
+            return True
+
+        def step(self):
+            if self.value is None:
+                return None
+            self.remaining -= 1
+            if self.remaining:
+                return None
+            value, self.value = self.value, None
+            return value
+
+    widths = FixedBankFormat(10).widths(31, 62, 0.6)
+    score, rank = ScorePipeline(widths, 62), RankCredit()
+    incoming = deque(FoldResult(i, 17 + i, -13 - i, 113 + i, 0) for i in range(12))
+    emitted, peak = [], 0
+    for _cycle in range(1000):
+        value = rank.step()
+        if value is not None:
+            emitted.append(value.tag)
+        score.step(incoming, rank)
+        peak = max(peak, sum(job is not None for job in score.jobs))
+        if not incoming and score.idle and rank.value is None:
+            break
+    assert _cycle < 999 and peak == 2
+    assert emitted == list(range(12))
+    assert score.native.stats["products"] == 8 * len(emitted)

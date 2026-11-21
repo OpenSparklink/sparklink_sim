@@ -2209,5 +2209,34 @@
     "full_RX_cycles": null,
     "old_budget_failures_unchanged": true,
     "new_approved_system_budget": false
+  },
+  "score_output_ownership": {
+    "status": "M19 operator estimate;not system acceptance",
+    "scope": "per dedicated compiled coarse path;two independent raw/notch paths pay twice",
+    "existing_state_and_compute_not_added_again": true,
+    "oldest_live_tag_compare_bits": 63,
+    "context_valid_tests": 2,
+    "result_MUX2_bits": {
+      "2": 286,
+      "3": 292,
+      "4": 299
+    },
+    "additional_typed_register_bits": 0,
+    "additional_DSP": 0,
+    "additional_IQ_RAM": 0,
+    "LUT": null,
+    "mapped_FF": null,
+    "Fmax": null,
+    "sharing_with_native_issue_not_credited": true,
+    "latency_scope": "existing score handoff edge;63bit compare and full result mux timing unsynthesized",
+    "existing_coarse_register_bits_upper": {
+      "2": 26370,
+      "3": 26853,
+      "4": 32312
+    },
+    "fixed_14_31_edge_credit_counterexample": "physical slot priority delivered tag1 after tag11;oldest-live output owner fixes module contract",
+    "default_pipeline_RF_gain_not_claimed": true,
+    "whole_RX_16MSps": false,
+    "system_qualification": false
   }
 }
