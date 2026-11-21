@@ -224,6 +224,19 @@ class FixedRRC:
             ) + 1j * np.ldexp(i.astype(float), e.astype(int))
         return result
 
+    def feed_output_words(self, samples):
+        """Bounded1..32input port→actual19+19+8 output,without float reconstruction.
+
+        This uses the same input adapter,history and integer FIR as `feed`.
+        It does not quantize an already reconstructed floating filter output.
+        """
+        if self.closed:
+            raise RuntimeError("Cannot feed after finish")
+        x = np.asarray(samples)
+        if x.ndim != 1 or not 1 <= len(x) <= 32 or not np.isfinite(x).all():
+            raise ValueError("Need1..32 finite complex input samples")
+        return self.feed_words(*self._quantize(x))
+
     def _quantize(self, samples):
         return quantize_scaled_words(samples, self.input_format, stats=self.stats)
 

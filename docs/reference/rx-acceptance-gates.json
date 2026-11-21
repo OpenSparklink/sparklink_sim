@@ -1,5 +1,5 @@
 {
-  "stage": "M12-INITIALIZED-SELECTED-WINDOW-PARTIAL",
+  "stage": "M15-RRC-SCALED-WORD-PORT-PARTIAL",
   "target": "4Msym/s QPSK/8PSK16MS/s;FT2/3/4 first;FT1 separate",
   "complete": false,
   "gates": {
@@ -208,5 +208,19 @@
     "new_RF_gain_measured": false,
     "source_capacity_unchanged": 1024,
     "whole_receiver_configuration_and_switch_cost_closed": false
+  },
+  "rrc_scaled_word_bridge": {
+    "evidence": "rrc-scaled-bridge.md",
+    "legacy_adapter_word_identity": true,
+    "source_output_format": "signed19+19+8",
+    "actual_target": "scaled10,not old fixed22",
+    "node_register_bits_upper": 842,
+    "new_whole_budget_approved": false,
+    "range_failures_separate_from_word_identity": true,
+    "raw_energy_alignment": false,
+    "scaled_bank_cycle_cost": null,
+    "default_float_unchanged": true,
+    "new_RF_gain_measured": false,
+    "all_four_gates_passed": false
   }
 }

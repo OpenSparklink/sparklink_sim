@@ -538,8 +538,15 @@ class PSKStreamReceiver:
         self._materialize_quiet()
         if not np.isfinite(block).all():
             raise ValueError("Need finite IQ samples")
+        rrc_words = None
         if self._rrc_word_model is None:
             filtered, self._fir_state = _fir_block(self.h, block, self._fir_state)
+        elif self.correlation_backend == 'scaled':
+            rrc_words = self._rrc_word_model.feed_output_words(block)
+            r, i, e = rrc_words
+            # Existing reference-valued fine search/tracking still consumes this exact view.
+            filtered = np.ldexp(r.astype(float), e.astype(int)) + 1j*np.ldexp(
+                i.astype(float), e.astype(int))
         else:
             filtered = self._rrc_word_model.feed(block)
         if self.tone_notch is not None:
@@ -547,7 +554,13 @@ class PSKStreamReceiver:
             self.tone_correlation_bank.advance(tone)
             self._tone_filtered = np.concatenate((self._tone_filtered, tone))
         if self.correlation_bank is not None:
-            self.correlation_bank.advance(filtered)
+            if rrc_words is not None:
+                from nearlink_sdr.phy.rrc_bridge import rrc_to_scaled_words
+                self.correlation_bank.advance_words(*rrc_to_scaled_words(
+                    *rrc_words, self.correlation_bank.scaled_format,
+                    stats=self.correlation_bank.stats))
+            else:
+                self.correlation_bank.advance(filtered)
         energy, self._energy_state = _fir_block(self._box, abs(block)**2, self._energy_state)
         self._filtered = np.concatenate((self._filtered, filtered))
         self._energy = np.concatenate((self._energy, energy))[-self.search_samples:]

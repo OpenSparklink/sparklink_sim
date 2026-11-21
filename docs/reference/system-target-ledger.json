@@ -165,6 +165,31 @@
         "Fmax": null,
         "synthesis": false,
         "full16MSps": false
+      },
+      "partial_rrc_scaled_bridge": {
+        "evidence": "rrc-scaled-bridge.md",
+        "compiled_mantissa_bits": 10,
+        "input_word_bits": 46,
+        "output_word_bits": 27,
+        "sample_tag_bits": 64,
+        "datapath_control_register_bits_upper": 266,
+        "monitor_counter_bits": 576,
+        "total_register_bits_upper": 842,
+        "new_DSP": 0,
+        "new_sample_RAM": 0,
+        "new_ROM": 0,
+        "registered_stages": 3,
+        "unstalled_II": 4,
+        "contexts": 1,
+        "output_credits": 1,
+        "prospective_node_research_bound_bits": 1024,
+        "new_whole_system_budget_approved": false,
+        "raw_energy_alignment_cost": null,
+        "scaled_bank_cycle_cost": null,
+        "old_fixed22_18DSP_applicable": false,
+        "LUT_FF_Fmax": null,
+        "synthesis": false,
+        "whole_RX16MSps": false
       }
     },
     {

@@ -52,6 +52,8 @@ jobs:
           uv run --frozen --no-sync ruff check scripts/model_data_joint.py
           uv run --frozen --no-sync ruff check scripts/model_timing_overlap.py
           uv run --frozen --no-sync ruff check scripts/model_retained_stencil.py
+          uv run --frozen --no-sync ruff check scripts/model_rrc_bridge.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_rrc_bridge.py src/nearlink_sdr/phy/rrc_bridge.py src/nearlink_sdr/sim/rrc_bridge_flow.py tests/test_rrc_bridge.py tests/test_rrc_bridge_flow.py tests/test_stream_rrc_bridge.py tests/test_rrc_bridge_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 src/nearlink_sdr/sim/feedback_timing_word.py src/nearlink_sdr/sim/feedback_timing_replay.py src/nearlink_sdr/sim/split_timing_flow.py src/nearlink_sdr/sim/split_sampling_replay.py src/nearlink_sdr/sim/packed_head_replay.py src/nearlink_sdr/sim/initialized_frame_replay.py tests/test_feedback_timing_word.py tests/test_feedback_timing_replay.py tests/test_split_timing_flow.py tests/test_split_sampling_replay.py tests/test_packed_head_replay.py tests/test_initialized_frame_replay.py tests/split_calendar.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_retained_stencil.py src/nearlink_sdr/sim/retained_stencil_replay.py tests/stencil_reference.py tests/test_retained_stencil_replay.py tests/test_retained_stencil_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_timing_overlap.py src/nearlink_sdr/sim/timing_overlap_flow.py src/nearlink_sdr/sim/power_ted_replay.py tests/timing_overlap_reference.py tests/test_timing_overlap_flow.py tests/test_power_ted_replay.py tests/test_timing_overlap_model.py
@@ -327,6 +329,44 @@ jobs:
           test "$status" -eq 1
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/rrc-memory/model.json")); assert len(d["scenarios"]) == 23 and d["whole_system_accepted"] is False; assert d["original_budget_still_failed"]; assert all(r["port_candidate_valid"] for r in d["scenarios"] if r["mode"] == "quad"); assert any(not r["port_candidate_valid"] for r in d["scenarios"] if r["mode"] == "dual")'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/rrc-memory"); m=json.loads((p/"manifest.json").read_text()); assert len(m) == 27; assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in m.items()); d=json.loads((p/"model.json").read_text()); assert all(r["sha256"] == m[r["file"]] for r in d["scenarios"])'
+      - name: Verify integer RRC scaled-word bridge and retain range and resource failures
+        if: always()
+        run: |
+          status=0
+          PYTHONPATH=src:scripts uv run --frozen --no-sync python -m scripts.model_rrc_bridge --output receiver-diagnostics/rrc-scaled-bridge-development >rrc-scaled-bridge-development.log 2>&1 || status=$?
+          test "$status" -eq 1
+          status=0
+          PYTHONPATH=src:scripts uv run --frozen --no-sync python -m scripts.model_rrc_bridge --split validation --freeze receiver-diagnostics/rrc-scaled-bridge-development/freeze.json --output receiver-diagnostics/rrc-scaled-bridge-validation >rrc-scaled-bridge-validation.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import hashlib, json
+          from pathlib import Path
+          for split in ("development", "validation"):
+              p = Path("receiver-diagnostics/rrc-scaled-bridge-" + split)
+              d = json.loads((p / "model.json").read_text())
+              assert d["component_word_pass"] and d["component_register_budget_pass"]
+              assert not d["four_RX_gates_passed"] and not d["new_RF_holdout"]
+              assert d["cost"]["register_bits_upper"] == 842
+              assert d["cost"]["initiation_interval"] == 4
+              assert d["cost"]["scaled_bank_cycle_cost"] is None
+              assert not d["cost"]["old_fixed22_18DSP_cost_applicable"]
+              assert len(d["value_cases"]) == 8 and len(d["calendars"]) == 6
+              assert all(r["word_identity"] and r["source_error_budget_pass"] is None
+                         for r in d["value_cases"])
+              assert any(not r["source_range_pass"] or not r["destination_range_pass"]
+                         for r in d["value_cases"])
+              for r in d["value_cases"]:
+                  f = p / ("value-" + str(r["id"]) + ".npz")
+                  assert hashlib.sha256(f.read_bytes()).hexdigest() == r["value_artifact_SHA256"]
+              for r in d["calendars"]:
+                  assert r["raw_energy_alignment_cycles"] is None
+                  assert r["scaled_bank_cycles"] is None and not r["full_receiver16MSps"]
+                  assert len(r["accepted"]) == len(r["emitted"])
+                  assert len(r["accepted"]) + len(r["bridge_credit_drops"]) + len(r["invalid_RRC_outputs"]) == r["producer"]["emitted"]
+                  if r["clock_MHz"] == 200 and not r["output_blocked"]:
+                      assert len(r["emitted"]) == 1024 and not r["producer"]["dropped"]
+                      assert not r["bridge_credit_drops"]
+          PYCODE
       - name: Preserve global spline preparation and serial throughput rejection
         if: always()
         run: |
@@ -1333,6 +1373,7 @@ jobs:
             sync-carrier-work.log
             capture-transport.log
             rrc-memory.log
+            rrc-scaled-bridge-*.log
             spline-preparation.log
             spline-fixed.log
             spline-flow.log

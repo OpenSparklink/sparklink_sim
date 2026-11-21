@@ -139,6 +139,7 @@ split-timing-owners
 split-sampling-integration
 packed-head-retention
 initialized-frame-input
+rrc-scaled-bridge
 coverage-isolation
 rrc-memory
 spline-preparation
