@@ -54,6 +54,8 @@ jobs:
           uv run --frozen --no-sync ruff check scripts/model_retained_stencil.py
           uv run --frozen --no-sync ruff check scripts/model_rrc_bridge.py
           uv run --frozen --no-sync ruff check scripts/model_raw_gate_join.py
+          uv run --frozen --no-sync ruff check scripts/model_scaled_maximum.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_scaled_maximum.py src/nearlink_sdr/phy/acquisition_maximum.py src/nearlink_sdr/sim/maximum_flow.py tests/test_acquisition_maximum.py tests/test_maximum_flow.py tests/test_scaled_maximum_model.py tests/maximum_reference.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_raw_gate_join.py src/nearlink_sdr/sim/raw_gate_join.py tests/test_raw_gate_join.py tests/test_raw_gate_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_rrc_bridge.py src/nearlink_sdr/phy/rrc_bridge.py src/nearlink_sdr/sim/rrc_bridge_flow.py tests/test_rrc_bridge.py tests/test_rrc_bridge_flow.py tests/test_stream_rrc_bridge.py tests/test_rrc_bridge_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 src/nearlink_sdr/sim/feedback_timing_word.py src/nearlink_sdr/sim/feedback_timing_replay.py src/nearlink_sdr/sim/split_timing_flow.py src/nearlink_sdr/sim/split_sampling_replay.py src/nearlink_sdr/sim/packed_head_replay.py src/nearlink_sdr/sim/initialized_frame_replay.py tests/test_feedback_timing_word.py tests/test_feedback_timing_replay.py tests/test_split_timing_flow.py tests/test_split_sampling_replay.py tests/test_packed_head_replay.py tests/test_initialized_frame_replay.py tests/split_calendar.py
@@ -331,6 +333,44 @@ jobs:
           test "$status" -eq 1
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/rrc-memory/model.json")); assert len(d["scenarios"]) == 23 and d["whole_system_accepted"] is False; assert d["original_budget_still_failed"]; assert all(r["port_candidate_valid"] for r in d["scenarios"] if r["mode"] == "quad"); assert any(not r["port_candidate_valid"] for r in d["scenarios"] if r["mode"] == "dual")'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/rrc-memory"); m=json.loads((p/"manifest.json").read_text()); assert len(m) == 27; assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in m.items()); d=json.loads((p/"model.json").read_text()); assert all(r["sha256"] == m[r["file"]] for r in d["scenarios"])'
+      - name: Verify exact rolling exponents and retain startup and full-RX gaps
+        if: always()
+        run: |
+          status=0
+          PYTHONPATH=src:scripts uv run --frozen --no-sync python -m scripts.model_scaled_maximum --output receiver-diagnostics/scaled-maximum-development >scaled-maximum-development.log 2>&1 || status=$?
+          test "$status" -eq 1
+          status=0
+          PYTHONPATH=src:scripts uv run --frozen --no-sync python -m scripts.model_scaled_maximum --split validation --freeze receiver-diagnostics/scaled-maximum-development/freeze.json --output receiver-diagnostics/scaled-maximum-validation >scaled-maximum-validation.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import hashlib, json
+          from pathlib import Path
+          for split in ("development", "validation"):
+              p = Path("receiver-diagnostics/scaled-maximum-" + split)
+              d = json.loads((p / "model.json").read_text())
+              assert d["component_exact"] and not d["success_losses"]
+              assert not d["numeric_or_frame_mismatches"] and not d["new_receiver_default"]
+              assert not d["four_RX_gates_passed"]
+              assert d["full_scaled_bank_cycles"] is d["full_RX_cycles"] is None
+              assert len(d["numeric_rows"]) == 8 and len(d["costs"]) == 6
+              assert len(d["calendars"]) == 14
+              assert sum(r["failure"] is not None for r in d["calendars"]) == 8
+              assert d["RF_streams"] == 13 and d["RF_runs"] == 39
+              assert d["legal_packets"] == 10
+              assert d["negative_samples"] == (32768 if split == "development" else 45056)
+              for row in json.loads((p / "inputs.json").read_text()):
+                  assert hashlib.sha256((p / row["artifact"]).read_bytes()).hexdigest() == row["input_SHA256"]
+              for row in d["numeric_rows"]:
+                  assert row["exact_common_scores_ranks_queries"]
+                  assert hashlib.sha256((p / row["input_artifact"]).read_bytes()).hexdigest() == row["input_SHA256"]
+              for c in d["costs"]:
+                  assert c["research_cap_pass"] and c["research_cap_bits"] == 8192
+                  assert c["latency_edges"] == (4 if c["counter_store"] == "register2r2w" else 7)
+                  assert c["initialization_edges"] == (1 if c["counter_store"] == "register2r2w" else 645)
+                  assert c["full_scaled_bank_cycles"] is None and c["Fmax"] is None
+              assert json.loads((p / "source-bindings-at-end.json").read_text()) == json.loads((p / "freeze.json").read_text())["sources"]
+          PYCODE
+
       - name: Verify bounded raw flag word alignment and preserve resource failures
         if: always()
         run: |
@@ -1413,6 +1453,7 @@ jobs:
             rrc-memory.log
             rrc-scaled-bridge-*.log
             raw-gate-*.log
+            scaled-maximum-*.log
             spline-preparation.log
             spline-fixed.log
             spline-flow.log

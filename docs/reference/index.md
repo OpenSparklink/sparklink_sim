@@ -141,6 +141,7 @@ packed-head-retention
 initialized-frame-input
 rrc-scaled-bridge
 raw-energy-tag-join
+scaled-window-maximum
 coverage-isolation
 rrc-memory
 spline-preparation
@@ -158,4 +159,6 @@ psk-noise-recovery-results
 /apidocs/nearlink_sdr/nearlink_sdr.sim.psk_hard_flow
 /apidocs/nearlink_sdr/nearlink_sdr.phy.word_head_rx
 /apidocs/nearlink_sdr/nearlink_sdr.sim.head_word_replay
+/apidocs/nearlink_sdr/nearlink_sdr.phy.acquisition_maximum
+/apidocs/nearlink_sdr/nearlink_sdr.sim.maximum_flow
 ```

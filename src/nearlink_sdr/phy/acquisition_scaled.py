@@ -198,7 +198,7 @@ class ScaledDifferentialBank(FixedDifferentialBank):
         # own position. This does not imply parallel hardware or cheaper ports.
         indices = self.sps + np.arange(len(r))[:, None] + self.sps * np.arange(self.k)
         a, b, exponents, p = [v[indices] for v in joined]
-        common = np.max(np.where(p > 0, exponents, -96), axis=1)
+        common = self._window_maxima(exponents, p)
         shifts = np.maximum(common[:, None] - exponents, 0)
         correlations_real, correlations_imag, energies, discarded = folded_statistics(
             a, b, p, shifts, self._coefficient_real, self._coefficient_imag
@@ -239,6 +239,10 @@ class ScaledDifferentialBank(FixedDifferentialBank):
         self.samples += len(r)
         self.stats["samples"] += len(r)
         return points if inspect else None
+
+    def _window_maxima(self, exponents, powers):
+        """Reference reduction; structural subclasses must preserve every position."""
+        return np.max(np.where(powers > 0, exponents, -96), axis=1)
 
     def worst_operations_per_sample(self):
         result = super().worst_operations_per_sample()
