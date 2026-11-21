@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from nearlink_sdr.phy.acquisition_fixed import FixedBankFormat, fixed_bank_storage_bits
 
 __all__ = ['AcquisitionFlow', 'FlowAssumptions', 'laned_correlation',
-           'multiply_signed_tiles', 'signed_multiplier_tiles']
+           'multiply_signed_tiles', 'signed_multiplier_tiles', 'signed_tile_terms']
 
 
 def _parts(width, payload):
@@ -29,8 +29,13 @@ def signed_multiplier_tiles(a_bits, b_bits):
                _parts(b_bits, 24)*_parts(a_bits, 17))
 
 
-def multiply_signed_tiles(a, b, a_bits, b_bits):
-    """Executable signed decomposition reference, including negative high limbs."""
+def signed_tile_terms(a, b, a_bits, b_bits):
+    """Native signed25x18 operands and shifts; no wide product is evaluated.
+
+    Low limbs are zero-extended24/17-bit payloads. A final signed high limb
+    retains its sign. The returned schedule can issue the individual native
+    products on physical multipliers before reconstructing the wide result.
+    """
     signed_multiplier_tiles(a_bits, b_bits)
     if not (-(1 << (a_bits-1)) <= a < 1 << (a_bits-1) and
             -(1 << (b_bits-1)) <= b < 1 << (b_bits-1)):
@@ -44,7 +49,12 @@ def multiply_signed_tiles(a, b, a_bits, b_bits):
                 ((value >> (i*payload)) & ((1 << payload)-1)) for i in range(count)]
 
     left, right = split(a, a_bits, 24), split(b, b_bits, 17)
-    return sum(x*y << (24*i+17*j) for i, x in enumerate(left) for j, y in enumerate(right))
+    return [(x, y, 24*i+17*j) for i, x in enumerate(left) for j, y in enumerate(right)]
+
+
+def multiply_signed_tiles(a, b, a_bits, b_bits):
+    """Executable signed decomposition reference, including negative high limbs."""
+    return sum(x*y << shift for x, y, shift in signed_tile_terms(a, b, a_bits, b_bits))
 
 
 def laned_correlation(real, imag, coefficient_real, coefficient_imag, lanes):

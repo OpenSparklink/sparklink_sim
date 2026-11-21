@@ -142,6 +142,7 @@ initialized-frame-input
 rrc-scaled-bridge
 raw-energy-tag-join
 scaled-window-maximum
+banked-scaled-core
 coverage-isolation
 rrc-memory
 spline-preparation

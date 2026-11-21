@@ -48,6 +48,11 @@ class ExponentMaximumService:
         return self.mode == "ready"
 
     @property
+    def can_issue(self):
+        """Read-only input credit;the retirement edge has no second issue slot."""
+        return self.mode == "idle" and self.cycle != self._retired_cycle
+
+    @property
     def reason(self):
         """Host decoding of a fixed3-bit code;arbitrary error strings are not stored."""
         return self._reasons[self._reason_code]
@@ -66,7 +71,7 @@ class ExponentMaximumService:
         self._check_owner()
         if self.mode in ("failed", "finished"):
             raise ValueError("Need a new explicit histogram epoch")
-        if self.mode != "idle" or self.cycle == self._retired_cycle:
+        if not self.can_issue:
             self._increment("rejected")
             return False
         if self.cycle >= 2**63 - self.latency - 1:

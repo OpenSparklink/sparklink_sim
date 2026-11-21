@@ -55,6 +55,16 @@ jobs:
           uv run --frozen --no-sync ruff check scripts/model_rrc_bridge.py
           uv run --frozen --no-sync ruff check scripts/model_raw_gate_join.py
           uv run --frozen --no-sync ruff check scripts/model_scaled_maximum.py
+          uv run --frozen --no-sync ruff check scripts/model_banked_scaled.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 \
+            scripts/model_banked_scaled.py \
+            src/nearlink_sdr/phy/banked_words.py \
+            src/nearlink_sdr/sim/scaled_native.py \
+            src/nearlink_sdr/sim/banked_scaled_core.py \
+            tests/test_banked_words.py \
+            tests/test_scaled_native.py \
+            tests/test_banked_scaled_core.py \
+            tests/test_banked_scaled_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_scaled_maximum.py src/nearlink_sdr/phy/acquisition_maximum.py src/nearlink_sdr/sim/maximum_flow.py tests/test_acquisition_maximum.py tests/test_maximum_flow.py tests/test_scaled_maximum_model.py tests/maximum_reference.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_raw_gate_join.py src/nearlink_sdr/sim/raw_gate_join.py tests/test_raw_gate_join.py tests/test_raw_gate_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_rrc_bridge.py src/nearlink_sdr/phy/rrc_bridge.py src/nearlink_sdr/sim/rrc_bridge_flow.py tests/test_rrc_bridge.py tests/test_rrc_bridge_flow.py tests/test_stream_rrc_bridge.py tests/test_rrc_bridge_model.py
@@ -333,6 +343,39 @@ jobs:
           test "$status" -eq 1
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/rrc-memory/model.json")); assert len(d["scenarios"]) == 23 and d["whole_system_accepted"] is False; assert d["original_budget_still_failed"]; assert all(r["port_candidate_valid"] for r in d["scenarios"] if r["mode"] == "quad"); assert any(not r["port_candidate_valid"] for r in d["scenarios"] if r["mode"] == "dual")'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/rrc-memory"); m=json.loads((p/"manifest.json").read_text()); assert len(m) == 27; assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in m.items()); d=json.loads((p/"model.json").read_text()); assert all(r["sha256"] == m[r["file"]] for r in d["scenarios"])'
+      - name: Preserve bounded native banked scaled-word core and overloads
+        if: always()
+        run: |
+          status=0
+          PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_banked_scaled \
+            --output receiver-diagnostics/banked-scaled-development \
+            >banked-scaled-development.log 2>&1 || status=$?
+          test "$status" -eq 1
+          status=0
+          PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_banked_scaled \
+            --split validation \
+            --freeze receiver-diagnostics/banked-scaled-development/freeze.json \
+            --output receiver-diagnostics/banked-scaled-validation \
+            >banked-scaled-validation.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          for split in ("development", "validation"):
+              p = Path("receiver-diagnostics") / ("banked-scaled-" + split)
+              d = json.loads((p / "model.json").read_text())
+              assert d["component_word_and_frame_exact"] and d["RF_runs"] == 45
+              assert not d["success_losses"] and not d["false_MAC"]
+              assert d["negative_samples"] == (49152 if split == "development" else 57344)
+              assert len(d["calendars"]) == 25 and len(d["costs"]) == 6
+              assert d["failure_links"] and not d["whole_RX_gates_passed"]
+              assert d["RRC_cycles"] is d["fine_search_cycles"] is None
+              assert d["carrier_and_payload_cycles"] is None and not d["new_default"]
+              assert all(c["cost"]["DSP"] == 12 for c in d["costs"])
+              assert all(r["every_committed_point_exact"] for r in d["calendars"])
+              assert any(r["failure"] for r in d["calendars"])
+              assert any(r["statistics"]["query_dropped"] for r in d["calendars"])
+          PYCODE
       - name: Verify exact rolling exponents and retain startup and full-RX gaps
         if: always()
         run: |
@@ -1454,6 +1497,7 @@ jobs:
             rrc-scaled-bridge-*.log
             raw-gate-*.log
             scaled-maximum-*.log
+            banked-scaled-*.log
             spline-preparation.log
             spline-fixed.log
             spline-flow.log
