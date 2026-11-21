@@ -199,13 +199,14 @@ def _symbol_power(word):
     return (yield from _alu("add", real, imag, 44, "symbol_power", False))
 
 
-def _monitor_tags(reuse_power, defer_future=False):
+def _monitor_tags(reuse_power, defer_future=False, gauss=False):
     """Compiled register slots for every score-node peak-width diagnostic."""
     products = (
-        "difference_rr",
-        "difference_ii",
-        "difference_ir",
-        "difference_ri",
+        *(
+            ("gauss_a", "gauss_d", "gauss_c")
+            if gauss
+            else ("difference_rr", "difference_ii", "difference_ir", "difference_ri")
+        ),
         "numerator_real",
         "numerator_imag",
         "rank_left",
@@ -245,6 +246,8 @@ def _monitor_tags(reuse_power, defer_future=False):
         tags.update(
             "geometry_" + suffix for suffix in ("add", "sub", "cmp", "move", "count", "flags")
         )
+    if gauss:
+        tags.update(("gauss_cd", "gauss_ab", "gauss_ba"))
     return frozenset(tags)
 
 
@@ -298,7 +301,8 @@ def _geometry(peaks, n, count, minimum, lookahead, emit):
 
 
 def _guarded_program(
-    peaks, template, n, minimum, lookahead, reuse, threshold, emit, reuse_power, concurrent=False
+    peaks, template, n, minimum, lookahead, reuse, threshold, emit, reuse_power,
+    concurrent=False, gauss=False
 ):
     positions, deferred = yield from _geometry(
         peaks, n, len(template.words) + 1, minimum, lookahead, emit
@@ -307,22 +311,47 @@ def _guarded_program(
         emit("geometry_wait", positions=positions, scoring_evaluated=False)
         return _GeometryDecision(None, positions, True)
     best = yield from _program(
-        peaks, template, n, minimum, lookahead, reuse, threshold, emit, reuse_power, concurrent
+        peaks, template, n, minimum, lookahead, reuse, threshold, emit, reuse_power,
+        concurrent, gauss
     )
     return _GeometryDecision(best, positions, False)
 
 
-def _phase_symbol(cache, tick, state, template, k, cb, eb, reuse_power):
+def _gauss_difference(word, previous):
+    """Exact signed22 conjugate product;no input negation,rounding or saturation.
+
+    Each sum/difference is signed23;each real22x23 product fits signed45
+    (the generic multiplier conservatively returns46). The final differences
+    retain the existing signed45 format. Even -2**21 inputs need no abs22
+    signed restoration or negated-input overflow shortcut.
+    """
+    a, b = word
+    c, d = previous
+    cd = yield from _alu("sub", c, d, 23, "gauss_cd")
+    ab = yield from _alu("add", a, b, 23, "gauss_ab")
+    ba = yield from _alu("sub", b, a, 23, "gauss_ba")
+    p = yield from _mul(a, cd, 22, 23, "gauss_a")
+    q = yield from _mul(d, ab, 22, 23, "gauss_d")
+    r = yield from _mul(c, ba, 22, 23, "gauss_c")
+    real = yield from _alu("add", p, q, 45, "difference_real")
+    imag = yield from _alu("add", p, r, 45, "difference_imag")
+    return real, imag
+
+
+def _phase_symbol(cache, tick, state, template, k, cb, eb, reuse_power, gauss=False):
     word = yield from _query(cache, tick)
     previous, cr, ci, energy, previous_power = state
     power = (yield from _symbol_power(word)) if reuse_power else 0
     if previous is not None:
-        rr = yield from _mul(word[0], previous[0], 22, 22, "difference_rr")
-        ii = yield from _mul(word[1], previous[1], 22, 22, "difference_ii")
-        ir = yield from _mul(word[1], previous[0], 22, 22, "difference_ir")
-        ri = yield from _mul(word[0], previous[1], 22, 22, "difference_ri")
-        dr = yield from _alu("add", rr, ii, 45, "difference_real")
-        di = yield from _alu("sub", ir, ri, 45, "difference_imag")
+        if gauss:
+            dr, di = yield from _gauss_difference(word, previous)
+        else:
+            rr = yield from _mul(word[0], previous[0], 22, 22, "difference_rr")
+            ii = yield from _mul(word[1], previous[1], 22, 22, "difference_ii")
+            ir = yield from _mul(word[1], previous[0], 22, 22, "difference_ir")
+            ri = yield from _mul(word[0], previous[1], 22, 22, "difference_ri")
+            dr = yield from _alu("add", rr, ii, 45, "difference_real")
+            di = yield from _alu("sub", ir, ri, 45, "difference_imag")
         tr, ti = yield from _contribution(dr, di, *template.words[k - 1], 46)
         cr = yield from _alu("add", cr, tr, cb, "correlation_real")
         ci = yield from _alu("add", ci, ti, cb, "correlation_imag")
@@ -347,6 +376,7 @@ def _program(
     emit,
     reuse_power=False,
     concurrent=False,
+    gauss=False,
 ):
     """Nine contexts, no retained18x128 symbol vectors; replay the chosen phase."""
     count = len(template.words) + 1
@@ -365,7 +395,7 @@ def _program(
             shared = (yield dict(code="read", keys=_needed(ticks))) if reuse and ticks else None
             if concurrent and ticks:
                 jobs = tuple(
-                    _phase_symbol(shared, tick, state, template, k, cb, eb, reuse_power)
+                    _phase_symbol(shared, tick, state, template, k, cb, eb, reuse_power, gauss)
                     for tick, state in zip(ticks, states, strict=True)
                 )
                 states = yield dict(code="fork", jobs=jobs)
@@ -375,7 +405,7 @@ def _program(
             for h, tick in enumerate(ticks):
                 cache = shared if reuse else (yield dict(code="read", keys=_needed([tick])))
                 states[h] = yield from _phase_symbol(
-                    cache, tick, states[h], template, k, cb, eb, reuse_power
+                    cache, tick, states[h], template, k, cb, eb, reuse_power, gauss
                 )
                 emit("sample", start_tick=starts[h], symbol=k, word=states[h][0])
         for start, (_, cr, ci, energy, _) in zip(starts, states, strict=True):
@@ -438,7 +468,7 @@ class SplineScoreFlow:
     Peak positions are supplied by the already bounded coarse stage, never truth.
     """
 
-    def __init__(self, assumptions=None, *, word_fabric=None):
+    def __init__(self, assumptions=None, *, word_fabric=None, gauss_difference=False):
         self.a = SplineScoreAssumptions() if assumptions is None else assumptions
         if not isinstance(self.a, SplineScoreAssumptions):
             raise ValueError("Need explicit SplineScoreAssumptions")
@@ -449,7 +479,12 @@ class SplineScoreFlow:
         ):
             raise ValueError("Fine concurrency needs9 contexts and shared stencil")
         self.word_fabric = word_fabric
-        self.monitor_tags = _monitor_tags(self.a.reuse_symbol_power, self.a.defer_all_future)
+        if type(gauss_difference) is not bool:
+            raise ValueError("Need explicit compiled Gauss difference mode")
+        self.gauss_difference = gauss_difference
+        self.monitor_tags = _monitor_tags(
+            self.a.reuse_symbol_power, self.a.defer_all_future, gauss_difference
+        )
 
     def estimate(self):
         """Charge experimental contexts/fabric in addition to legacy state."""
@@ -474,6 +509,8 @@ class SplineScoreFlow:
                 contribution_negative_temporaries=90,
                 allocation_spare=100,
             )
+            if self.gauss_difference:
+                phase["gauss_intermediates_no_old_slot_credit"] = 3 * 23 + 3 * 46
             extra = fabric["state_bits"] + 9 * sum(phase.values())
             cost.update(
                 word_fabric=fabric,
@@ -492,6 +529,32 @@ class SplineScoreFlow:
                 legacy_scratch_not_subtracted=True,
                 phase_contexts=9,
                 word_fabric_enabled=True,
+            )
+        if self.gauss_difference:
+            contexts = 9 if self.word_fabric is not None else 1
+            extra = contexts * (3 * 23 + 3 * 46)
+            if self.word_fabric is None:
+                cost["state_components"]["gauss_intermediates_no_old_slot_credit"] = extra
+                cost["additional_query_state_upper_bits"] += extra
+            cost.update(
+                gauss_difference=dict(
+                    conjugate=True,
+                    real_products=3,
+                    product_input_shapes=[(22, 23)] * 3,
+                    signed_preadds=3,
+                    preadd_bits=23,
+                    product_declared_bits=46,
+                    final_difference_bits=45,
+                    native24x17_tiles_per_difference=6,
+                    original_tiles_per_difference=8,
+                    incremental_register_bits=extra,
+                    incremental_research_cap_bits=2048,
+                    no_old_register_slots_subtracted=True,
+                    extra_DSP_RAM_or_sample_ports=0,
+                    control_LUT_and_timing_qualification=False,
+                ),
+                peak_bit_monitor_slots=len(self.monitor_tags),
+                peak_bit_monitor_tags=sorted(self.monitor_tags),
             )
         return cost
 
@@ -631,6 +694,7 @@ class SplineScoreFlow:
             emit,
             self.a.reuse_symbol_power,
             self.word_fabric is not None,
+            self.gauss_difference,
         )
         counts, peaks_bits, observed_bits = {}, {}, {}
         reads = 0

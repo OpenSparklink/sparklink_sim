@@ -56,6 +56,9 @@ jobs:
           uv run --frozen --no-sync ruff check scripts/model_raw_gate_join.py
           uv run --frozen --no-sync ruff check scripts/model_rank_serial.py
           uv run --frozen --no-sync ruff check scripts/model_coarse_ingress.py
+          uv run --frozen --no-sync ruff check scripts/model_spline_gauss.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_spline_gauss.py tests/test_spline_gauss.py tests/test_spline_gauss_model.py
+          PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_spline_gauss --help
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_coarse_ingress.py src/nearlink_sdr/sim/coarse_ingress.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_rank_serial.py src/nearlink_sdr/sim/rank_serial.py tests/test_rank_serial.py tests/test_rank_core.py tests/test_rank_serial_model.py tests/test_coarse_ingress.py tests/test_coarse_ingress_model.py
           uv run --frozen --no-sync ruff check scripts/model_scaled_maximum.py
@@ -347,6 +350,22 @@ jobs:
           test "$status" -eq 1
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/rrc-memory/model.json")); assert len(d["scenarios"]) == 23 and d["whole_system_accepted"] is False; assert d["original_budget_still_failed"]; assert all(r["port_candidate_valid"] for r in d["scenarios"] if r["mode"] == "quad"); assert any(not r["port_candidate_valid"] for r in d["scenarios"] if r["mode"] == "dual")'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/rrc-memory"); m=json.loads((p/"manifest.json").read_text()); assert len(m) == 27; assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in m.items()); d=json.loads((p/"model.json").read_text()); assert all(r["sha256"] == m[r["file"]] for r in d["scenarios"])'
+      - name: Verify exact Gauss conjugate difference and preserve resource boundaries
+        if: always()
+        run: |
+          status=0
+          PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_spline_gauss --output receiver-diagnostics/spline-gauss-development >spline-gauss-development.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python -c 'import json; m=json.load(open("receiver-diagnostics/spline-gauss-development/model.json")); assert len(m["streams"]) == 6 and m["all_semantic_values_exact"] and not m["whole_RX_accepted"] and not m["new_default"]'
+          eligible=$(uv run --frozen --no-sync python -c 'import json; print(int(json.load(open("receiver-diagnostics/spline-gauss-development/model.json"))["component_qualified"]))')
+          if [ "$eligible" = 1 ]; then
+            status=0
+            PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_spline_gauss --split validation --freeze receiver-diagnostics/spline-gauss-development/freeze.json --output receiver-diagnostics/spline-gauss-validation >spline-gauss-validation.log 2>&1 || status=$?
+            test "$status" -eq 1
+            uv run --frozen --no-sync python -c 'import json; m=json.load(open("receiver-diagnostics/spline-gauss-validation/model.json")); assert len(m["streams"]) == 6 and m["all_semantic_values_exact"] and not m["whole_RX_accepted"]'
+          else
+            uv run --frozen --no-sync python -c 'import json; from pathlib import Path; Path("receiver-diagnostics/spline-gauss-held-not-run.json").write_text(json.dumps(dict(reason="development rejected;held not evaluated",full_RX_accepted=False)))'
+          fi
       - name: Verify RRC release raw-flag coarse ingress and bounded EOF
         if: always()
         run: |
@@ -1546,6 +1565,7 @@ jobs:
             banked-scaled-*.log
             rank-serial-*.log
             coarse-ingress-*.log
+            spline-gauss-*.log
             spline-preparation.log
             spline-fixed.log
             spline-flow.log

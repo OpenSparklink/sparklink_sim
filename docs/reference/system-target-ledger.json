@@ -2418,5 +2418,52 @@
     ],
     "new_RF_gain_measured": false,
     "new_RF_held": false
+  },
+  "fine_gauss_difference": {
+    "status": "M23 frozen independent node validation qualified;generic fine engine full16MSps still rejected",
+    "baseline": "existing power reuse+defer-all-future+2ALU word fabric",
+    "old_and_new_native_tiles_per_complex_difference": [
+      8,
+      6
+    ],
+    "new_signed23_preadds": 3,
+    "incremental_live_intermediate_bits_per_phase": 207,
+    "incremental_word9_context_bits": 1863,
+    "incremental_research_cap_bits": 2048,
+    "word_facility_and_context_bits": [
+      20936,
+      22799
+    ],
+    "old_word_context_research_cap_bits": 24576,
+    "new_IQ_RAM_DSP_or_sample_ports": 0,
+    "no_old_slots_or_spare_subtracted": true,
+    "new_system_budget_approved": false,
+    "whole_RX16MSps": false,
+    "all_four_RX_gates_passed": false,
+    "actual_synthesis": false,
+    "development_windows_and_scored": [
+      24,
+      21
+    ],
+    "validation_windows_and_scored": [
+      24,
+      22
+    ],
+    "aggregate_saved_percent": [
+      4.065615125986611,
+      4.075250402132914
+    ],
+    "additional_integer_loss": 0,
+    "old_fixed16_defaults_exact": true,
+    "observed_validation_FT4_max_cycles": 108528,
+    "full_test_cases": [
+      5460,
+      5471
+    ],
+    "coverage": [
+      0.9383,
+      0.9382
+    ],
+    "new_RF_gain_measured": false
   }
 }

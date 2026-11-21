@@ -76,6 +76,7 @@ class CaptureFineWorker:
         reuse_symbol_power=False,
         defer_all_future=False,
         word_fabric=None,
+        gauss_difference=False,
     ):
         if not isinstance(template, SyncSignTemplate) or (len(template.words) + 1, window) not in (
             (32, 256),
@@ -96,6 +97,7 @@ class CaptureFineWorker:
                 defer_all_future=defer_all_future,
             ),
             word_fabric=word_fabric,
+            gauss_difference=gauss_difference,
         )
 
     def __call__(self, event, owned_words):

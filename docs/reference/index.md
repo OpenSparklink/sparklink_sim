@@ -146,6 +146,7 @@ banked-scaled-core
 q12-serial
 rrc-coarse-ingress
 released-capture
+spline-gauss-difference
 coverage-isolation
 rrc-memory
 spline-preparation
