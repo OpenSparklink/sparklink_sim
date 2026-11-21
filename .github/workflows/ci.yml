@@ -55,7 +55,9 @@ jobs:
           uv run --frozen --no-sync ruff check scripts/model_rrc_bridge.py
           uv run --frozen --no-sync ruff check scripts/model_raw_gate_join.py
           uv run --frozen --no-sync ruff check scripts/model_rank_serial.py
-          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_rank_serial.py src/nearlink_sdr/sim/rank_serial.py tests/test_rank_serial.py tests/test_rank_core.py tests/test_rank_serial_model.py
+          uv run --frozen --no-sync ruff check scripts/model_coarse_ingress.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_coarse_ingress.py src/nearlink_sdr/sim/coarse_ingress.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_rank_serial.py src/nearlink_sdr/sim/rank_serial.py tests/test_rank_serial.py tests/test_rank_core.py tests/test_rank_serial_model.py tests/test_coarse_ingress.py tests/test_coarse_ingress_model.py
           uv run --frozen --no-sync ruff check scripts/model_scaled_maximum.py
           uv run --frozen --no-sync ruff check scripts/model_banked_scaled.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 \
@@ -197,7 +199,7 @@ jobs:
           head=(tests/test_live_head_model.py tests/test_selected_history.py tests/test_psk_hard_flow.py tests/test_spline_power.py tests/test_selected_sync_fit.py tests/test_timing_radix4.py tests/test_data_joint_replay.py tests/test_timing_overlap_flow.py tests/test_power_ted_replay.py tests/test_timing_overlap_model.py tests/test_retained_stencil_model.py tests/test_feedback_timing_word.py tests/test_feedback_timing_replay.py tests/test_split_timing_flow.py)
           front=(tests/test_overlapped_normalization_replay.py tests/test_normalized_word_replay.py tests/test_normalization_overlap_model.py tests/test_pipelined_timing_replay.py tests/test_normalization_word.py tests/test_finite_timing_replay.py tests/test_timing_divider_prefix.py tests/test_timing_divider_model.py tests/test_selected_word.py tests/test_alignment_guard.py tests/test_receive_scope.py tests/test_rrc_pair_boundary.py tests/test_rrc_memory.py)
           handoff=(tests/test_initialized_frame_replay.py tests/test_head_word_replay.py)
-          word=(tests/test_spline_flow.py tests/test_timing_word_rx.py tests/test_selected_frame_replay.py tests/test_header_word_flow.py tests/test_rrc_pair_flow.py tests/test_carrier_numeric_validation.py tests/test_capture_fine.py tests/test_uniform_spline.py tests/test_header_word_standard.py tests/test_selected_rx.py tests/test_normalization_word_flow.py tests/test_timing_word_flow.py tests/test_score_word_runtime.py tests/test_acquisition_flow.py tests/test_acquisition_scaled.py tests/test_acquisition_bank.py tests/test_rank_serial.py tests/test_rank_core.py tests/test_rank_serial_model.py)
+          word=(tests/test_spline_flow.py tests/test_timing_word_rx.py tests/test_selected_frame_replay.py tests/test_header_word_flow.py tests/test_rrc_pair_flow.py tests/test_carrier_numeric_validation.py tests/test_capture_fine.py tests/test_uniform_spline.py tests/test_header_word_standard.py tests/test_selected_rx.py tests/test_normalization_word_flow.py tests/test_timing_word_flow.py tests/test_score_word_runtime.py tests/test_acquisition_flow.py tests/test_acquisition_scaled.py tests/test_acquisition_bank.py tests/test_rank_serial.py tests/test_rank_core.py tests/test_rank_serial_model.py tests/test_coarse_ingress.py tests/test_coarse_ingress_model.py)
           if [ "$SHARD" = core ]; then
             paths=(tests/)
             for path in "${rrc[@]}"; do paths+=("--ignore=$path"); done
@@ -345,6 +347,22 @@ jobs:
           test "$status" -eq 1
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/rrc-memory/model.json")); assert len(d["scenarios"]) == 23 and d["whole_system_accepted"] is False; assert d["original_budget_still_failed"]; assert all(r["port_candidate_valid"] for r in d["scenarios"] if r["mode"] == "quad"); assert any(not r["port_candidate_valid"] for r in d["scenarios"] if r["mode"] == "dual")'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/rrc-memory"); m=json.loads((p/"manifest.json").read_text()); assert len(m) == 27; assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in m.items()); d=json.loads((p/"model.json").read_text()); assert all(r["sha256"] == m[r["file"]] for r in d["scenarios"])'
+      - name: Verify RRC release raw-flag coarse ingress and bounded EOF
+        if: always()
+        run: |
+          status=0
+          PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_coarse_ingress --output receiver-diagnostics/coarse-ingress-development >coarse-ingress-development.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python -c 'import json; m=json.load(open("receiver-diagnostics/coarse-ingress-development/model.json")); assert len(m["calendars"]) == 21 and m["all_integer_and_accounting_exact"] and not m["all_four_RX_gates_passed"] and not m["new_default"]'
+          eligible=$(uv run --frozen --no-sync python -c 'import json; print(int(json.load(open("receiver-diagnostics/coarse-ingress-development/model.json"))["component_qualified"]))')
+          if [ "$eligible" = 1 ]; then
+            status=0
+            PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_coarse_ingress --split validation --freeze receiver-diagnostics/coarse-ingress-development/freeze.json --output receiver-diagnostics/coarse-ingress-validation >coarse-ingress-validation.log 2>&1 || status=$?
+            test "$status" -eq 1
+            uv run --frozen --no-sync python -c 'import json; m=json.load(open("receiver-diagnostics/coarse-ingress-validation/model.json")); assert len(m["calendars"]) == 21 and m["all_integer_and_accounting_exact"] and not m["all_four_RX_gates_passed"]'
+          else
+            uv run --frozen --no-sync python -c 'import json; from pathlib import Path; Path("receiver-diagnostics/coarse-ingress-held-not-run.json").write_text(json.dumps(dict(reason="development rejected;held not evaluated",full_RX_accepted=False)))'
+          fi
       - name: Compare exact serial Q12 normalization and preserve rejected throughput
         if: always()
         run: |
@@ -1527,6 +1545,7 @@ jobs:
             scaled-maximum-*.log
             banked-scaled-*.log
             rank-serial-*.log
+            coarse-ingress-*.log
             spline-preparation.log
             spline-fixed.log
             spline-flow.log
@@ -1590,7 +1609,7 @@ jobs:
       - name: Measure core coverage
         if: matrix.shard == 'core'
         run: |
-          COVERAGE_FILE=coverage-core.data uv run --frozen --no-sync pytest tests/ --ignore=tests/test_overlapped_normalization_replay.py --ignore=tests/test_normalized_word_replay.py --ignore=tests/test_normalization_overlap_model.py --ignore=tests/test_pipelined_timing_replay.py --ignore=tests/test_normalization_word.py --ignore=tests/test_finite_timing_replay.py --ignore=tests/test_timing_divider_prefix.py --ignore=tests/test_timing_divider_model.py --ignore=tests/test_stream_rrc_word.py --ignore=tests/test_selected_word.py --ignore=tests/test_alignment_guard.py --ignore=tests/test_receive_scope.py --ignore=tests/test_rrc_pair_boundary.py --ignore=tests/test_rrc_memory.py --ignore=tests/test_head_word_replay.py --ignore=tests/test_live_head_model.py --ignore=tests/test_selected_history.py --ignore=tests/test_psk_hard_flow.py --ignore=tests/test_spline_power.py --ignore=tests/test_selected_sync_fit.py --ignore=tests/test_timing_radix4.py --ignore=tests/test_data_joint_replay.py --ignore=tests/test_timing_overlap_flow.py --ignore=tests/test_power_ted_replay.py --ignore=tests/test_timing_overlap_model.py --ignore=tests/test_retained_stencil_replay.py --ignore=tests/test_retained_stencil_model.py --ignore=tests/test_feedback_timing_word.py --ignore=tests/test_feedback_timing_replay.py --ignore=tests/test_split_timing_flow.py --ignore=tests/test_split_sampling_replay.py --ignore=tests/test_packed_head_replay.py --ignore=tests/test_initialized_frame_replay.py --ignore=tests/test_spline_flow.py --ignore=tests/test_timing_word_rx.py --ignore=tests/test_selected_frame_replay.py --ignore=tests/test_header_word_flow.py --ignore=tests/test_rrc_pair_flow.py --ignore=tests/test_carrier_numeric_validation.py --ignore=tests/test_capture_fine.py --ignore=tests/test_uniform_spline.py --ignore=tests/test_header_word_standard.py --ignore=tests/test_selected_rx.py --ignore=tests/test_normalization_word_flow.py --ignore=tests/test_timing_word_flow.py --ignore=tests/test_score_word_runtime.py --ignore=tests/test_acquisition_flow.py --ignore=tests/test_acquisition_scaled.py --ignore=tests/test_acquisition_bank.py --ignore=tests/test_rank_serial.py --ignore=tests/test_rank_core.py --ignore=tests/test_rank_serial_model.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-core.xml --durations=20 >coverage-core.log 2>&1
+          COVERAGE_FILE=coverage-core.data uv run --frozen --no-sync pytest tests/ --ignore=tests/test_overlapped_normalization_replay.py --ignore=tests/test_normalized_word_replay.py --ignore=tests/test_normalization_overlap_model.py --ignore=tests/test_pipelined_timing_replay.py --ignore=tests/test_normalization_word.py --ignore=tests/test_finite_timing_replay.py --ignore=tests/test_timing_divider_prefix.py --ignore=tests/test_timing_divider_model.py --ignore=tests/test_stream_rrc_word.py --ignore=tests/test_selected_word.py --ignore=tests/test_alignment_guard.py --ignore=tests/test_receive_scope.py --ignore=tests/test_rrc_pair_boundary.py --ignore=tests/test_rrc_memory.py --ignore=tests/test_head_word_replay.py --ignore=tests/test_live_head_model.py --ignore=tests/test_selected_history.py --ignore=tests/test_psk_hard_flow.py --ignore=tests/test_spline_power.py --ignore=tests/test_selected_sync_fit.py --ignore=tests/test_timing_radix4.py --ignore=tests/test_data_joint_replay.py --ignore=tests/test_timing_overlap_flow.py --ignore=tests/test_power_ted_replay.py --ignore=tests/test_timing_overlap_model.py --ignore=tests/test_retained_stencil_replay.py --ignore=tests/test_retained_stencil_model.py --ignore=tests/test_feedback_timing_word.py --ignore=tests/test_feedback_timing_replay.py --ignore=tests/test_split_timing_flow.py --ignore=tests/test_split_sampling_replay.py --ignore=tests/test_packed_head_replay.py --ignore=tests/test_initialized_frame_replay.py --ignore=tests/test_spline_flow.py --ignore=tests/test_timing_word_rx.py --ignore=tests/test_selected_frame_replay.py --ignore=tests/test_header_word_flow.py --ignore=tests/test_rrc_pair_flow.py --ignore=tests/test_carrier_numeric_validation.py --ignore=tests/test_capture_fine.py --ignore=tests/test_uniform_spline.py --ignore=tests/test_header_word_standard.py --ignore=tests/test_selected_rx.py --ignore=tests/test_normalization_word_flow.py --ignore=tests/test_timing_word_flow.py --ignore=tests/test_score_word_runtime.py --ignore=tests/test_acquisition_flow.py --ignore=tests/test_acquisition_scaled.py --ignore=tests/test_acquisition_bank.py --ignore=tests/test_rank_serial.py --ignore=tests/test_rank_core.py --ignore=tests/test_rank_serial_model.py --ignore=tests/test_coarse_ingress.py --ignore=tests/test_coarse_ingress_model.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-core.xml --durations=20 >coverage-core.log 2>&1
       - name: Measure frontend coverage
         if: matrix.shard == 'front'
         run: |
@@ -1614,7 +1633,7 @@ jobs:
       - name: Measure word coverage
         if: matrix.shard == 'word'
         run: |
-          COVERAGE_FILE=coverage-word.data uv run --frozen --no-sync pytest tests/test_spline_flow.py tests/test_timing_word_rx.py tests/test_selected_frame_replay.py tests/test_header_word_flow.py tests/test_rrc_pair_flow.py tests/test_carrier_numeric_validation.py tests/test_capture_fine.py tests/test_uniform_spline.py tests/test_header_word_standard.py tests/test_selected_rx.py tests/test_normalization_word_flow.py tests/test_timing_word_flow.py tests/test_score_word_runtime.py tests/test_acquisition_flow.py tests/test_acquisition_scaled.py tests/test_acquisition_bank.py tests/test_rank_serial.py tests/test_rank_core.py tests/test_rank_serial_model.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-word.xml --durations=20 >coverage-word.log 2>&1
+          COVERAGE_FILE=coverage-word.data uv run --frozen --no-sync pytest tests/test_spline_flow.py tests/test_timing_word_rx.py tests/test_selected_frame_replay.py tests/test_header_word_flow.py tests/test_rrc_pair_flow.py tests/test_carrier_numeric_validation.py tests/test_capture_fine.py tests/test_uniform_spline.py tests/test_header_word_standard.py tests/test_selected_rx.py tests/test_normalization_word_flow.py tests/test_timing_word_flow.py tests/test_score_word_runtime.py tests/test_acquisition_flow.py tests/test_acquisition_scaled.py tests/test_acquisition_bank.py tests/test_rank_serial.py tests/test_rank_core.py tests/test_rank_serial_model.py tests/test_coarse_ingress.py tests/test_coarse_ingress_model.py --cov=nearlink_sdr --cov-report= --cov-fail-under=0 --junitxml=coverage-tests-word.xml --durations=20 >coverage-word.log 2>&1
       - uses: actions/upload-artifact@v4
         if: always()
         with:

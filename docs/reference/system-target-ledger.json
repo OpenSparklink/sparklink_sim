@@ -2314,5 +2314,69 @@
     "functional_RF_normal_full_each_split": "8/9;gain0;loss0;untimed context only",
     "unique_negative_samples": 147456,
     "continuous_full_chain_qualified": false
+  },
+  "coarse_ingress_composition": {
+    "status": "M21 frozen held component-qualified only for six preferred200MHz prefixes;actualCI pending",
+    "per_raw_or_notch_path": [
+      {
+        "frame_type": 2,
+        "control_bits": 1026,
+        "known_without_RRC_detector_logical_bits": 55435,
+        "known_without_RRC_detector_FF_upper": 25011,
+        "core_DSP": 12,
+        "RRC_dedicated_DSP": 8,
+        "core_BRAM36_sites": 2
+      },
+      {
+        "frame_type": 3,
+        "control_bits": 1026,
+        "known_without_RRC_detector_logical_bits": 70183,
+        "known_without_RRC_detector_FF_upper": 25411,
+        "core_DSP": 12,
+        "RRC_dedicated_DSP": 8,
+        "core_BRAM36_sites": 2
+      },
+      {
+        "frame_type": 4,
+        "control_bits": 1026,
+        "known_without_RRC_detector_logical_bits": 103829,
+        "known_without_RRC_detector_FF_upper": 30765,
+        "core_DSP": 12,
+        "RRC_dedicated_DSP": 8,
+        "core_BRAM36_sites": 2
+      }
+    ],
+    "new_control_research_register_cap_bits": 1536,
+    "known_dedicated_prefix_DSP_each": 20,
+    "no_proven_RRC_core_or_raw_notch_sharing": true,
+    "two_FT4_paths_known_FF_upper_without_RRC_detector": 61530,
+    "physical_memory_and_wrapper_timing_qualification": false,
+    "detector_fine_frame_decoder_cycles": null,
+    "whole_RX16MSps": false,
+    "whole_system_qualified": false,
+    "new_approved_system_budget": false,
+    "synthesis": false,
+    "normal_context_full_each_split": "6/7;gain0;loss0;untimed word-bank context only",
+    "source_word_prefix_samples": 3072,
+    "source_observation_seconds_each": 0.000192,
+    "development_and_held_calendar_cases": [
+      21,
+      21
+    ],
+    "resource_failures_each": [
+      15,
+      15
+    ],
+    "unique_negative_samples": 139264,
+    "negative_observation_seconds": 0.008704,
+    "current_timed_path": "raw only;notch concurrency unverified",
+    "raw_flag_nominal_peak": 5,
+    "difference_nominal_peak": 47,
+    "new_controller_coverage": 0.9783,
+    "full_test_coverage": [
+      0.9382,
+      0.9382
+    ],
+    "all_four_RX_gates_passed": false
   }
 }

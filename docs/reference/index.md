@@ -144,6 +144,7 @@ raw-energy-tag-join
 scaled-window-maximum
 banked-scaled-core
 q12-serial
+rrc-coarse-ingress
 coverage-isolation
 rrc-memory
 spline-preparation
