@@ -145,6 +145,7 @@ scaled-window-maximum
 banked-scaled-core
 q12-serial
 rrc-coarse-ingress
+released-capture
 coverage-isolation
 rrc-memory
 spline-preparation

@@ -14,7 +14,13 @@ from itertools import pairwise
 
 from nearlink_sdr.sim.capture_tail import CaptureTailReplay
 
-__all__ = ["CaptureRequest", "CaptureTransport", "CaptureTransportAssumptions", "FineService"]
+__all__ = [
+    "CaptureRequest",
+    "CaptureTransport",
+    "CaptureTransportAssumptions",
+    "FineService",
+    "ReleasedCaptureRequest",
+]
 
 
 @dataclass(frozen=True)
@@ -43,6 +49,22 @@ class CaptureRequest:
             or not 0 <= self.lookahead_ticks <= 32768
         ):
             raise ValueError("Need bounded capture request geometry")
+
+
+@dataclass(frozen=True, kw_only=True)
+class ReleasedCaptureRequest(CaptureRequest):
+    """Original source endpoint plus real candidate availability on this clock.
+
+    The endpoint never advances with a delayed response. This is an explicit
+    experimental transport port,not a new synchronization or retry strategy.
+    """
+
+    available_cycle: int
+
+    def __post_init__(self):
+        super().__post_init__()
+        if type(self.available_cycle) is not int or not 0 <= self.available_cycle < 2**60:
+            raise ValueError("Need bounded signed63 candidate availability")
 
 
 @dataclass(frozen=True)
@@ -136,7 +158,7 @@ class CaptureTransport:
         if not isinstance(self.a, CaptureTransportAssumptions):
             raise ValueError("Need CaptureTransportAssumptions")
 
-    def estimate(self, *, measured_worker=False):
+    def estimate(self, *, measured_worker=False, released_requests=False):
         """Concrete uniform primitive layouts, not a synthesized minimum.
 
         An SDP72x512 is distinct from a TDP36x1024. Widths include parity lanes.
@@ -145,6 +167,8 @@ class CaptureTransport:
         """
         if type(measured_worker) is not bool:
             raise ValueError("Need explicit measured-worker cost mode")
+        if type(released_requests) is not bool:
+            raise ValueError("Need explicit released-request cost mode")
         a = self.a
         lanes = 8 if a.mode == "copied8" else 2 if a.mode == "tdp2" else 1
         width, depth = (36, 1024) if a.mode == "tdp2" else (72, 512)
@@ -181,7 +205,12 @@ class CaptureTransport:
         )
         if measured_worker:
             registers.update(worker_join_and_retention_control=160, worker_statistics=11 * 64)
-        return dict(
+        if released_requests:
+            # One pending input descriptor,not another owned sample window.
+            # The release timestamp dies at admission;job arrival is already
+            # paid by the existing owned descriptor. Keep the original endpoint.
+            registers["released_request_port"] = 63 + 63 + 1 + 2 + 20 + 13 + 16 + 1 + 63
+        cost = dict(
             mode=a.mode,
             source_bram36=source_tiles,
             destination_bram36=destination_tiles,
@@ -219,9 +248,35 @@ class CaptureTransport:
                 "banks, decoder, TX, MAC and interface buffers"
             ),
         )
+        if released_requests:
+            cost["released_request_port"] = dict(
+                credits=1,
+                register_bits=registers["released_request_port"],
+                research_cap_bits=256,
+                source_window_end_bits=63,
+                available_cycle_bits=63,
+                last_available_cycle_bits=63,
+                geometry_path_and_valid_bits=53,
+                unsigned63_comparisons=2,
+                existing_request_counter_nonzero_test=True,
+                finite_input_horizon_and_source_readiness_preflight_only=True,
+                same_primitive_ports=True,
+                extra_IQ_RAM_or_DSP=0,
+                owned_descriptor_timestamp_duplicated=False,
+                physical_timing_verified=False,
+            )
+        return cost
 
     def simulate(
-        self, words, requests, *, stalls=(), sink=None, fine_worker=None, tail_replay=None
+        self,
+        words,
+        requests,
+        *,
+        stalls=(),
+        sink=None,
+        fine_worker=None,
+        tail_replay=None,
+        released_requests=False,
     ):
         """Stream fixed-width path tuples and sorted(after_sample_count,path).
 
@@ -233,6 +288,8 @@ class CaptureTransport:
         """
         if fine_worker is not None and not callable(fine_worker):
             raise ValueError("Need a callable bounded fine microtrace provider")
+        if type(released_requests) is not bool:
+            raise ValueError("Need explicit released-request mode")
         a = self.a
         if tail_replay is not None and (
             not isinstance(tail_replay, CaptureTailReplay)
@@ -270,6 +327,7 @@ class CaptureTransport:
         active, pipeline = None, []
         stream = iter(requests)
         pending, last_request, ident = next(stream, None), 0, 0
+        last_available = 0
         count = cycle = stall_index = 0
         stats = dict(
             requests=0,
@@ -426,6 +484,8 @@ class CaptureTransport:
                 stats["input_samples"] += 1
                 stats["input_writes"] += a.paths
             while pending is not None:
+                if isinstance(pending, ReleasedCaptureRequest) != released_requests:
+                    raise ValueError("Released descriptors require their explicit matching port")
                 geometry = pending if isinstance(pending, CaptureRequest) else None
                 requested, path = (
                     (geometry.after_samples, geometry.path) if geometry is not None else pending
@@ -438,7 +498,18 @@ class CaptureTransport:
                     or not 0 <= path < a.paths
                 ):
                     raise ValueError("Need sorted in-input request counts and actual path")
-                if requested > count:
+                if released_requests and (
+                    (ident > 0 and pending.available_cycle <= last_available)
+                    or pending.available_cycle
+                    < ((requested - 1) * a.clock_hz + a.input_hz - 1) // a.input_hz
+                    or pending.available_cycle
+                    > (n * a.clock_hz + a.input_hz - 1) // a.input_hz + tail
+                ):
+                    raise ValueError(
+                        "Need ordered release times,one per edge,with source already available "
+                        "inside the finite input/drain horizon"
+                    )
+                if requested > count or (released_requests and cycle < pending.available_cycle):
                     break
                 job = dict(id=ident, count=requested, path=path, arrival=cycle, next=0)
                 if geometry is not None:
@@ -448,11 +519,23 @@ class CaptureTransport:
                     ):
                         raise ValueError("Capture geometry exceeds the actual window")
                     if fine_worker is not None:
-                        job["geometry"] = geometry
+                        job["geometry"] = (
+                            CaptureRequest(
+                                requested,
+                                path,
+                                geometry.peaks,
+                                geometry.minimum_tick,
+                                geometry.lookahead_ticks,
+                            )
+                            if released_requests
+                            else geometry
+                        )
                 if ident >= 2**63:
                     raise OverflowError("Signed64 request counter exhausted")
                 ident += 1
                 last_request = requested
+                if released_requests:
+                    last_available = pending.available_cycle
                 stats["requests"] += 1
                 if requested < a.window:
                     stats["startup_drops"] += 1
@@ -557,6 +640,13 @@ class CaptureTransport:
             closed_loop_capture_verified=False,
             whole_system_accepted=False,
         )
+        if released_requests:
+            result.update(
+                released_request_port=True,
+                pending_request_capacity=1,
+                original_source_window_end_preserved=True,
+                RRC_release_arrivals_and_coarse_owner_integrated=False,
+            )
         if fine_worker is not None:
             result.update(
                 worker_results=worker_stats,

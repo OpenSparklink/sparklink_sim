@@ -2378,5 +2378,45 @@
       0.9382
     ],
     "all_four_RX_gates_passed": false
+  },
+  "released_capture_port": {
+    "status": "M22 local exact transport tests and27legacy calendars passed;actualCI pending",
+    "new_port_register_bits": 242,
+    "research_cap_bits": 256,
+    "pending_descriptor_credit": 1,
+    "actual_input_request_max_per_edge": 1,
+    "new_IQ_RAM_DSP_or_memory_ports": 0,
+    "legacy_transport_BRAM36_research_cap": 12,
+    "source_snapshot_end_must_not_follow_latest_arrival": true,
+    "observed_old_fixed_regression_query_extra_RRC_samples": [
+      14,
+      16
+    ],
+    "old_single_fine_cycles_by_FT": {
+      "2": 63759,
+      "3": 117738,
+      "4": 230418
+    },
+    "dedicated_fine_service_unknowns": [
+      "coherent confirmation",
+      "fine and packet replay owner arbitration",
+      "RRC nonuniform output pulses"
+    ],
+    "fine_service_alone_16MSps_qualified": false,
+    "new_system_budget_approved": false,
+    "all_four_RX_gates_passed": false,
+    "synthesis": false,
+    "new_unit_cases": 28,
+    "targeted_cases": 104,
+    "full_test_cases": [
+      5439,
+      5450
+    ],
+    "full_test_coverage": [
+      0.9382,
+      0.9383
+    ],
+    "new_RF_gain_measured": false,
+    "new_RF_held": false
   }
 }
