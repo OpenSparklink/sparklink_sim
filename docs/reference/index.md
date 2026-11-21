@@ -140,6 +140,7 @@ split-sampling-integration
 packed-head-retention
 initialized-frame-input
 rrc-scaled-bridge
+raw-energy-tag-join
 coverage-isolation
 rrc-memory
 spline-preparation

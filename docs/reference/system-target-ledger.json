@@ -190,6 +190,45 @@
         "LUT_FF_Fmax": null,
         "synthesis": false,
         "whole_RX16MSps": false
+      },
+      "partial_raw_gate_join": {
+        "reference": "raw-energy-tag-join.md",
+        "placement": "FPGA candidate;Python finite-state/clock model only",
+        "extra_register_bits_by_FT2_3_4": [
+          997,
+          997,
+          998
+        ],
+        "included_counter_bits": 512,
+        "existing_bridge_bits": 842,
+        "combined_bridge_join_bits_by_profile": [
+          1839,
+          1839,
+          1840
+        ],
+        "new_DSP": 0,
+        "new_BRAM": 0,
+        "new_IQ_contexts": 0,
+        "flag_FIFO": {
+          "depth": 16,
+          "payload_bits": 1,
+          "writes_per_edge": 1,
+          "registered_reads_per_edge": 1
+        },
+        "trigger_age_bits": [
+          9,
+          9,
+          10
+        ],
+        "composed_bridge_II": 5,
+        "raw_detector_arithmetic_cost": null,
+        "scaled_bank_cycle_cost": null,
+        "counter_adders64_upper": 8,
+        "LUT_FF_Fmax": null,
+        "full_detector_or_frontend_budget_approved": false,
+        "synthesis": false,
+        "old_ring_FT4_1620bit_failure_preserved": true,
+        "whole16MSps": false
       }
     },
     {

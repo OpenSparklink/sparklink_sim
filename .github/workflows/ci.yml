@@ -53,6 +53,8 @@ jobs:
           uv run --frozen --no-sync ruff check scripts/model_timing_overlap.py
           uv run --frozen --no-sync ruff check scripts/model_retained_stencil.py
           uv run --frozen --no-sync ruff check scripts/model_rrc_bridge.py
+          uv run --frozen --no-sync ruff check scripts/model_raw_gate_join.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_raw_gate_join.py src/nearlink_sdr/sim/raw_gate_join.py tests/test_raw_gate_join.py tests/test_raw_gate_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_rrc_bridge.py src/nearlink_sdr/phy/rrc_bridge.py src/nearlink_sdr/sim/rrc_bridge_flow.py tests/test_rrc_bridge.py tests/test_rrc_bridge_flow.py tests/test_stream_rrc_bridge.py tests/test_rrc_bridge_model.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 src/nearlink_sdr/sim/feedback_timing_word.py src/nearlink_sdr/sim/feedback_timing_replay.py src/nearlink_sdr/sim/split_timing_flow.py src/nearlink_sdr/sim/split_sampling_replay.py src/nearlink_sdr/sim/packed_head_replay.py src/nearlink_sdr/sim/initialized_frame_replay.py tests/test_feedback_timing_word.py tests/test_feedback_timing_replay.py tests/test_split_timing_flow.py tests/test_split_sampling_replay.py tests/test_packed_head_replay.py tests/test_initialized_frame_replay.py tests/split_calendar.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_retained_stencil.py src/nearlink_sdr/sim/retained_stencil_replay.py tests/stencil_reference.py tests/test_retained_stencil_replay.py tests/test_retained_stencil_model.py
@@ -329,6 +331,42 @@ jobs:
           test "$status" -eq 1
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/rrc-memory/model.json")); assert len(d["scenarios"]) == 23 and d["whole_system_accepted"] is False; assert d["original_budget_still_failed"]; assert all(r["port_candidate_valid"] for r in d["scenarios"] if r["mode"] == "quad"); assert any(not r["port_candidate_valid"] for r in d["scenarios"] if r["mode"] == "dual")'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/rrc-memory"); m=json.loads((p/"manifest.json").read_text()); assert len(m) == 27; assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in m.items()); d=json.loads((p/"model.json").read_text()); assert all(r["sha256"] == m[r["file"]] for r in d["scenarios"])'
+      - name: Verify bounded raw flag word alignment and preserve resource failures
+        if: always()
+        run: |
+          status=0
+          PYTHONPATH=src:scripts uv run --frozen --no-sync python -m scripts.model_raw_gate_join --output receiver-diagnostics/raw-gate-development >raw-gate-development.log 2>&1 || status=$?
+          test "$status" -eq 1
+          status=0
+          PYTHONPATH=src:scripts uv run --frozen --no-sync python -m scripts.model_raw_gate_join --split validation --freeze receiver-diagnostics/raw-gate-development/freeze.json --output receiver-diagnostics/raw-gate-validation >raw-gate-validation.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python - <<'PYCODE'
+          import hashlib, json
+          from pathlib import Path
+          for split in ("development", "validation"):
+              p = Path("receiver-diagnostics/raw-gate-" + split)
+              d = json.loads((p / "model.json").read_text())
+              assert d["exact_word_flag_and_query_prefixes"]
+              assert not d["main_RX_default_changed"] and not d["four_RX_gates_passed"]
+              assert not d["new_RF_holdout"] and len(d["value_cases"]) == 8
+              assert [r["register_bits_upper"] for r in d["costs"]] == [997, 997, 998]
+              assert [r["full_history_counterfactual_bits"] for r in d["costs"]] == [1244, 1364, 1620]
+              assert all(r["node_research_register_budget_pass"] for r in d["costs"])
+              assert all(r["absolute_quantization_budget_pass"] is None for r in d["value_cases"])
+              assert all(r["result"]["continuous_alignment_pass"] for r in d["value_cases"])
+              for r in d["value_cases"]:
+                  f = p / ("value-" + str(r["id"]) + ".npz")
+                  assert hashlib.sha256(f.read_bytes()).hexdigest() == r["artifact_SHA256"]
+              assert hashlib.sha256((p / "calendar-input.npz").read_bytes()).hexdigest() == d["calendar_artifact_SHA256"]
+              assert len(d["calendars"]) == 12
+              assert sum(not r["continuous_alignment_pass"] for r in d["calendars"]) == 11
+              for r in d["calendars"]:
+                  assert r["peak_flag_FIFO"] <= 16
+                  assert r["functional_sink_off_clock"] and r["scaled_bank_cycles"] is None
+                  assert r["raw_detector_arithmetic_cycles"] is None
+                  assert r["capture_header_payload_MAC"] is None
+                  assert r["join_stats"]["flags_accepted"] + r["join_stats"]["flags_discarded"] == 1024
+          PYCODE
       - name: Verify integer RRC scaled-word bridge and retain range and resource failures
         if: always()
         run: |
@@ -1374,6 +1412,7 @@ jobs:
             capture-transport.log
             rrc-memory.log
             rrc-scaled-bridge-*.log
+            raw-gate-*.log
             spline-preparation.log
             spline-fixed.log
             spline-flow.log

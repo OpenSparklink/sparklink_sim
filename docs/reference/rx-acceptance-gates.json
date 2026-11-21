@@ -222,5 +222,35 @@
     "default_float_unchanged": true,
     "new_RF_gain_measured": false,
     "all_four_gates_passed": false
+  },
+  "raw_gate_word_alignment": {
+    "reference": "raw-energy-tag-join.md",
+    "scope": "explicit compiled ordinaryFT2/3/4 SPS4;RRC word and supplied raw Boolean flags,not full detector",
+    "registered_read_edges": 1,
+    "FIFO_flags": 16,
+    "window_samples": [
+      256,
+      376,
+      632
+    ],
+    "register_bits_by_profile": [
+      997,
+      997,
+      998
+    ],
+    "old_ring_bits": [
+      1244,
+      1364,
+      1620
+    ],
+    "old_ring_FT4_research_failure_preserved": true,
+    "research_budget_bits": 1536,
+    "budget_widened": false,
+    "actual_raw_detector_arithmetic_and_quantization": null,
+    "actual_scaled_bank_cycles": null,
+    "composed_bridge_II": 5,
+    "new_RF_holdout": false,
+    "main_RX_default_changed": false,
+    "four_gates_passed": false
   }
 }
