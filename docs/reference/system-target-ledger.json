@@ -2577,5 +2577,48 @@
     ],
     "new_source_coverage": 0.9318,
     "all_four_RX_acceptance": false
+  },
+  "captured_legal_frame_owner": {
+    "reference": "captured-legal-frame-owner.md",
+    "stage": "M26 explicit experimental functional composition",
+    "selected_scalar_register_bits": 563,
+    "ordered_service_state_bits": 127,
+    "frame_owner_register_bits": 1090,
+    "frame_transport_register_bits": 386,
+    "total_additional_control_bits": 2166,
+    "preimplementation_control_cap_bits": 4096,
+    "selected_sync_logical_bits": 5632,
+    "selected_cache_BRAM36": 1,
+    "selected_cache_port": "one registered read and one write;72x512 SDP estimate",
+    "private_full_tail_banks": 0,
+    "source_history_points": 4096,
+    "owned_windows": 3,
+    "raw_float_consumer_history_points": 512,
+    "host_numpy_mirror_copies": 2,
+    "persistent_numpy_plus_cache_cap_bytes": 524288,
+    "float_consumer_hardware_LUT_FF_DSP_RAM_ports": null,
+    "confirmation_head_carrier_decoder_cycles": null,
+    "source_TDP_operations_per_edge_cap": 2,
+    "shared_source_priority": "ADC write then frame read then remaining window copy lane",
+    "arithmetic_execution": "explicit off-clock functional resolution;optimistic transport calendar",
+    "full_calendar_valid": false,
+    "full_16MSps": false,
+    "full_system_resource_qualification": false,
+    "old_16KiB_and_numeric_failures_preserved": true,
+    "actual_synthesis": false,
+    "default_changed": false,
+    "frozen_results": {
+      "development_full": "6/6",
+      "independent_full": "5/6",
+      "independent_bit_errors": "1/3984",
+      "max_host_preallocated_root_bytes_plus_cache": [
+        410352,
+        451352
+      ],
+      "negative_samples_each": 16384,
+      "old_default_M25_copied_inputs_exact_both": true,
+      "timing_truth_metric_qualified": false,
+      "truth_coordinate_diagnostic_failure_preserved": true
+    }
   }
 }

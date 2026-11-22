@@ -10,7 +10,8 @@
         "capture-slot/history producer and full live/multipacket arithmetic service scheduling",
         "FT1/GFSK complete arbitrary-block path",
         "target support matrix closure",
-        "raw history/source ownership through payload barrier and next capture not yet closed"
+        "raw history/source ownership through payload barrier and next capture not yet closed",
+        "M26 actual selected capture→real head/legal tail/MAC functional only;FT3/4 short captures can drain after EOF,dense resource losses remain;not all target configurations or continuous arithmetic service closed"
       ]
     },
     "full_fixed_point": {
@@ -281,6 +282,31 @@
     "system_resource_qualified": false,
     "full16MSps": false,
     "FT1_gap_unchanged": true,
+    "old_numeric_and_resource_failures_preserved": true
+  },
+  "captured_legal_frame_owner": {
+    "reference": "captured-legal-frame-owner.md",
+    "selected_candidate_real_header_legal_tail_MAC_functional": true,
+    "ordinary_only": true,
+    "frame_types": [
+      2,
+      3,
+      4
+    ],
+    "MCS": [
+      8,
+      12
+    ],
+    "symbol_MHz": 4,
+    "SPS": 4,
+    "compiled_selected_cache_BRAM36": 1,
+    "additional_control_bits": 2166,
+    "private_full_tail_banks": 0,
+    "full_streaming_gate_passed": false,
+    "full_fixed_point_gate_passed": false,
+    "whole_system_resources_gate_passed": false,
+    "continuous16MSps_gate_passed": false,
+    "remaining_cycles": null,
     "old_numeric_and_resource_failures_preserved": true
   }
 }

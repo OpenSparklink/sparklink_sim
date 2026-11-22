@@ -278,6 +278,7 @@ class CaptureTransport:
         tail_replay=None,
         released_requests=False,
         source_owner=None,
+        frame_replay=None,
     ):
         """Stream fixed-width path tuples and sorted(after_sample_count,path).
 
@@ -302,6 +303,20 @@ class CaptureTransport:
                 raise ValueError(
                     "Need fresh matched one-path live coarse source and no static data"
                 )
+        if frame_replay is not None:
+            from nearlink_sdr.sim.capture_fine import CaptureFineWorker
+            from nearlink_sdr.sim.capture_frame import CapturedFrameReplay
+            from nearlink_sdr.sim.spline_score import SyncSignTemplate
+
+            if (not isinstance(frame_replay, CapturedFrameReplay) or frame_replay.active
+                    or frame_replay.cycle != -1 or source_owner is None or tail_replay is not None
+                    or a.paths != 1 or a.mode != "tdp2"
+                    or not isinstance(fine_worker, CaptureFineWorker)
+                    or not fine_worker.capture_selection or fine_worker._selection is not None
+                    or fine_worker.template != SyncSignTemplate.from_symbols(
+                        frame_replay.profile.sync_symbols())):
+                raise ValueError(
+                    "Need fresh matched live source,selected cache and one frame owner")
         if tail_replay is not None and (
             not isinstance(tail_replay, CaptureTailReplay)
             or tail_replay.a.owned != a.owned
@@ -355,6 +370,9 @@ class CaptureTransport:
             completed_while_blocked=0,
             peak_owned=0,
         )
+        if frame_replay is not None:
+            stats.update(frame_prefix_reads=0, frame_source_reads=0, frame_terminal=0,
+                         frame_payloads=0, frame_resource_drops=0, frame_overlap_retired=0)
         source_pulse, source_epoch_aborted = None, False
         if source_owner is not None:
             stats.update(source_epoch_drops=0, source_invalid_pulses=0, source_gap_samples=0)
@@ -430,6 +448,10 @@ class CaptureTransport:
                     replay_owns_raw_until_release=True,
                     complete_frame_or_MAC_verified=False,
                 )
+            if frame_replay is not None and "frame_outcome" in job:
+                outcome, mac = job["frame_outcome"]
+                event.update(strict_frame=outcome, MAC_packets=mac.packets,
+                             complete_latency_cycles=None, complete_cycle_evidence_valid=False)
             if sink is not None:
                 sink(event, data)
 
@@ -447,8 +469,17 @@ class CaptureTransport:
                         live[active["id"]] = active
                     for job, _, _ in pipeline:
                         live[job["id"]] = job
+                    if frame_replay is not None:
+                        if frame_replay.active:
+                            frame_replay.abort("source_epoch_aborted", cycle)
+                            active["frame_outcome"] = frame_replay.take()
+                            stats["frame_terminal"] += 1
+                            stats["frame_resource_drops"] += 1
+                        fine_worker.cancel_selection()
                     for job in live.values():
                         notify(job, "source_epoch_aborted")
+                    if frame_replay is not None and frame_replay.active:
+                        frame_replay.release()
                     stats["source_epoch_drops"] += len(live)
                     copying.clear()
                     ready.clear()
@@ -461,7 +492,28 @@ class CaptureTransport:
                 stall_index < len(stalls)
                 and stalls[stall_index][0] <= cycle < stalls[stall_index][1]
             )
+            if frame_replay is not None and frame_replay.active:
+                frame_replay.tick(cycle, blocked=blocked)
             if active is not None and cycle >= active["finish"]:
+                frame_needed = (frame_replay is not None and active["service"].disposition in
+                                ("ready", "confirm_pending"))
+                if frame_needed and not blocked:
+                    if not active.get("frame_started"):
+                        selection = fine_worker.take_selection(active["id"], cycle)
+                        if selection is None:
+                            raise RuntimeError("Actual fine selection cache was not delivered")
+                        frame_replay.begin(selection, cycle)
+                        active["frame_started"] = True
+                    if frame_replay.done:
+                        active["frame_outcome"] = frame_replay.take()
+                        outcome, mac = active["frame_outcome"]
+                        stats["frame_terminal"] += 1
+                        stats["frame_payloads"] += len(mac.packets)
+                        status = outcome["frame"]["status"]
+                        stats["frame_resource_drops"] += int(status in (
+                            "tail_history_expired", "history_overflow", "retention_limit"))
+                        stats["frame_overlap_retired"] += int(status == "source_already_consumed")
+                        frame_replay.release()
                 replay_needed = tail_replay is not None and active["service"].disposition in (
                     "ready",
                     "confirm_pending",
@@ -474,7 +526,9 @@ class CaptureTransport:
                     ):
                         tail_replay.begin(active["slot"], slots[active["slot"]], cycle)
                         active["replay_started"] = cycle
-                elif not blocked:
+                elif not blocked and (not frame_needed or "frame_outcome" in active):
+                    if frame_replay is not None and not frame_needed:
+                        fine_worker.take_selection(active["id"], cycle)
                     stats["completed"] += 1
                     max_latency = max(max_latency, cycle - active["arrival"])
                     notify(active, "completed", slots[active["slot"]])
@@ -609,16 +663,12 @@ class CaptureTransport:
                 active = ready.popleft()
                 service_cycles = a.fine_service_cycles
                 if fine_worker is not None:
-                    service = fine_worker(
-                        dict(
-                            id=active["id"],
-                            after_samples=active["count"],
-                            path=active["path"],
-                            window_samples=a.window,
-                            geometry=active.get("geometry"),
-                        ),
-                        slots[active["slot"]],
-                    )
+                    descriptor = dict(
+                        id=active["id"], after_samples=active["count"], path=active["path"],
+                        window_samples=a.window, geometry=active.get("geometry"))
+                    if frame_replay is not None:
+                        descriptor["service_start_cycle"] = cycle
+                    service = fine_worker(descriptor, slots[active["slot"]])
                     if not isinstance(service, FineService):
                         raise ValueError("Fine worker must return a bounded FineService")
                     if service.start_tick is not None and service.start_tick >= 8 * a.window:
@@ -626,10 +676,33 @@ class CaptureTransport:
                     active["service"] = service
                     service_cycles = service.cycles
                 active["finish"] = cycle + service_cycles
+            frame_source_read = 0
+            if (frame_replay is not None and active is not None and active.get("frame_started")
+                    and frame_replay.needs_word and not blocked):
+                index = frame_replay.source_index
+                if index < active["count"]:
+                    local = index-(active["count"]-a.window)
+                    if not 0 <= local < a.window:
+                        raise RuntimeError("Frame prefix is outside its borrowed owned window")
+                    frame_replay.issue_read(index, slots[active["slot"]][local], cycle)
+                    stats["frame_prefix_reads"] += 1
+                elif index < count:
+                    if index < count-a.history:
+                        frame_replay.abort("tail_history_expired", cycle)
+                    elif input_write and index % a.history == (count-1) % a.history:
+                        read_write_deferrals += 1
+                    else:
+                        frame_replay.issue_read(index, source[active["path"]][index % a.history],
+                                                cycle)
+                        stats["frame_source_reads"] += 1
+                        frame_source_read = 1
+                elif source_owner.done:
+                    frame_replay.end_input(cycle)
             if copying:
                 job = copying[0]
                 lanes = (
-                    8 if a.mode == "copied8" else (2 - int(input_write) if a.mode == "tdp2" else 1)
+                    8 if a.mode == "copied8" else
+                    (2-int(input_write)-frame_source_read if a.mode == "tdp2" else 1)
                 )
                 for _ in range(lanes):
                     index = job["count"] - a.window + job["next"]
@@ -654,7 +727,8 @@ class CaptureTransport:
                         copying.popleft()
                         break
             reads_per_copy = int(bool(pipeline)) if a.mode == "copied8" else len(pipeline)
-            peak_source_ports = max(peak_source_ports, reads_per_copy + int(input_write))
+            peak_source_ports = max(
+                peak_source_ports, reads_per_copy+frame_source_read+int(input_write))
             assert peak_source_ports <= 2 and peak_destination_ports <= (
                 2 if a.mode == "tdp2" else 1
             )
@@ -718,6 +792,21 @@ class CaptureTransport:
                 no_later_source_window_substitution=True,
                 carrier_frame_and_decoder_cycles=None,
             )
+        if frame_replay is not None:
+            assert not frame_replay.active and fine_worker._selection is None
+            result.update(
+                frame_replay_statistics=dict(frame_replay.stats),
+                frame_replay_cost=frame_replay.estimate(),
+                selected_cache_cost=fine_worker.estimate()["selected_output_port"],
+                frame_transport_control_bits=2+6*64,
+                strict_frame_path_integrated=True, no_private_full_tail_banks=True,
+                frame_raw_prefix_and_shared_source_ports_scheduled=True,
+                complete_cycle_evidence_valid=False, complete_latency_cycles=None,
+                known_transport_max_latency_edges=max_latency, max_latency_cycles=None,
+                functional_calendar_is_optimistic_not_full_ADC_service_proof=True,
+                confirmation_head_carrier_decoder_service_cycles=None,
+                actual_fine_prefix_cycles_preserved=True,
+                subsequent_functional_resolutions_are_not_zero_cycle_evidence=True)
         if fine_worker is not None:
             result.update(
                 worker_results=worker_stats,

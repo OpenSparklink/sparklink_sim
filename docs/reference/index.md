@@ -149,6 +149,7 @@ released-capture
 spline-gauss-difference
 fine-symbol-pipeline
 rrc-coarse-capture
+captured-legal-frame-owner
 coverage-isolation
 rrc-memory
 spline-preparation

@@ -11,6 +11,7 @@ import operator
 import numpy as np
 
 from nearlink_sdr.sim.capture_transport import CaptureRequest, FineService
+from nearlink_sdr.sim.fine_selection import FineSelection
 from nearlink_sdr.sim.spline_score import (
     SplineScoreAssumptions,
     SplineScoreFlow,
@@ -78,6 +79,7 @@ class CaptureFineWorker:
         word_fabric=None,
         gauss_difference=False,
         symbol_pipeline=False,
+        capture_selection=False,
     ):
         if not isinstance(template, SyncSignTemplate) or (len(template.words) + 1, window) not in (
             (32, 256),
@@ -89,6 +91,10 @@ class CaptureFineWorker:
             raise ValueError("Need a host diagnostic sink")
         if type(confirmation_required) is not bool:
             raise ValueError("Need explicit confirmation-required mode")
+        if type(capture_selection) is not bool:
+            raise ValueError("Need explicit bounded selected-sync port")
+        self.capture_selection, self._selection = capture_selection, None
+        self._last_selected_request, self._next_selected_start = -1, 0
         self.template, self.window, self.sink = template, window, sink
         self.confirmation_required = confirmation_required
         self.engine = SplineScoreFlow(
@@ -112,6 +118,25 @@ class CaptureFineWorker:
             or event["path"] != request.path
         ):
             raise ValueError("Need the same admitted bounded request and owned source image")
+        if self.capture_selection and (
+            self._selection is not None or type(event.get("service_start_cycle")) is not int
+            or not 0 <= event["service_start_cycle"] < 2**60
+        ):
+            raise ValueError("Selected cache is held or actual fine start clock is missing")
+        if self.capture_selection and (
+            type(event.get("id")) is not int
+            or not self._last_selected_request < event["id"] < 2**63
+            or event["service_start_cycle"] < self._next_selected_start
+        ):
+            raise ValueError("Selected request identity or service clock was reused or reordered")
+        selected = []
+
+        def capture(row):
+            if row["event"] == "selected_sample":
+                if row["symbol"] != len(selected) or len(selected) >= 128:
+                    raise RuntimeError("Selected sync replay exceeded its ordered bounded cache")
+                selected.append(tuple(row["word"]))
+
         words = [unpack_filter_word(w) for w in owned_words]
         result = self.engine.run(
             words,
@@ -119,6 +144,7 @@ class CaptureFineWorker:
             request.peaks,
             minimum_tick=request.minimum_tick,
             lookahead_ticks=request.lookahead_ticks,
+            sink=capture if self.capture_selection else None,
         )
         if self.sink is not None:
             self.sink(event, result)
@@ -142,11 +168,37 @@ class CaptureFineWorker:
                 if best["threshold_pass"]
                 else "below_threshold"
             )
+        if self.capture_selection:
+            self._last_selected_request = event["id"]
+            self._next_selected_start = event["service_start_cycle"]+result["cycles"]
+        if self.capture_selection and best is not None:
+            self._selection = FineSelection(
+                event["id"], event["after_samples"], self.window,
+                event["service_start_cycle"]+result["cycles"], best["start_tick"],
+                result["common_exponent"], tuple(selected), tuple(best["correlation"]),
+                best["numerator"], best["energy"], self.template.energy)
         return FineService(result["cycles"], disposition, tick)
+
+    def take_selection(self, ident, cycle):
+        if not self.capture_selection:
+            raise RuntimeError("No selected cache was compiled")
+        value = self._selection
+        if value is None:
+            return None
+        if (type(ident) is not int or ident != value.ident or type(cycle) is not int
+                or cycle < value.available_cycle):
+            raise ValueError("Selected cache belongs to another ID or a future result")
+        self._selection = None
+        return value
+
+    def cancel_selection(self):
+        if not self.capture_selection:
+            raise RuntimeError("No selected cache was compiled")
+        self._selection = None
 
     def estimate(self):
         cost = self.engine.estimate()
-        return dict(
+        result = dict(
             fine=cost,
             raw_source_is_same_owned_slot=True,
             raw_read_ports=1,
@@ -173,3 +225,8 @@ class CaptureFineWorker:
             complete_receiver_verified=False,
             actual_synthesis_or_timing=False,
         )
+        if self.capture_selection:
+            result["selected_output_port"] = FineSelection.estimate() | dict(
+                ordered_request_state_bits=63+63+1,
+                strictly_increasing_IDs_and_nonoverlapping_services=True)
+        return result
