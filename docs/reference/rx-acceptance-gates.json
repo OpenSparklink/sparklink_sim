@@ -321,5 +321,32 @@
     "full_RX_gate_passed": false,
     "observed_max_absolute_timing_samples": 0.13604192301318108,
     "timing_performance_budget_newly_qualified": false
+  },
+  "pre_fine_retirement_gate": {
+    "stage": "M28 experimental",
+    "reference": "pre-fine-retirement.md",
+    "selected_start_before_original_window_end_bound": true,
+    "additional_control_bits": 66,
+    "old_numeric_and_resource_failures_preserved": true,
+    "unknown_complete_arithmetic_cycles": null,
+    "all_four_RX_gates_passed": false,
+    "experimental_adoption_rules_met": true,
+    "new_default": false,
+    "development_complete": [
+      8,
+      9,
+      12
+    ],
+    "new_validation_complete": [
+      5,
+      6,
+      12
+    ],
+    "original_success_losses": 0,
+    "negative_samples_per_split": 32768,
+    "negative_false_MAC": 0,
+    "new_validation_remaining_failed": 6,
+    "strict_cross_backend_all_JSON_passed": false,
+    "strict_backend_label_failure_preserved": true
   }
 }

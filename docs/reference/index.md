@@ -150,6 +150,7 @@ spline-gauss-difference
 fine-symbol-pipeline
 rrc-coarse-capture
 captured-legal-frame-owner
+pre-fine-retirement
 coverage-isolation
 rrc-memory
 spline-preparation

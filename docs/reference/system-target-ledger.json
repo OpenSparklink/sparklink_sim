@@ -2620,5 +2620,45 @@
       "timing_truth_metric_qualified": false,
       "truth_coordinate_diagnostic_failure_preserved": true
     }
+  },
+  "pre_fine_retirement_gate": {
+    "stage": "M28 explicit research candidate",
+    "reference": "pre-fine-retirement.md",
+    "additional_control_bits": 66,
+    "preimplementation_cap_bits": 128,
+    "unsigned_comparator_bits": 63,
+    "metadata_register_operands": 2,
+    "counter_addition_bits": 64,
+    "registered_check_cycles": 1,
+    "check_II": 1,
+    "existing_descriptor_finish_and_retired_frontier_reused": true,
+    "source_history": 4096,
+    "owned_windows": 3,
+    "extra_IQ_RAM_DSP_or_sample_ports": 0,
+    "source_TDP_peak_limit": 2,
+    "frame_confirmation_carrier_decode_cycles": null,
+    "actual_Fmax_LUT_FF_or_synthesis": null,
+    "full_fixed_or16MSps": false,
+    "old16KiB_and_numeric_failures_retained": true,
+    "default_enabled": false,
+    "experimental_adoption_rules_met": true,
+    "new_default": false,
+    "development_complete": [
+      8,
+      9,
+      12
+    ],
+    "new_validation_complete": [
+      5,
+      6,
+      12
+    ],
+    "original_success_losses": 0,
+    "negative_samples_per_split": 32768,
+    "negative_false_MAC": 0,
+    "new_validation_remaining_failed": 6,
+    "all_four_RX_gates_passed": false,
+    "strict_cross_backend_all_JSON_passed": false,
+    "strict_backend_label_failure_preserved": true
   }
 }

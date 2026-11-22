@@ -158,7 +158,9 @@ class CaptureTransport:
         if not isinstance(self.a, CaptureTransportAssumptions):
             raise ValueError("Need CaptureTransportAssumptions")
 
-    def estimate(self, *, measured_worker=False, released_requests=False):
+    def estimate(
+        self, *, measured_worker=False, released_requests=False, retire_before_fine=False
+    ):
         """Concrete uniform primitive layouts, not a synthesized minimum.
 
         An SDP72x512 is distinct from a TDP36x1024. Widths include parity lanes.
@@ -170,6 +172,11 @@ class CaptureTransport:
         if type(released_requests) is not bool:
             raise ValueError("Need explicit released-request cost mode")
         a = self.a
+        if type(retire_before_fine) is not bool or (retire_before_fine and (
+            not measured_worker or not released_requests or a.paths != 1
+            or a.mode != "tdp2" or a.word_bits != 46
+        )):
+            raise ValueError("Need explicit compatible actual frame retirement cost mode")
         lanes = 8 if a.mode == "copied8" else 2 if a.mode == "tdp2" else 1
         width, depth = (36, 1024) if a.mode == "tdp2" else (72, 512)
         source_copies = 8 if a.mode == "copied8" else 1
@@ -210,6 +217,8 @@ class CaptureTransport:
             # The release timestamp dies at admission;job arrival is already
             # paid by the existing owned descriptor. Keep the original endpoint.
             registers["released_request_port"] = 63 + 63 + 1 + 2 + 20 + 13 + 16 + 1 + 63
+        if retire_before_fine:
+            registers["retirement_gate"] = 64 + 2
         cost = dict(
             mode=a.mode,
             source_bram36=source_tiles,
@@ -265,6 +274,22 @@ class CaptureTransport:
                 owned_descriptor_timestamp_duplicated=False,
                 physical_timing_verified=False,
             )
+        if retire_before_fine:
+            cost["retirement_gate"] = dict(
+                register_bits=66, research_cap_bits=128,
+                counter_bits=64, registered_decision_and_stage_bits=2,
+                existing_finish_timestamp_reused=True,
+                existing_descriptor_and_retired_frontier_reused=True,
+                unsigned_comparator_bits=63, comparisons_per_checked_window=1,
+                additions64_per_retired_window=1, metadata_register_read_operands=2,
+                registered_check_cycles=1, check_II=1,
+                new_IQ_RAM_DSP_or_sample_ports=0,
+                division_sqrt_or_variable_multiplication=0,
+                clocks_MHz=[100, 160, 200], achieved_Fmax=None,
+                observer_is_caller_owned_not_hardware_state=True,
+                arithmetic_frame_service_cycles=None,
+                actual_synthesis=False, whole16MSps=False,
+            )
         return cost
 
     def simulate(
@@ -279,6 +304,8 @@ class CaptureTransport:
         released_requests=False,
         source_owner=None,
         frame_replay=None,
+        retire_before_fine=False,
+        retirement_observer=None,
     ):
         """Stream fixed-width path tuples and sorted(after_sample_count,path).
 
@@ -292,6 +319,11 @@ class CaptureTransport:
             raise ValueError("Need a callable bounded fine microtrace provider")
         if type(released_requests) is not bool:
             raise ValueError("Need explicit released-request mode")
+        if (type(retire_before_fine) is not bool
+                or (retire_before_fine and frame_replay is None)
+                or (retirement_observer is not None and (
+                    not retire_before_fine or not callable(retirement_observer)))):
+            raise ValueError("Need explicit frame retirement and optional read-only observer")
         a = self.a
         if source_owner is not None:
             from nearlink_sdr.sim.coarse_capture_source import CoarseCaptureSource
@@ -341,6 +373,7 @@ class CaptureTransport:
         # Leave headroom for eight-lane access counters and the finite drain.
         # Very long experiments fail explicitly rather than wrap timestamps.
         service_bound = a.fine_service_cycles if fine_worker is None else 2_000_000
+        service_bound += int(retire_before_fine)
         tail = (a.owned + 1) * (a.window + service_bound + 2)
         if tail_replay is not None:
             tail += (a.owned + 1) * (a.window + tail_replay.a.capacity + 3)
@@ -373,6 +406,8 @@ class CaptureTransport:
         if frame_replay is not None:
             stats.update(frame_prefix_reads=0, frame_source_reads=0, frame_terminal=0,
                          frame_payloads=0, frame_resource_drops=0, frame_overlap_retired=0)
+        if retire_before_fine:
+            stats["pre_fine_retired"] = 0
         source_pulse, source_epoch_aborted = None, False
         if source_owner is not None:
             stats.update(source_epoch_drops=0, source_invalid_pulses=0, source_gap_samples=0)
@@ -398,6 +433,34 @@ class CaptureTransport:
 
         if tail_replay is not None:
             worker_stats = {k: v for k, v in worker_stats.items() if "retention" not in k}
+
+        def observe_retirement(kind, job, exclude=None):
+            if retirement_observer is not None:
+                retirement_observer(dict(
+                    event=kind, id=job["id"], cycle=cycle, source_end=job["count"],
+                    retired_through=frame_replay.retired_through, exclude=exclude,
+                    frame_active=frame_replay.active,
+                ))
+
+        def start_fine(job):
+            if retire_before_fine and frame_replay.active:
+                raise RuntimeError("Retirement frontier cannot advance during fine service")
+            observe_retirement("fine_start", job)
+            service_cycles = a.fine_service_cycles
+            if fine_worker is not None:
+                descriptor = dict(
+                    id=job["id"], after_samples=job["count"], path=job["path"],
+                    window_samples=a.window, geometry=job.get("geometry"))
+                if frame_replay is not None:
+                    descriptor["service_start_cycle"] = cycle
+                service = fine_worker(descriptor, slots[job["slot"]])
+                if not isinstance(service, FineService):
+                    raise ValueError("Fine worker must return a bounded FineService")
+                if service.start_tick is not None and service.start_tick >= 8 * a.window:
+                    raise ValueError("Fine selected tick exceeds its owned window")
+                job["service"] = service
+                service_cycles = service.cycles
+            job["finish"] = cycle + service_cycles
 
         def notify(job, status, data=None):
             event = dict(
@@ -494,7 +557,23 @@ class CaptureTransport:
             )
             if frame_replay is not None and frame_replay.active:
                 frame_replay.tick(cycle, blocked=blocked)
-            if active is not None and cycle >= active["finish"]:
+            if (active is not None and active.get("retirement_pending")
+                    and cycle >= active["finish"]):
+                if frame_replay.active:
+                    raise RuntimeError("Registered retirement check lost exclusive frame ownership")
+                active["retirement_pending"] = False
+                if active.pop("retirement_exclude"):
+                    if stats["pre_fine_retired"] == 2**64 - 1:
+                        raise OverflowError("Retirement statistic exhausted")
+                    stats["pre_fine_retired"] += 1
+                    observe_retirement("retired", active, True)
+                    notify(active, "retired_before_fine", slots[active["slot"]])
+                    free.append(active["slot"])
+                    active = None
+                else:
+                    start_fine(active)
+            if (active is not None and not active.get("retirement_pending")
+                    and cycle >= active["finish"]):
                 frame_needed = (frame_replay is not None and active["service"].disposition in
                                 ("ready", "confirm_pending"))
                 if frame_needed and not blocked:
@@ -502,6 +581,7 @@ class CaptureTransport:
                         selection = fine_worker.take_selection(active["id"], cycle)
                         if selection is None:
                             raise RuntimeError("Actual fine selection cache was not delivered")
+                        observe_retirement("fine_available", active)
                         frame_replay.begin(selection, cycle)
                         active["frame_started"] = True
                     if frame_replay.done:
@@ -528,6 +608,7 @@ class CaptureTransport:
                         active["replay_started"] = cycle
                 elif not blocked and (not frame_needed or "frame_outcome" in active):
                     if frame_replay is not None and not frame_needed:
+                        observe_retirement("fine_available", active)
                         fine_worker.take_selection(active["id"], cycle)
                     stats["completed"] += 1
                     max_latency = max(max_latency, cycle - active["arrival"])
@@ -661,21 +742,15 @@ class CaptureTransport:
                 pending = next(stream, None) if source_owner is None else None
             if active is None and ready and ready[0]["copied"] < cycle:
                 active = ready.popleft()
-                service_cycles = a.fine_service_cycles
-                if fine_worker is not None:
-                    descriptor = dict(
-                        id=active["id"], after_samples=active["count"], path=active["path"],
-                        window_samples=a.window, geometry=active.get("geometry"))
-                    if frame_replay is not None:
-                        descriptor["service_start_cycle"] = cycle
-                    service = fine_worker(descriptor, slots[active["slot"]])
-                    if not isinstance(service, FineService):
-                        raise ValueError("Fine worker must return a bounded FineService")
-                    if service.start_tick is not None and service.start_tick >= 8 * a.window:
-                        raise ValueError("Fine selected tick exceeds its owned window")
-                    active["service"] = service
-                    service_cycles = service.cycles
-                active["finish"] = cycle + service_cycles
+                if retire_before_fine:
+                    if frame_replay.active or fine_worker._selection is not None:
+                        raise RuntimeError("Retirement check needs idle frame and selected credit")
+                    exclude = active["count"] <= frame_replay.retired_through
+                    observe_retirement("check", active, exclude)
+                    active.update(retirement_pending=True, retirement_exclude=exclude,
+                                  finish=cycle+1)
+                else:
+                    start_fine(active)
             frame_source_read = 0
             if (frame_replay is not None and active is not None and active.get("frame_started")
                     and frame_replay.needs_word and not blocked):
@@ -807,6 +882,15 @@ class CaptureTransport:
                 confirmation_head_carrier_decoder_service_cycles=None,
                 actual_fine_prefix_cycles_preserved=True,
                 subsequent_functional_resolutions_are_not_zero_cycle_evidence=True)
+        if retire_before_fine:
+            result.update(
+                retirement_gate_cost=self.estimate(
+                    measured_worker=True, released_requests=True,
+                    retire_before_fine=True)["retirement_gate"],
+                retirement_check_registered=True,
+                retirement_frontier_exclusive_during_fine=True,
+                pre_fine_retirement_is_not_fine_completion=True,
+            )
         if fine_worker is not None:
             result.update(
                 worker_results=worker_stats,

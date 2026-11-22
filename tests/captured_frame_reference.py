@@ -53,7 +53,20 @@ def fixture(ft=2, *, size=31, mcs=None, pilots=0, bad_head=False, bad_data=False
     return profile, iq, quiet, payload, len(symbols), step
 
 
-def receive(profile, iq, quiet, *, groups=(), stalls=(), defect=None, decoder_observer=None):
+def receive(
+    profile,
+    iq,
+    quiet,
+    *,
+    groups=(),
+    stalls=(),
+    defect=None,
+    decoder_observer=None,
+    retire_before_fine=False,
+    retirement_observer=None,
+    fine_observer=None,
+    copied_window_observer=None,
+):
     filt, parts, pos, group = FullMantissaRRC(FixedRRCFormat(12, 18)), [], 0, 0
     while pos < len(iq):
         n = groups[group % len(groups)] if groups else len(iq)
@@ -95,6 +108,7 @@ def receive(profile, iq, quiet, *, groups=(), stalls=(), defect=None, decoder_ob
         gauss_difference=True,
         symbol_pipeline=True,
         capture_selection=True,
+        sink=fine_observer,
     )
     frames, reads, outcomes = [], [], []
 
@@ -119,6 +133,14 @@ def receive(profile, iq, quiet, *, groups=(), stalls=(), defect=None, decoder_ob
         CaptureTransportAssumptions(paths=1, history=4096, window=source.flow.core.window)
     )
 
+    def transport_outcome(event, window):
+        if window is not None:
+            end, size = event["after_samples"], source.flow.core.window
+            assert window == words[end - size : end]
+            if copied_window_observer is not None:
+                copied_window_observer(event, window)
+        outcomes.append(event)
+
     def calendar():
         return transport.simulate(
             None,
@@ -127,8 +149,10 @@ def receive(profile, iq, quiet, *, groups=(), stalls=(), defect=None, decoder_ob
             released_requests=True,
             fine_worker=worker,
             frame_replay=frame,
+            retire_before_fine=retire_before_fine,
+            retirement_observer=retirement_observer,
             stalls=stalls,
-            sink=lambda e, _: outcomes.append(e),
+            sink=transport_outcome,
         )
 
     if decoder_observer is None:

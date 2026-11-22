@@ -60,6 +60,9 @@ jobs:
           uv run --frozen --no-sync ruff check scripts/model_fine_symbols.py
           uv run --frozen --no-sync ruff check scripts/model_coarse_capture.py
           uv run --frozen --no-sync ruff check scripts/model_captured_frame.py
+          uv run --frozen --no-sync ruff check scripts/model_retired_capture.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_retired_capture.py tests/test_retired_capture.py tests/test_retired_capture_model.py
+          PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_retired_capture --help
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_captured_frame.py src/nearlink_sdr/sim/fine_selection.py src/nearlink_sdr/sim/capture_frame.py tests/captured_frame_reference.py tests/test_fine_selection.py tests/test_captured_frame_owner.py tests/test_capture_frame.py tests/test_capture_frame_failures.py tests/test_capture_frame_resources.py tests/test_captured_frame_model.py
           PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_captured_frame --help
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_coarse_capture.py src/nearlink_sdr/sim/coarse_capture_source.py tests/coarse_capture_reference.py tests/test_coarse_capture_source.py tests/test_coarse_capture_model.py
@@ -357,6 +360,22 @@ jobs:
           test "$status" -eq 1
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/rrc-memory/model.json")); assert len(d["scenarios"]) == 23 and d["whole_system_accepted"] is False; assert d["original_budget_still_failed"]; assert all(r["port_candidate_valid"] for r in d["scenarios"] if r["mode"] == "quad"); assert any(not r["port_candidate_valid"] for r in d["scenarios"] if r["mode"] == "dual")'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/rrc-memory"); m=json.loads((p/"manifest.json").read_text()); assert len(m) == 27; assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in m.items()); d=json.loads((p/"model.json").read_text()); assert all(r["sha256"] == m[r["file"]] for r in d["scenarios"])'
+      - name: Verify registered conservative pre-fine retirement and retain pressure failures
+        if: always()
+        run: |
+          status=0
+          PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_retired_capture --output receiver-diagnostics/retired-capture-development >retired-capture-development.log 2>&1 || status=$?
+          test "$status" -eq 1
+          uv run --frozen --no-sync python -c 'import json; m=json.load(open("receiver-diagnostics/retired-capture-development/model.json")); assert len(m["rows"]) == 10 and not m["all_four_RX_gates_passed"] and not m["new_default"] and m["complete_arithmetic_cycles"] is None'
+          eligible=$(uv run --frozen --no-sync python -c 'import json; print(int(json.load(open("receiver-diagnostics/retired-capture-development/model.json"))["component_qualified"]))')
+          if [ "$eligible" = 1 ]; then
+            status=0
+            PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_retired_capture --split validation --freeze receiver-diagnostics/retired-capture-development/freeze.json --output receiver-diagnostics/retired-capture-validation >retired-capture-validation.log 2>&1 || status=$?
+            test "$status" -eq 1
+            uv run --frozen --no-sync python -c 'import json; m=json.load(open("receiver-diagnostics/retired-capture-validation/model.json")); assert len(m["rows"]) == 10 and not m["all_four_RX_gates_passed"] and not m["new_default"] and m["complete_arithmetic_cycles"] is None'
+          else
+            uv run --frozen --no-sync python -c 'import json; from pathlib import Path; Path("receiver-diagnostics/retired-capture-held-not-run.json").write_text(json.dumps(dict(reason="development rejected;held not evaluated",whole_RX_accepted=False)))'
+          fi
       - name: Verify captured candidate real CRC legal frame consumption and bounded failures
         if: always()
         run: |
