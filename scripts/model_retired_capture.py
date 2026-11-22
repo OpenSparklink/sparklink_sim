@@ -75,9 +75,13 @@ def payload(n, ident, held):
     )
 
 
-def make_inputs(out, split):
+def make_inputs(out, split, *, specs=None, payload_fn=None, seed_bias=0):
+    """Independent analytic generator;defaults preserve the original frozen bytes."""
+    if type(seed_bias) is not int or not 0 <= seed_bias < 2**31:
+        raise ValueError("Need a finite explicit generation seed bias")
     held = split == "validation"
-    specs = POLICY["validation_specs" if held else "development_specs"]
+    specs = POLICY["validation_specs" if held else "development_specs"] if specs is None else specs
+    data_fn = payload if payload_fn is None else payload_fn
     rows = []
     for j in range(10):
         negative = j >= 6
@@ -92,7 +96,7 @@ def make_inputs(out, split):
             allowed_mcs=(mcs,),
             head_backend="word-dense" if ft == 2 else "word-depth-parity",
         )
-        data = [payload(n, 2 * j + k, held) for k, n in enumerate(lengths)]
+        data = [data_fn(n, 2 * j + k, held) for k, n in enumerate(lengths)]
         wave = [packet(profile, d) for d in data]
         offsets = [0, len(wave[0]) + idle]
         symbols = np.r_[wave[0], np.zeros(idle, complex), wave[1]]
@@ -106,7 +110,7 @@ def make_inputs(out, split):
             amplitude=((0.089, 0.157, 0.061, 0.137) if held else (0.119, 0.073, 0.181, 0.097))[
                 j % 4
             ],
-            seed=(1329113 + 211 * j) if held else (1288401 + 179 * j),
+            seed=((1329113 + 211 * j) if held else (1288401 + 179 * j)) + seed_bias,
         )
         rng = np.random.default_rng(params["seed"] + 103)
         truth = []
@@ -168,7 +172,7 @@ def make_inputs(out, split):
             elif family == "wrong-sync" and not negative:
                 wrong = replace(profile, config=replace(cfg, pid=(cfg.pid + 1) % 6))
                 other = [
-                    packet(wrong, payload(n, 2 * j + k + 23, not held))
+                    packet(wrong, data_fn(n, 2 * j + k + 23, not held))
                     for k, n in enumerate(lengths)
                 ]
                 other_symbols = np.tile(

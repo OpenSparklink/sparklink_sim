@@ -153,6 +153,7 @@ captured-legal-frame-owner
 pre-fine-retirement
 capture-coherence-observation
 captured-header-calendar
+queued-window-retirement
 coverage-isolation
 rrc-memory
 spline-preparation

@@ -2717,5 +2717,35 @@
     "new_RF_holdout": false,
     "resource_schedule_losses_reported_separately": true,
     "actual_synthesis": false
+  },
+  "queued_window_retirement": {
+    "stage": "M32 registered ready-window lifetime,experimental",
+    "default": false,
+    "signal_algorithm_change": false,
+    "new_control_bits": 66,
+    "new_node_research_cap_bits": 128,
+    "combined_pre_fine_and_ready_release_bits": 132,
+    "shared_comparator_bits": 63,
+    "additional_operand_mux2_bits": 63,
+    "comparison_II": 1,
+    "registered_return_edges": 1,
+    "metadata_operands": 2,
+    "additional_IQ_RAM_DSP_sample_ports": 0,
+    "transport_register_bits_by_FT": {
+      "2": 4172,
+      "3": 4174,
+      "4": 4176
+    },
+    "transport_BRAM36_sites_by_FT": {
+      "2": 14,
+      "3": 14,
+      "4": 14
+    },
+    "scope_of_transport_cost": "source4096 and3ownedwindows only;RRC,coarse,fine,frame,decoder,TX/MAC/interface reservations remain separate",
+    "actual_new_synthesis": false,
+    "achieved_Fmax": null,
+    "full_RX_latency": null,
+    "full_RX_16MSps": false,
+    "source": "queued-window-retirement.md"
   }
 }

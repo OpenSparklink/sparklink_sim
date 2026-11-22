@@ -159,7 +159,8 @@ class CaptureTransport:
             raise ValueError("Need CaptureTransportAssumptions")
 
     def estimate(
-        self, *, measured_worker=False, released_requests=False, retire_before_fine=False
+        self, *, measured_worker=False, released_requests=False, retire_before_fine=False,
+        retire_queued=False,
     ):
         """Concrete uniform primitive layouts, not a synthesized minimum.
 
@@ -177,6 +178,8 @@ class CaptureTransport:
             or a.mode != "tdp2" or a.word_bits != 46
         )):
             raise ValueError("Need explicit compatible actual frame retirement cost mode")
+        if type(retire_queued) is not bool or (retire_queued and not retire_before_fine):
+            raise ValueError("Queued retirement requires the actual pre-fine/frame context")
         lanes = 8 if a.mode == "copied8" else 2 if a.mode == "tdp2" else 1
         width, depth = (36, 1024) if a.mode == "tdp2" else (72, 512)
         source_copies = 8 if a.mode == "copied8" else 1
@@ -219,6 +222,8 @@ class CaptureTransport:
             registers["released_request_port"] = 63 + 63 + 1 + 2 + 20 + 13 + 16 + 1 + 63
         if retire_before_fine:
             registers["retirement_gate"] = 64 + 2
+        if retire_queued:
+            registers["queued_retirement_gate"] = 64 + 2
         cost = dict(
             mode=a.mode,
             source_bram36=source_tiles,
@@ -290,6 +295,21 @@ class CaptureTransport:
                 arithmetic_frame_service_cycles=None,
                 actual_synthesis=False, whole16MSps=False,
             )
+        if retire_queued:
+            cost["queued_retirement_gate"] = dict(
+                register_bits=66, research_cap_bits=128,
+                counter_bits=64, pending_valid_and_exclude_bits=2,
+                ready_head_descriptor_borrowed=True, ready_head_held_until_commit=True,
+                old_pre_fine_state_bits=66, combined_retirement_state_bits=132,
+                comparator_bits=63, comparator_shared_with_disjoint_pre_fine=True,
+                additional_operand_mux2_bits=63, metadata_register_read_operands=2,
+                comparisons_per_active_ready_clock_upper=1,
+                additions64_per_retired_window=1, registered_check_cycles=1, check_II=1,
+                extra_IQ_RAM_DSP_or_sample_ports=0,
+                diagnostic_check_tally="caller-owned observer;physical telemetry unmodeled",
+                clocks_MHz=[100, 160, 200], achieved_Fmax=None,
+                actual_synthesis=False, whole16MSps=False,
+            )
         return cost
 
     def simulate(
@@ -306,6 +326,7 @@ class CaptureTransport:
         frame_replay=None,
         retire_before_fine=False,
         retirement_observer=None,
+        retire_queued=False,
     ):
         """Stream fixed-width path tuples and sorted(after_sample_count,path).
 
@@ -324,6 +345,8 @@ class CaptureTransport:
                 or (retirement_observer is not None and (
                     not retire_before_fine or not callable(retirement_observer)))):
             raise ValueError("Need explicit frame retirement and optional read-only observer")
+        if type(retire_queued) is not bool or (retire_queued and not retire_before_fine):
+            raise ValueError("Queued retirement requires the actual pre-fine/frame context")
         a = self.a
         if source_owner is not None:
             from nearlink_sdr.sim.coarse_capture_source import CoarseCaptureSource
@@ -408,6 +431,9 @@ class CaptureTransport:
                          frame_payloads=0, frame_resource_drops=0, frame_overlap_retired=0)
         if retire_before_fine:
             stats["pre_fine_retired"] = 0
+        queued_check = None  # Borrows the immutable ready FIFO head,not another descriptor.
+        if retire_queued:
+            stats["queued_retired"] = 0
         source_pulse, source_epoch_aborted = None, False
         if source_owner is not None:
             stats.update(source_epoch_drops=0, source_invalid_pulses=0, source_gap_samples=0)
@@ -434,13 +460,17 @@ class CaptureTransport:
         if tail_replay is not None:
             worker_stats = {k: v for k, v in worker_stats.items() if "retention" not in k}
 
-        def observe_retirement(kind, job, exclude=None):
+        def observe_retirement(kind, job, exclude=None, *, frontier=None):
             if retirement_observer is not None:
-                retirement_observer(dict(
+                row = dict(
                     event=kind, id=job["id"], cycle=cycle, source_end=job["count"],
                     retired_through=frame_replay.retired_through, exclude=exclude,
                     frame_active=frame_replay.active,
-                ))
+                )
+                if frontier is not None:
+                    row["predicate_frontier"] = frontier
+                    row["copied_cycle"] = job["copied"]
+                retirement_observer(row)
 
         def start_fine(job):
             if retire_before_fine and frame_replay.active:
@@ -520,6 +550,7 @@ class CaptureTransport:
 
         while ((count < n if source_owner is None else not source_owner.done)
                or pending is not None or copying or ready or active or pipeline):
+            prior_frontier = frame_replay.retired_through if retire_queued else None
             if source_owner is not None:
                 source_pulse, request = source_owner.advance(cycle)
                 if pending is not None:
@@ -546,6 +577,7 @@ class CaptureTransport:
                     stats["source_epoch_drops"] += len(live)
                     copying.clear()
                     ready.clear()
+                    queued_check = None  # Epoch already accounts this borrowed live slot once.
                     active, pipeline = None, []
                     free = deque(range(a.owned))
                     source_epoch_aborted = True
@@ -555,6 +587,19 @@ class CaptureTransport:
                 stall_index < len(stalls)
                 and stalls[stall_index][0] <= cycle < stalls[stall_index][1]
             )
+            if queued_check is not None:
+                job, exclude = queued_check
+                if not ready or ready[0] is not job:
+                    raise RuntimeError("Registered queued check lost its held ready FIFO head")
+                queued_check = None
+                observe_retirement("queued_retired" if exclude else "queued_kept", job, exclude)
+                if exclude:
+                    if stats["queued_retired"] == 2**64 - 1:
+                        raise OverflowError("Queued retirement statistic exhausted")
+                    stats["queued_retired"] += 1
+                    ready.popleft()
+                    notify(job, "retired_while_queued", slots[job["slot"]])
+                    free.append(job["slot"])
             if frame_replay is not None and frame_replay.active:
                 frame_replay.tick(cycle, blocked=blocked)
             if (active is not None and active.get("retirement_pending")
@@ -826,7 +871,17 @@ class CaptureTransport:
                         tail_replay.close(slot)
                         free.append(slot)
                         active = None
+            if retire_queued and frame_replay.active and ready and ready[0]["copied"] < cycle:
+                if active is None or active.get("retirement_pending"):
+                    raise RuntimeError("Queued and pre-fine comparator phases must not overlap")
+                job = ready[0]
+                if any(writer is job for writer, _, _ in pipeline):
+                    raise RuntimeError("Queued retirement needs an immutable completed copy")
+                exclude = job["count"] <= prior_frontier
+                observe_retirement("queued_check", job, exclude, frontier=prior_frontier)
+                queued_check = job, exclude
             cycle += 1
+        assert queued_check is None
         result = dict(
             **stats,
             max_latency_cycles=max_latency,
@@ -890,6 +945,15 @@ class CaptureTransport:
                 retirement_check_registered=True,
                 retirement_frontier_exclusive_during_fine=True,
                 pre_fine_retirement_is_not_fine_completion=True,
+            )
+        if retire_queued:
+            result.update(
+                queued_retirement_gate_cost=self.estimate(
+                    measured_worker=True, released_requests=True, retire_before_fine=True,
+                    retire_queued=True)["queued_retirement_gate"],
+                queued_retirement_registered=True,
+                queued_retirement_uses_prior_consumed_frontier=True,
+                queued_retirement_is_not_fine_completion=True,
             )
         if fine_worker is not None:
             result.update(
