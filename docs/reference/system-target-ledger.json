@@ -2688,5 +2688,34 @@
     "actual_synthesis": false,
     "all_four_RX_gates_passed": false,
     "original_M28_undercount_report_preserved": true
+  },
+  "captured_header_calendar": {
+    "stage": "M30 explicit captured word-head latency replay",
+    "reference": "captured-header-calendar.md",
+    "default_changed": false,
+    "signal_algorithm_changed": false,
+    "additional_calendar_bits": 397,
+    "calendar_research_cap_bits": 512,
+    "combined_owner_bits": 1487,
+    "head_A2_dense": {
+      "logical_bits": 18384,
+      "RAMB18_equivalent": 3,
+      "BRAM36_sites_upper": 3
+    },
+    "head_B1_parity": {
+      "logical_bits": 42078,
+      "RAMB18_equivalent": 6,
+      "BRAM36_sites_upper": 5
+    },
+    "additional_raw_RAM_DSP_or_ports": 0,
+    "known_service": "actual existing word-head receipt;parallel hard-input boundary;not a duplicate decoder",
+    "availability": "last head raw reply + actual positive service_edges,output stalls may delay",
+    "unknown_head_demap_and_other_functional_work": true,
+    "complete_latency_cycles": null,
+    "all_four_RX_gates_passed": false,
+    "old_numeric_and16KiB_failures_preserved": true,
+    "new_RF_holdout": false,
+    "resource_schedule_losses_reported_separately": true,
+    "actual_synthesis": false
   }
 }

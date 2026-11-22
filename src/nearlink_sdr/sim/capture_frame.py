@@ -187,6 +187,12 @@ class CapturedFrameReplay:
             raise RuntimeError("One raw port word produced an invalid consumed prefix")
         self.index += used
         self.retired_through = max(self.retired_through, self.source_index)
+        self._accept_reference_results(events)
+        if not events and used != 1:
+            raise RuntimeError("Active strict consumer neither consumed nor terminated")
+
+    def _accept_reference_results(self, events):
+        """Functional handoff hook; a composing calendar may defer availability."""
         if self.header is None and self.rx.header_result is not None:
             self.header = self.rx.header_result
             self._count(
@@ -196,8 +202,6 @@ class CapturedFrameReplay:
             )
         if events:
             self._terminal(events[0])
-        elif used != 1:
-            raise RuntimeError("Active strict consumer neither consumed nor terminated")
 
     def end_input(self, cycle):
         self._edge(cycle)

@@ -152,6 +152,7 @@ rrc-coarse-capture
 captured-legal-frame-owner
 pre-fine-retirement
 capture-coherence-observation
+captured-header-calendar
 coverage-isolation
 rrc-memory
 spline-preparation
@@ -171,4 +172,5 @@ psk-noise-recovery-results
 /apidocs/nearlink_sdr/nearlink_sdr.sim.head_word_replay
 /apidocs/nearlink_sdr/nearlink_sdr.phy.acquisition_maximum
 /apidocs/nearlink_sdr/nearlink_sdr.sim.maximum_flow
+/apidocs/nearlink_sdr/nearlink_sdr.sim.captured_header_flow
 ```
