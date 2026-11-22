@@ -148,6 +148,7 @@ rrc-coarse-ingress
 released-capture
 spline-gauss-difference
 fine-symbol-pipeline
+rrc-coarse-capture
 coverage-isolation
 rrc-memory
 spline-preparation

@@ -27,9 +27,13 @@ class CoarseIngress:
         dict(rrc_gap=1, rrc_invalid=2, rrc_credit=3, join_fault=4, core_fault=5, abort=6)
     )
 
-    def __init__(self, reference, *, lanes=16, normalizer="pipeline", sink=None):
+    def __init__(
+        self, reference, *, lanes=16, normalizer="pipeline", sink=None,
+        preserve_source_end=False,
+    ):
         self.core = BankedScaledCore(
-            reference, lanes=lanes, origin=-40, normalizer=normalizer, sink=sink
+            reference, lanes=lanes, origin=-40, normalizer=normalizer, sink=sink,
+            preserve_source_end=preserve_source_end,
         )
         self.join = RawGateJoin(RRCScaledBridgeService(), window_samples=self.core.window)
         self.pending = None
@@ -155,7 +159,10 @@ class CoarseIngress:
                 lower = tag + 2 - 40 - self.core.window
                 upper = tag - 40 - self.core.k * 4
                 request_id = self.core.next_query_id
-                accepted = self.core.request_query(lower, upper)
+                accepted = (
+                    self.core.request_query(lower, upper, source_end=tag + 1)
+                    if self.core.preserve_source_end else self.core.request_query(lower, upper)
+                )
                 self._updates(query_submitted=1, core_query_dropped=int(not accepted))
                 self.pending = None
                 if self.core.sink is not None:

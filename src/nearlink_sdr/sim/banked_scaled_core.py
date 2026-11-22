@@ -306,7 +306,10 @@ class BankedScaledCore:
     QUERIES = 2
     _failure_reasons = (None, "input-overrun", "history-expired", "internal-word-or-owner")
 
-    def __init__(self, reference, *, lanes=16, origin=0, sink=None, normalizer="pipeline"):
+    def __init__(
+        self, reference, *, lanes=16, origin=0, sink=None, normalizer="pipeline",
+        preserve_source_end=False,
+    ):
         if (
             len(reference) not in (32, 62, 126)
             or type(origin) is not int
@@ -317,6 +320,9 @@ class BankedScaledCore:
             raise ValueError("Need an observation callback")
         if normalizer not in ("pipeline", "serial1", "serial2"):
             raise ValueError("Need the explicit pipeline/serial1/serial2 normalization study")
+        if type(preserve_source_end) is not bool:
+            raise ValueError("Need an explicit compiled source-endpoint context")
+        self.preserve_source_end = preserve_source_end
         real, imag = sign_coefficients(reference)
         self.cr, self.ci = tuple(map(int, real)), tuple(map(int, imag))
         self.k = len(real)
@@ -488,7 +494,7 @@ class BankedScaledCore:
             discarded=source.discarded,
         )
 
-    def request_query(self, lower_start, upper_start, *, phase_origin=None):
+    def request_query(self, lower_start, upper_start, *, phase_origin=None, source_end=None):
         if self.failure_code or self.closed:
             raise ValueError("Need an active explicit coarse epoch")
         if phase_origin is None:
@@ -496,6 +502,10 @@ class BankedScaledCore:
         for value in (lower_start, upper_start, phase_origin):
             if type(value) is not int or not -(2**62) <= value < 2**62:
                 raise ValueError("Hardware query port requires bounded integer coordinates")
+        if ((self.preserve_source_end and (
+            type(source_end) is not int or not 1 <= source_end <= self.input_count
+        )) or (not self.preserve_source_end and source_end is not None)):
+            raise ValueError("Need the compiled context and an already received source endpoint")
         if self.next_query_id >= 2**63 - 1:
             raise OverflowError("Coarse query ID exhausted")
         request_id = self.next_query_id
@@ -516,6 +526,8 @@ class BankedScaledCore:
                 stage=0,
             )
         )
+        if self.preserve_source_end:
+            self.query_queue[-1]["source_end"] = source_end
         self._watermarks()
         return True
 
@@ -539,6 +551,8 @@ class BankedScaledCore:
             reason=q.get("reason"),
             available_cycle=self.cycle + 1,
         )
+        if self.preserve_source_end:
+            response["source_end"] = q["source_end"]
         self.candidates.append(response)
         self.query_active = None
         self.query_reply = None
@@ -766,6 +780,9 @@ class BankedScaledCore:
             candidate_register_word=63 + 63 + 8 + 1 + 64 + 13 + 3 + 63,
             candidate_valid=1,
         )
+        if self.preserve_source_end:
+            # Two queued,one active,one output;no host lookup/history table.
+            queue_bits["source_endpoint_context_words"] = (self.QUERIES + 2) * 64
         query_work_bits = 381 + 63 + 8 + 3 + 8 + 8 + 1 + 13 + 64 + 1 + 3 + 3 + 78 + 1
         controller_bits = (
             3 * 63
@@ -807,7 +824,7 @@ class BankedScaledCore:
             + score["DSP_internal_pipeline_bit_capacity"]
         )
         row_bits = math.ceil(math.log2(self.history.rows))
-        return dict(
+        cost = dict(
             scope="full compiled scaled-word core;RRC/raw detector,fine/head/payload/MAC outside",
             terms=self.k,
             lanes=lanes,
@@ -896,3 +913,14 @@ class BankedScaledCore:
             Fmax=None,
             actual_synthesis=False,
         )
+        if self.preserve_source_end:
+            cost["queue_read_MUX2_upper"] += 63
+            cost["source_endpoint_context"] = dict(
+                retained_slots=self.QUERIES + 2, endpoint_bits=63, padded_bits_each=64,
+                register_bits=256, extra_query_read_MUX2_bits=63,
+                received_endpoint_compare_bits=63,
+                extra_RAM_DSP_or_sample_ports=0,
+                query_or_retirement_edges_added=0,
+                metadata_wire_and_mux_Fmax_verified=False,
+            )
+        return cost

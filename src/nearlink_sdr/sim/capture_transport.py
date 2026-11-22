@@ -277,6 +277,7 @@ class CaptureTransport:
         fine_worker=None,
         tail_replay=None,
         released_requests=False,
+        source_owner=None,
     ):
         """Stream fixed-width path tuples and sorted(after_sample_count,path).
 
@@ -291,6 +292,16 @@ class CaptureTransport:
         if type(released_requests) is not bool:
             raise ValueError("Need explicit released-request mode")
         a = self.a
+        if source_owner is not None:
+            from nearlink_sdr.sim.coarse_capture_source import CoarseCaptureSource
+
+            if (not isinstance(source_owner, CoarseCaptureSource)
+                    or words is not None or requests != () or not released_requests
+                    or a.paths != 1 or a.word_bits != 46 or tail_replay is not None
+                    or source_owner.cycle != 0 or source_owner.flow.core.window != a.window):
+                raise ValueError(
+                    "Need fresh matched one-path live coarse source and no static data"
+                )
         if tail_replay is not None and (
             not isinstance(tail_replay, CaptureTailReplay)
             or tail_replay.a.owned != a.owned
@@ -302,7 +313,7 @@ class CaptureTransport:
             or tail_replay.cycle != -1
         ):
             raise ValueError("Need fresh matched46bit TDP tail replay and measured fine worker")
-        n = len(words)
+        n = len(words) if source_owner is None else source_owner.sample_limit
         if type(n) is not int or n < 1 or (n * a.clock_hz + a.input_hz - 1) // a.input_hz >= 2**63:
             raise ValueError("Need finite nonempty input inside signed64 cycle range")
         if not isinstance(stalls, (tuple, list)) or len(stalls) > 1024:
@@ -319,7 +330,9 @@ class CaptureTransport:
         if tail_replay is not None:
             tail += (a.owned + 1) * (a.window + tail_replay.a.capacity + 3)
             tail *= tail_replay.a.consumer_ii
-        if max(n * a.clock_hz // a.input_hz, previous) + tail >= 2**60:
+        source_horizon = (n * a.clock_hz // a.input_hz if source_owner is None
+                          else source_owner.source_horizon)
+        if max(source_horizon, previous) + tail >= 2**60:
             raise OverflowError("Transport timestamp/access-counter horizon exhausted")
         source = [[0] * a.history for _ in range(a.paths)]
         slots = [[0] * a.window for _ in range(a.owned)]
@@ -342,6 +355,9 @@ class CaptureTransport:
             completed_while_blocked=0,
             peak_owned=0,
         )
+        source_pulse, source_epoch_aborted = None, False
+        if source_owner is not None:
+            stats.update(source_epoch_drops=0, source_invalid_pulses=0, source_gap_samples=0)
         if tail_replay is not None:
             stats["tail_drops"] = 0
         max_latency = max_copy_latency = peak_source_ports = peak_destination_ports = 0
@@ -378,7 +394,9 @@ class CaptureTransport:
             if fine_worker is not None:
                 # Completion precedes this edge's unstoppable input write.
                 # Include that write for the optimistic retention-only check.
-                at_edge = count + int(
+                at_edge = (
+                    max(count, source_pulse[0] + 1) if source_pulse is not None else count
+                ) if source_owner is not None else count + int(
                     count < n and cycle == (count * a.clock_hz + a.input_hz - 1) // a.input_hz
                 )
                 service = job.get("service")
@@ -415,7 +433,28 @@ class CaptureTransport:
             if sink is not None:
                 sink(event, data)
 
-        while count < n or pending is not None or copying or ready or active or pipeline:
+        while ((count < n if source_owner is None else not source_owner.done)
+               or pending is not None or copying or ready or active or pipeline):
+            if source_owner is not None:
+                source_pulse, request = source_owner.advance(cycle)
+                if pending is not None:
+                    raise RuntimeError("Live source descriptor outlived its single-edge port")
+                pending = request
+                if source_owner.failed and not source_epoch_aborted:
+                    # At most owned slots;include last-copy replies not yet ready.
+                    live = {job["id"]: job for job in (*copying, *ready)}
+                    if active is not None:
+                        live[active["id"]] = active
+                    for job, _, _ in pipeline:
+                        live[job["id"]] = job
+                    for job in live.values():
+                        notify(job, "source_epoch_aborted")
+                    stats["source_epoch_drops"] += len(live)
+                    copying.clear()
+                    ready.clear()
+                    active, pipeline = None, []
+                    free = deque(range(a.owned))
+                    source_epoch_aborted = True
             while stall_index < len(stalls) and cycle >= stalls[stall_index][1]:
                 stall_index += 1
             blocked = (
@@ -459,8 +498,24 @@ class CaptureTransport:
                     max_copy_latency = max(max_copy_latency, cycle - job["arrival"])
             pipeline = []
             input_write = False
-            if count < n and cycle == (count * a.clock_hz + a.input_hz - 1) // a.input_hz:
-                row = words[count]
+            input_arrived = (
+                source_pulse is not None if source_owner is not None else
+                count < n and cycle == (count * a.clock_hz + a.input_hz - 1) // a.input_hz
+            )
+            if input_arrived:
+                if source_owner is not None:
+                    tag, value = source_pulse
+                    stats["source_gap_samples"] += tag - count
+                    count = tag
+                    if value is None:
+                        stats["source_invalid_pulses"] += 1
+                        count += 1
+                        stats["input_samples"] += 1
+                        cycle += 1
+                        continue  # Fault has cancelled every owner;never write a fake word.
+                    row = (value,)
+                else:
+                    row = words[count]
                 if len(row) != a.paths:
                     raise ValueError(
                         "Every input word must include every continuously advanced path"
@@ -549,7 +604,7 @@ class CaptureTransport:
                         tail_replay.admit(job["slot"], ident - 1, requested, path)
                     copying.append(job)
                     stats["peak_owned"] = max(stats["peak_owned"], a.owned - len(free))
-                pending = next(stream, None)
+                pending = next(stream, None) if source_owner is None else None
             if active is None and ready and ready[0]["copied"] < cycle:
                 active = ready.popleft()
                 service_cycles = a.fine_service_cycles
@@ -646,6 +701,22 @@ class CaptureTransport:
                 pending_request_capacity=1,
                 original_source_window_end_preserved=True,
                 RRC_release_arrivals_and_coarse_owner_integrated=False,
+            )
+        if source_owner is not None:
+            result.update(
+                live_source_statistics=dict(source_owner.stats),
+                live_coarse_statistics=dict(source_owner.flow.stats),
+                live_coarse_failure=source_owner.flow.fault_reason,
+                source_fault_cycle=source_owner.fault_cycle,
+                live_coarse_lossless=source_owner.flow.lossless,
+                source_coarse_transport_clock_composed=True,
+                RRC_release_arrivals_and_coarse_owner_integrated=True,
+                input_periodic_surrogate_used=False,
+                source_owner_cost=source_owner.estimate(),
+                source_transport_new_register_bits=1 + 3 * 64,
+                source_transport_new_register_research_cap=2048,
+                no_later_source_window_substitution=True,
+                carrier_frame_and_decoder_cycles=None,
             )
         if fine_worker is not None:
             result.update(

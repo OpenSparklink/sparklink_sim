@@ -2512,5 +2512,70 @@
       "full_queue_model_closed": false,
       "adopted_default": false
     }
+  },
+  "rrc_coarse_capture_calendar": {
+    "reference": "rrc-coarse-capture.md",
+    "stage": "M25 experimental source/transport composition",
+    "core_source_endpoint_context_bits": 256,
+    "source_controller_bits": 1068,
+    "source_transport_fault_bits": 193,
+    "total_increment_register_bits": 1517,
+    "preimplementation_increment_cap_bits": 2048,
+    "previous_released_request_port_bits_separate": 242,
+    "new_IQ_RAM_DSP_or_sample_ports": 0,
+    "source_history_points": 4096,
+    "owned_windows": 3,
+    "physical_RRC_pulses_drive_input": true,
+    "single_path_only": true,
+    "extra_query_read_mux_bits": 63,
+    "received_endpoint_compare_bits": 63,
+    "RRC_coarse_fine_concurrent_DSP_upper": 39,
+    "RRC_and_coarse_cycles": "existing actual value/producer schedules",
+    "raw_detector_and_carrier_frame_decoder_cycles": null,
+    "full_system_resource_qualification": false,
+    "whole16MSps": false,
+    "LUT_FF_Fmax": null,
+    "synthesis": false,
+    "default_changed": false,
+    "old_16KiB_and_numeric_failures_preserved": true,
+    "result": "frozen partial source/window/fine composition qualified;full frame and throughput not accepted",
+    "development": {
+      "streams": 6,
+      "samples": 18432,
+      "coarse_queries": 470,
+      "requests": 25,
+      "completed_fine": 18,
+      "queue_drops": 7,
+      "geometry_wait": 5,
+      "confirm_pending": 13
+    },
+    "independent_node": {
+      "streams": 6,
+      "samples": 18432,
+      "coarse_queries": 471,
+      "requests": 26,
+      "completed_fine": 18,
+      "queue_drops": 8,
+      "geometry_wait": 4,
+      "confirm_pending": 14
+    },
+    "maximum_observed_request_latency_cycles": 126888,
+    "maximum_observed_request_latency_us_at200MHz": 634.44,
+    "observed_latency_not_a_worst_case_bound": true,
+    "full_head_payload_consumer_or_tail_handoff": false,
+    "input_words_and_old_coarse_decisions_exact": true,
+    "incremental_integer_loss": 0,
+    "formal_61of96_not_rerun": true,
+    "capture_head_data_CRC_length_MCS_payload_BER": null,
+    "full_tests": [
+      5518,
+      5529
+    ],
+    "coverage": [
+      0.9385,
+      0.9385
+    ],
+    "new_source_coverage": 0.9318,
+    "all_four_RX_acceptance": false
   }
 }
