@@ -308,5 +308,18 @@
     "continuous16MSps_gate_passed": false,
     "remaining_cycles": null,
     "old_numeric_and_resource_failures_preserved": true
+  },
+  "preamble_truth_coordinate_correction": {
+    "stage": "M27 diagnostic only",
+    "reference": "captured-legal-frame-owner.md",
+    "prior_failure_retained": true,
+    "reference_returns": "origin+40*step",
+    "corrected_metadata": "first preamble origin",
+    "IQ_receiver_parameters_and_payload_unchanged": true,
+    "new_RF_holdout": false,
+    "old_validation_is_fixed_regression": true,
+    "full_RX_gate_passed": false,
+    "observed_max_absolute_timing_samples": 0.13604192301318108,
+    "timing_performance_budget_newly_qualified": false
   }
 }

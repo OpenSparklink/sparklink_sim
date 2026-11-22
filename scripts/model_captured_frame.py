@@ -36,6 +36,7 @@ POLICY = dict(
     negative_samples_each=4096,
     negative_families=["noise", "tone", "wrong-sync", "burst"],
     input_and_same_backend_sampling_tolerance="exact",
+    truth_coordinate="analytic first preamble origin;legacy reference returns origin+40*step",
     new_default=False,
     fixed_and_full16MSps=False,
     unknown_confirmation_head_carrier_decoder_cycles=None,
@@ -157,6 +158,10 @@ def make_inputs(out, split):
                         * np.exp(2j * np.pi * 213000 * np.arange(len(iq), len(iq) + extra) / 16e6)
                     )
                 iq = np.r_[iq, tail]
+        # The independent legacy reference returns the point after40 symbols.
+        # Convert only the diagnostic coordinate;IQ and receiver inputs are unchanged.
+        if truth is not None:
+            truth -= 40 * step
         file = out / f"input{j}.npz"
         np.savez_compressed(file, iq=iq, quiet=quiet)
         config = vars(cfg).copy()

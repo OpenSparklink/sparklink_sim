@@ -50,6 +50,21 @@ def test_frozen_policy_has_stable_JSON_and_explicit_unmodeled_arithmetic():
     assert model.POLICY["new_default"] is model.POLICY["fixed_and_full16MSps"] is False
 
 
+def test_diagnostic_first_preamble_origin_matches_independent_analytic_channel(tmp_path):
+    # audit.reference places symbol0 at512+offset and returns symbol40's center.
+    # The channel adds prefix;FT3/4 use their actual48/64-symbol preambles later.
+    data = model.make_inputs(tmp_path, "development")
+    for row in data[:6]:
+        expected_origin = 512 + row["params"]["offset"] + row["params"]["prefix"]
+        assert abs(row["true_first_preamble"] - expected_origin) < 1e-9
+        assert row["preamble_symbols"] == {2: 40, 3: 48, 4: 64}[row["config"]["frame_type"]]
+    assert all(
+        row["true_first_preamble"] is None
+        for row in data[6:]
+        if row["params"]["family"] != "wrong-sync"
+    )
+
+
 @pytest.mark.parametrize(
     "edit",
     [
