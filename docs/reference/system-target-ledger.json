@@ -2660,5 +2660,33 @@
     "all_four_RX_gates_passed": false,
     "strict_cross_backend_all_JSON_passed": false,
     "strict_backend_label_failure_preserved": true
+  },
+  "capture_coherence_observation": {
+    "stage": "M29 observation correction",
+    "reference": "capture-coherence-observation.md",
+    "source": "existing functional coherent_accepted counter at each actual terminal event",
+    "development_capture_old_new": [
+      9,
+      10
+    ],
+    "viewed_validation_capture_old_new": [
+      10,
+      10
+    ],
+    "development_full_old_new": [
+      8,
+      9
+    ],
+    "viewed_validation_full_old_new": [
+      5,
+      6
+    ],
+    "new_RF_holdout": false,
+    "algorithm_input_parameters_and_budgets_changed": false,
+    "hardware_arithmetic_state_and_sample_ports_changed": false,
+    "physical_telemetry_service_unmodeled": true,
+    "actual_synthesis": false,
+    "all_four_RX_gates_passed": false,
+    "original_M28_undercount_report_preserved": true
   }
 }

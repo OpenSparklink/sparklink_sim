@@ -151,6 +151,7 @@ fine-symbol-pipeline
 rrc-coarse-capture
 captured-legal-frame-owner
 pre-fine-retirement
+capture-coherence-observation
 coverage-isolation
 rrc-memory
 spline-preparation

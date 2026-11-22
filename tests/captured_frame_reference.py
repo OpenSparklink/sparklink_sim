@@ -66,7 +66,10 @@ def receive(
     retirement_observer=None,
     fine_observer=None,
     copied_window_observer=None,
+    coherence_observer=None,
 ):
+    if coherence_observer is not None and not callable(coherence_observer):
+        raise ValueError("Need a read-only coherence observer")
     filt, parts, pos, group = FullMantissaRRC(FixedRRCFormat(12, 18)), [], 0, 0
     while pos < len(iq):
         n = groups[group % len(groups)] if groups else len(iq)
@@ -111,12 +114,21 @@ def receive(
         sink=fine_observer,
     )
     frames, reads, outcomes = [], [], []
+    observed_coherent = 0  # Caller-owned diagnostic cursor,not receiver/hardware state.
 
     def read(row):
         assert row["word"] == words[row["index"]], row
         reads.append(row)
 
     def outcome(event, mac):
+        nonlocal observed_coherent
+        if coherence_observer is not None:
+            current = frame.stats["coherent_accepted"]
+            delta = current - observed_coherent
+            if delta not in (0, 1):
+                raise RuntimeError("Coherence observer missed an actual terminal decision")
+            coherence_observer(dict(id=frame.selection.ident, accepted=bool(delta)))
+            observed_coherent = current
         frames.append(
             (
                 event

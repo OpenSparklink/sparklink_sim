@@ -214,7 +214,7 @@ def event_metadata(frames):
 
 
 def run_arm(profile, iq, quiet, enabled):
-    checks, decoded, fine, windows = [], [], {}, {}
+    checks, decoded, fine, windows, coherence = [], [], {}, {}, []
 
     def fine_result(descriptor, result):
         best = result["best"]
@@ -246,11 +246,12 @@ def run_arm(profile, iq, quiet, enabled):
         decoder_observer=decoded.append,
         fine_observer=fine_result,
         copied_window_observer=window_result,
+        coherence_observer=coherence.append,
     )
     result, frames, reads, _, _, _ = observed
     baseline_metadata = event_metadata(frames)
     for groups in ((1, 31, 127), tuple(np.random.default_rng(193279).integers(1, 258, 19))):
-        other_checks = []
+        other_checks, other_coherence = [], []
         other = receive(
             profile,
             iq,
@@ -258,8 +259,10 @@ def run_arm(profile, iq, quiet, enabled):
             groups=groups,
             retire_before_fine=enabled,
             retirement_observer=other_checks.append if enabled else None,
+            coherence_observer=other_coherence.append,
         )
         assert other[0] == result and other[2] == reads and checks == other_checks
+        assert other_coherence == coherence
         assert event_metadata(other[1]) == baseline_metadata
         assert len(other[1]) == len(frames)
         for (a, _), (b, _) in zip(frames, other[1], strict=True):
@@ -273,14 +276,17 @@ def run_arm(profile, iq, quiet, enabled):
                         and v.shape == b[k].shape
                         and v.tobytes() == b[k].tobytes()
                     )
-    return observed, checks, decoded, fine, windows
+    return observed, checks, decoded, fine, windows, coherence
 
 
 def analyze(out, row, label, run, samples):
-    observed, checks, decoded, fine, windows = run
+    observed, checks, decoded, fine, windows, coherence = run
     result, frames, reads, owner, source, outcomes = observed
     expected = [bytes.fromhex(d) for d in row["expected"]]
     complete, false, events, traces = [], 0, [], {}
+    accepted = {r["id"]: r["accepted"] for r in coherence}
+    assert len(accepted) == len(coherence)
+    assert sum(accepted.values()) == owner.stats["coherent_accepted"]
     for k, (event, mac) in enumerate(frames):
         file = f"trace-{row['id']}-{label}-{k}.npz"
         arrays = {a: v for a, v in event.items() if isinstance(v, np.ndarray)}
@@ -312,6 +318,7 @@ def analyze(out, row, label, run, samples):
                 diagnostic_only=True,
             )
         for p in mac.packets:
+            assert accepted[event["selection_id"]] is True
             q = expected.index(p.mac_payload) if p.mac_payload in expected else None
             frame = event["frame"]
             if (
@@ -336,6 +343,7 @@ def analyze(out, row, label, run, samples):
                 trace=file,
                 SHA256=shared.sha(out / file),
                 association=associated,
+                coherent_accepted=accepted[event["selection_id"]],
                 timing=timing,
             )
         )
@@ -363,6 +371,7 @@ def analyze(out, row, label, run, samples):
     data = dict(
         result=result,
         checks=checks,
+        coherent_decisions=coherence,
         fine=fine,
         windows=windows,
         frames=events,
@@ -377,6 +386,13 @@ def analyze(out, row, label, run, samples):
     work = sum(r["fine_cycles"] or 0 for r in outcomes)
     summary = dict(
         complete=sorted(complete),
+        captured_packet_associations_diagnostic=sorted(
+            {
+                e["association"]
+                for e in events
+                if e["association"] is not None and e["coherent_accepted"]
+            }
+        ),
         false_MAC=false,
         duplicate_MAC=len(complete) - len(set(complete)),
         fine_cycles=work,
@@ -514,6 +530,16 @@ def qualify(rows):
         ):
             return False
         for arm in (r["old"], r["new"]):
+            captured = arm["captured_packet_associations_diagnostic"]
+            if (
+                not isinstance(captured, list)
+                or any(type(q) is not int or q not in (0, 1) for q in captured)
+                or len(set(captured)) != len(captured)
+                or len(captured) > arm["coherent"]
+                or not set(arm["complete"]) <= set(captured)
+                or (r["negative"] and captured)
+            ):
+                return False
             counters = (
                 "false_MAC",
                 "duplicate_MAC",

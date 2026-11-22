@@ -12,6 +12,7 @@ def rows():
     for j in range(10):
         arm = dict(
             complete=[0] if j < 6 else [],
+            captured_packet_associations_diagnostic=[0] if j < 6 else [],
             false_MAC=0,
             duplicate_MAC=0,
             fine_cycles=100,
@@ -66,6 +67,14 @@ def test_policy_JSON_roundtrip_keeps_existing_budgets_and_no_whole_receiver_clai
     assert model.POLICY["trajectory_samples_budget"] == 0.25
     assert model.POLICY["score_abs_budget"] == 0.005
     assert model.POLICY["new_default"] is model.POLICY["full_cycle_or_fixed_or16MSps"] is False
+
+
+@pytest.mark.parametrize("captured", [None, [], [True], [0, 0], [2], [0, 1]])
+def test_packet_funnel_cannot_omit_confirmed_delivery_or_fabricate_capture(captured):
+    data = rows()
+    assert model.qualify(data)
+    data[0]["new"]["captured_packet_associations_diagnostic"] = captured
+    assert not model.qualify(data)
 
 
 @pytest.mark.parametrize(
