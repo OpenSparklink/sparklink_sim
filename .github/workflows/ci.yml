@@ -384,7 +384,7 @@ jobs:
         if: always()
         run: |
           status=0
-          PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_captured_header --input-dir receiver-diagnostics/retired-capture-development --manifest-sha256 0f9c1c0a2a88a48c768563380306bcb3f109fe2856e5acfa114a9ea609cf5c73 --output receiver-diagnostics/captured-header-calendar --case-id 3 --case-id 6 >captured-header-calendar.log 2>&1 || status=$?
+          PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_captured_header --input-dir tests/data/captured-header-calendar --manifest-sha256 cdda54e1ac97aeb7a680f3c44bf5e724c892bd9d3b29d15ad337f90258aa12cf --output receiver-diagnostics/captured-header-calendar --case-id 3 --case-id 6 >captured-header-calendar.log 2>&1 || status=$?
           test "$status" -eq 1
           uv run --frozen --no-sync python -c 'import json; m=json.load(open("receiver-diagnostics/captured-header-calendar/model.json")); assert m["expected_exit"] == 1 and not m["resource_comparison_passed"] and not m["all_four_RX_gates_passed"] and m["full_chain_latency_cycles"] is None and m["all_fixed_regression"] and not m["new_RF_holdout"]; a,b=m["rows"]; assert a["id"] == 3 and a["original_payload_losses"] == [1] and a["resource_drop_deltas"]["queue_drops"] == 2; assert b["id"] == 6 and b["functional"]["false_MAC"] == b["clocked_head"]["false_MAC"] == 0; assert all(r["owner_cost"]["register_bits_upper"] == 1487 and r["all_three_host_chunks_exact"] for r in m["rows"])'
       - name: Verify captured candidate real CRC legal frame consumption and bounded failures

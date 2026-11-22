@@ -1,0 +1,46 @@
+{
+  "files": [
+    {
+      "NPY_members_SHA256": {
+        "iq.npy": "20332d588acd3a5525a167f66109cb3ed11a1b4a432e907cdc0988c7db0f93cd",
+        "quiet.npy": "f0df324804298500f021e621b00128cddcaa6eb3ee1a7f40fe082e9598997566"
+      },
+      "SHA256": "2741243949af1ffe77e9d7cb2e81cee7055377b6a843f3383c88334f4daed58c",
+      "bytes": 101207,
+      "canonical_original_row_SHA256": "07480315ae3f4c83b7b6f94cde923e81abaa0dc3a4800462dfc6a27e00f4e74c",
+      "file": "input3.npz",
+      "id": 3
+    },
+    {
+      "NPY_members_SHA256": {
+        "iq.npy": "853ddfdea783870bce3a77e0735fa38555f6c32f514c51b6e7e9081d03e42e38",
+        "quiet.npy": "47a9c3ff024700fbd5b211c34bf61dc3ae8176b69146edd957d125239317c6f0"
+      },
+      "SHA256": "2691df37100c9e06c90cb1861d0404d5e2ed5761b860ea1aadb824500e3b2c2c",
+      "bytes": 141576,
+      "canonical_original_row_SHA256": "1c837713931d39fd6e34b86c79add2099733af93aa7e3842f95a0d6185839cac",
+      "file": "input6.npz",
+      "id": 6
+    }
+  ],
+  "new_RF_holdout": false,
+  "original": {
+    "evidence": "retired-window-fine-audit/implementation/development-ready",
+    "frozen_index_SHA256": "f5a29c9851c92687e3a0dec8e016aa60e2d54606d8d98401261eaf150e6df129",
+    "manifest_SHA256": "0f9c1c0a2a88a48c768563380306bcb3f109fe2856e5acfa114a9ea609cf5c73"
+  },
+  "receiver_and_parameters_changed": false,
+  "schema_version": 1,
+  "scope": "two viewed synthetic fixed regression cases;not new holdout or sensitivity evidence",
+  "selection": {
+    "defined_in_commit": "a6bdc05f90d6c46a3e9d84a482ef5acf7f0461ed",
+    "ids": [
+      3,
+      6
+    ],
+    "reason": "existing M30 CI dense resource failure and negative"
+  },
+  "subset_manifest_SHA256": "cdda54e1ac97aeb7a680f3c44bf5e724c892bd9d3b29d15ad337f90258aa12cf",
+  "transfer": "original NPZ bytes copied;no IQ recompression or data/reference modification",
+  "whole_RX_accepted": false
+}

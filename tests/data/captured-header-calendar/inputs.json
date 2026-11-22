@@ -1,0 +1,94 @@
+[
+  {
+    "SHA256": "2741243949af1ffe77e9d7cb2e81cee7055377b6a843f3383c88334f4daed58c",
+    "config": {
+      "crc_len": 24,
+      "crc_seed": 1519622,
+      "ctrl_bits_len": 28,
+      "frame_type": 2,
+      "head_crc_seed": null,
+      "head_llid": null,
+      "mcs_index": 12,
+      "pid": 5,
+      "pilot_interval": 16,
+      "sps": 4,
+      "symbol_rate_mhz": 4,
+      "whitening_seed": 78
+    },
+    "expected": [
+      "e184bf527528c3e698bd560b2cc1fa9fb3560d20c7fa91b46a0f24d9fe93486d0520dbf6914c67023cd9f2af48651e3bd7f2a944631e35d08eab407d1a37ec89a94c771a3de08bae50751ec3e489b2577b1ec5e88fb2597c22c7ec",
+      "3ae51864ae3a1897643ae51864ae3a1897633de21f63a93d1f90633de21f63a93d1f91623c"
+    ],
+    "family": "noise",
+    "file": "input3.npz",
+    "head_backend": "word-dense",
+    "id": 3,
+    "metadata": {
+      "clean_active_RMS": 4.816082935081204,
+      "clean_active_interval": [
+        713,
+        3108
+      ],
+      "includes_interpacket_idle": true,
+      "noise_std_component": 0.8263784042214568,
+      "snr_db": 12.3,
+      "step": 3.9996
+    },
+    "negative": false,
+    "params": {
+      "amplitude": 0.097,
+      "cfo": 17000,
+      "offset": 0.349,
+      "ppm": -100,
+      "prefix": 200,
+      "seed": 1288938
+    },
+    "truth_diagnostic_only": [
+      {
+        "preamble": 712.349,
+        "step": 3.9996,
+        "sync": 912.3330000000001
+      },
+      {
+        "preamble": 2232.197,
+        "step": 3.9996,
+        "sync": 2432.181
+      }
+    ]
+  },
+  {
+    "SHA256": "2691df37100c9e06c90cb1861d0404d5e2ed5761b860ea1aadb824500e3b2c2c",
+    "config": {
+      "crc_len": 24,
+      "crc_seed": 1518444,
+      "ctrl_bits_len": 28,
+      "frame_type": 2,
+      "head_crc_seed": null,
+      "head_llid": null,
+      "mcs_index": 12,
+      "pid": 2,
+      "pilot_interval": 8,
+      "sps": 4,
+      "symbol_rate_mhz": 4,
+      "whitening_seed": 68
+    },
+    "expected": [],
+    "family": "noise",
+    "file": "input6.npz",
+    "head_backend": "word-dense",
+    "id": 6,
+    "metadata": {
+      "no_legal_packet": true
+    },
+    "negative": true,
+    "params": {
+      "amplitude": 0.181,
+      "cfo": -93000,
+      "offset": 0.761,
+      "ppm": 50,
+      "prefix": 359,
+      "seed": 1289475
+    },
+    "truth_diagnostic_only": []
+  }
+]

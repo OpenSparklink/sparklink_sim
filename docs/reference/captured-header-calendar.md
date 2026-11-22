@@ -127,3 +127,45 @@ case5/packet1，及已查看回归 case5/packet1；原获胜候选分别为 id5�
 须先定义状态与端口成本，并在新的开发配置组合上独立选型。
 原单所有者的失败和所有输入、候选、CRC、轨迹及 SHA 关联保存在冻结证据根
 `captured-header-calendar/RESULTS.json`、CSV、逐流报告和原型留证中。
+
+## 固定 CI 输入的字节身份（M31）
+
+官方 CI 已观察到 NPZ 容器 SHA 不同、内部 NPY 成员却逐字节相同的情况。
+在本机将原输入只重新封装、不改变成员字节，也会改变容器和清单 SHA；
+原脚本正确地以入口错误退出 2，不能把它当成预期资源失败的退出 1。
+因此 CI 不应假定重新生成或压缩的文件仍是原冻结输入。
+该审计不表示 M30 的远端 CI 已运行失败。
+
+`tests/data/captured-header-calendar/` 按原容器字节保存了此前已选定的 case3、case6，
+共 242783 字节 IQ 容器。它们仅是固定回归，既不新增保留集，也不用于调整接收参数。
+`provenance.json` 保存原完整清单及证据索引 SHA、原行规范化 SHA、逐容器和逐 NPY 成员 SHA。
+子清单是明确的两例投影，完整保留所选行的配置、真值和期待载荷；
+它使用新的独立 SHA，不冒充原十例清单，也不替换冻结证据中的原文件。
+
+| 文件 | SHA256 |
+|---|---|
+| 原十例清单 | `0f9c1c0a2a88a48c768563380306bcb3f109fe2856e5acfa114a9ea609cf5c73` |
+| 两例子清单 | `cdda54e1ac97aeb7a680f3c44bf5e724c892bd9d3b29d15ad337f90258aa12cf` |
+| input3.npz | `2741243949af1ffe77e9d7cb2e81cee7055377b6a843f3383c88334f4daed58c` |
+| input6.npz | `2691df37100c9e06c90cb1861d0404d5e2ed5761b860ea1aadb824500e3b2c2c` |
+
+在仓库根目录运行以下命令，无需外部数据生成器或访问冻结证据目录：
+
+```sh
+PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_captured_header \
+  --input-dir tests/data/captured-header-calendar \
+  --manifest-sha256 cdda54e1ac97aeb7a680f3c44bf5e724c892bd9d3b29d15ad337f90258aa12cf \
+  --output /tmp/captured-header-fixed-ci --case-id 3 --case-id 6
+```
+
+输出目录必须为新目录。预期退出 1，并生成报告，原因仍为 case3 的原成功 packet1 槽满丢失、
+新增两次槽满；case6 的 8192 个负例采样无 MAC 误交付。入口或测试异常不得视为该资源失败。
+CI 继续检查具体损失、计数、1487 bit 组合控制、分块一致性及完整延迟未知，
+保留完整诊断制品；重压缩、任意位修改和清单变更仍在接收前拒绝。
+这里没有增加硬件采样缓存、计算单元或 FPGA 能力宣称。
+
+本地纯 Python／实际 Rust 环境分别核对了 20 个 NPY 成员及全部非来源字段，
+与 M30 原归档执行精确一致，仍是两包 2→1。新增 7 项文件身份反例通过；
+全量分片分别 5697／5708 个测试身份，覆盖率 93.88%／93.89%。
+一次 Rust 全量运行因 tmpfs 用户配额失败，62 项 JUnit 错误／失败及会话写入错误保留；
+同一源码在可用临时目录重跑后通过，不将该基础设施失败改写成通过。
