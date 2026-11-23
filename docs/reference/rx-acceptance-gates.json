@@ -667,5 +667,53 @@
     "packet_recovery_claim": 0,
     "old_numeric_and_resource_failures_retained": true,
     "all_four_RX_gates_passed": false
+  },
+  "moving_tail_horizon": {
+    "stage": "M39 rejected",
+    "reference": "moving-tail-horizon.md",
+    "single_factor": "private-copy legal prefix from actual committed PI;no sync,loop,CRC answer change",
+    "finite_control_state_bits": 444,
+    "additional_vs_static_bits": 38,
+    "real_request_edges": 19,
+    "maximum_outstanding_requests": 1,
+    "request_queue": 0,
+    "additional_IQ_RAM_DSP_ports": 0,
+    "prior_static_rejection_retained": true,
+    "packet_recovery_claimed": 0,
+    "new_default": false,
+    "four_RX_gates_passed": false,
+    "FT1_complete": false,
+    "adoption": "rejected:no recovery or same-recall work benefit;static original-success/resource failures remain",
+    "development_complete": [
+      8,
+      3,
+      3
+    ],
+    "fixed_complete": [
+      [
+        8,
+        4,
+        4
+      ],
+      [
+        8,
+        4,
+        4
+      ]
+    ],
+    "remaining_failures": 25,
+    "actual_backend_NPY_members_exact": 309,
+    "complete_numeric_pairs": [
+      4,
+      6,
+      5
+    ],
+    "incomplete_excluded": [
+      3,
+      2,
+      2
+    ],
+    "diagnostic_no_expiry_recoveries_not_formal": 2,
+    "original_guard_word_not_counted_consumed": true
   }
 }

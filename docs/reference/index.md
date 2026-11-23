@@ -166,6 +166,7 @@ rrc-full14-stream
 initialized-capture-bridge
 initialized-head-prefetch
 continuous-private-prefetch
+moving-tail-horizon
 spline-preparation
 spline-fixed
 spline-flow

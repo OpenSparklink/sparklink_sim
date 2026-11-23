@@ -38,6 +38,8 @@ jobs:
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/run_test_shard.py tests/test_run_test_shard.py
           uv run --frozen --no-sync ruff check scripts/model_head_prefetch.py
           uv run --frozen --no-sync ruff check scripts/model_private_prefetch.py
+          uv run --frozen --no-sync ruff check scripts/model_moving_tail.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_moving_tail.py src/nearlink_sdr/sim/moving_tail_horizon.py tests/test_moving_tail_horizon.py tests/test_model_moving_tail.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_private_prefetch.py src/nearlink_sdr/sim/private_prefetch.py tests/test_private_prefetch.py tests/test_model_private_prefetch.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_head_prefetch.py src/nearlink_sdr/sim/head_prefetched_capture.py tests/test_head_prefetched_capture.py tests/test_model_head_prefetch.py
           uv run --frozen --no-sync ruff check scripts/model_finite_coherent.py scripts/model_interleaved_coherent.py

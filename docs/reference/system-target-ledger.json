@@ -3201,5 +3201,52 @@
     "hardware_debug_export_RAM_ports_cycles_LUT_FF": null,
     "not_a_zero_cycle_export_model": true,
     "full_receiver16MSps_or_synthesis": false
+  },
+  "moving_tail_horizon": {
+    "stage": "M39 rejected,no receive gain",
+    "reference": "moving-tail-horizon.md",
+    "finite_controller_bits": 444,
+    "additional_vs_static_bits": 38,
+    "experimental_node_cap_bits": 512,
+    "outstanding_requests": 1,
+    "request_II_edges": 19,
+    "private_FIFO_words_unchanged": 1024,
+    "source_history_words_unchanged": 4096,
+    "owned_windows_unchanged": 3,
+    "new_IQ_RAM_DSP_ports": 0,
+    "add53_per_request_upper": 17,
+    "guard_and_count_ALU_and_source_bus_narrowing_explicit": true,
+    "max_add53_per_sample100_160_200MHz": [
+      5.592105263157895,
+      8.947368421052632,
+      11.18421052631579
+    ],
+    "old16KiB18DSP_failures_preserved": true,
+    "full_receiver_LUT_FF_timing_synthesis": null,
+    "TX_decoder_realMAC_DMA_concurrency_still_unclosed": true,
+    "full_RX16MSps": false,
+    "horizon_requests_static_per_cohort": 6,
+    "horizon_requests_moving": [
+      2867,
+      2672,
+      1852
+    ],
+    "copy_reads_static": [
+      19457,
+      19964,
+      14924
+    ],
+    "copy_reads_moving": [
+      19550,
+      20040,
+      14972
+    ],
+    "packet_gain": 0,
+    "old_static_success_loss": 0,
+    "does_not_remove_original_path_success_losses": true,
+    "one_unused_admission_guard_word_not_consumed": true,
+    "outer_actual_PI_legal_and_changed_compare64_units": 2,
+    "outer_eligible_edge_wide_comparisons_not_free": true,
+    "complete_cost_supplement": "frozen evidence moving-tail-horizon/ARITHMETIC-COST-SUPPLEMENT.json"
   }
 }

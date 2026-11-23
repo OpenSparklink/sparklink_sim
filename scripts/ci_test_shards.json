@@ -131,6 +131,8 @@
       "tests/test_head_crc_semantics.py",
       "tests/test_initial_interpolant_flow.py",
       "tests/test_model_initialized_capture.py",
+      "tests/test_model_moving_tail.py",
+      "tests/test_moving_tail_horizon.py",
       "tests/test_non_connected_broadcast.py",
       "tests/test_normalized_word_replay.py",
       "tests/test_psk_field_layout.py",

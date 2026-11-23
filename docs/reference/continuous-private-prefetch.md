@@ -149,3 +149,7 @@ PYTHONPATH=.:src:scripts uv run python scripts/model_private_prefetch.py --outpu
 
 /apidocs/nearlink_sdr/nearlink_sdr.sim.private_prefetch
 ```
+## 后续移动尾界
+
+静态前缀暂停的只读资格见证与单因素有限候选见
+[实际PI保守尾界](moving-tail-horizon.md)；静态方案的原退化与拒绝结论保持。

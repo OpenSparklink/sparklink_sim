@@ -1,0 +1,184 @@
+{
+  "stage": "M39",
+  "candidate_count": 1,
+  "no_new_default": true,
+  "design": "PROSPECTIVE-PLAN.json",
+  "design_SHA256": "7f58421392270e95883301a54c7d117ceba1c64bb8bc6ca1991104ae0ec4c543",
+  "development_specs": [
+    [
+      2,
+      8,
+      4,
+      [
+        71,
+        181
+      ],
+      40,
+      "clean"
+    ],
+    [
+      4,
+      12,
+      8,
+      [
+        137,
+        47
+      ],
+      28,
+      "tone"
+    ],
+    [
+      3,
+      8,
+      0,
+      [
+        223,
+        89
+      ],
+      52,
+      "wrong-sync"
+    ],
+    [
+      2,
+      12,
+      16,
+      [
+        59,
+        227
+      ],
+      24,
+      "noise"
+    ],
+    [
+      4,
+      8,
+      16,
+      [
+        173,
+        83
+      ],
+      36,
+      "step"
+    ],
+    [
+      3,
+      12,
+      8,
+      [
+        197,
+        31
+      ],
+      44,
+      "burst"
+    ]
+  ],
+  "validation_specs": [
+    [
+      3,
+      12,
+      16,
+      [
+        89,
+        239
+      ],
+      32,
+      "clean"
+    ],
+    [
+      2,
+      8,
+      0,
+      [
+        211,
+        61
+      ],
+      48,
+      "tone"
+    ],
+    [
+      4,
+      12,
+      4,
+      [
+        73,
+        157
+      ],
+      28,
+      "wrong-sync"
+    ],
+    [
+      3,
+      8,
+      8,
+      [
+        251,
+        41
+      ],
+      40,
+      "noise"
+    ],
+    [
+      2,
+      12,
+      8,
+      [
+        101,
+        179
+      ],
+      24,
+      "step"
+    ],
+    [
+      4,
+      8,
+      0,
+      [
+        131,
+        53
+      ],
+      44,
+      "burst"
+    ]
+  ],
+  "payload": "nonperiodic quadratic+bit-reversed-byte+run-length words,not prior gray/table family;vary complete bits not only seed",
+  "seed_bias": {
+    "development": 19691017,
+    "validation": 21691037
+  },
+  "baseline": "M38B ContinuousPrivatePrefetch with M38C evidence repair;entire baseline recomputed on fresh SHA inputs before new candidate",
+  "fixed_regressions": [
+    "bounded-private-copy/development/inputs.json",
+    "initialized-head-prefetch/baseline-development/inputs.json"
+  ],
+  "functional_benefit_gate": "positive full-packet recovery or strictly reduced work at identical recall;dropped work not a speed benefit",
+  "no_original_or_predecessor_success_loss": true,
+  "aggregate_queue_history_frame_resource_exit_delta_max": 0,
+  "new_negative_coherent_or_false_MAC_max": 0,
+  "negative_exposure_per_cohort_samples": 32768,
+  "same_age_numeric_budgets": {
+    "center_samples": 0.001,
+    "rate_ppm": 0.1,
+    "normalized_symbol_RMS": 0.0001,
+    "normalized_symbol_peak": 0.001
+  },
+  "minimum_complete_numeric_pairs": 4,
+  "unknown_or_truncated_pairs_not_passed": true,
+  "control_bits_cap": 512,
+  "existing_bridge_control_cap": 2048,
+  "additional_DSP_BRAM_sample_ports": 0,
+  "candidate_is_one_factor": true,
+  "no_crc_or_expected_or_truth_answer_selection": true,
+  "dynamic_range_and_interpolation_old_rejections_preserved": true,
+  "held_only_after_all_frozen_development_and_fixed_pass": true,
+  "all_viewed_sets_fixed_or_development": true,
+  "four_RX_gates_still_open": true,
+  "new_control_bit_cap": 512,
+  "horizon_service": {
+    "state_bits": 444,
+    "latency_edges": 19
+  },
+  "fixed_manifest_SHA256": [
+    "10b132ec5df8cb57a1382a03a6635a5d72a11cfe579b851b2bdeed03eec994de",
+    "4e2dd8c751f4377d15c9cfc21bb11c7988e892f3b5f463b678e461675dd3bc54"
+  ]
+}
