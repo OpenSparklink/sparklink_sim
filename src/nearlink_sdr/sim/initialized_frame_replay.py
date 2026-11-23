@@ -242,7 +242,8 @@ class InitializedFrameReplay:
             profile, layout="dense" if profile.config.frame_type == 2 else "depth-parity"
         )
         self.profile, self.history = profile, history
-        self._upstream_word_receipt = confirmed_receipt  # Borrow same held receipt,not a cache copy.
+        # Borrow the same held receipt,not another cache copy.
+        self._upstream_word_receipt = confirmed_receipt
         self.selection = dict(
             start_tick=start_tick,
             delta=delta,
