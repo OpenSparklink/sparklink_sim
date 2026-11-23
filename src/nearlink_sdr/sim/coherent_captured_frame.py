@@ -57,13 +57,19 @@ class WordConfirmedCapturedFrameReplay(ClockedHeaderCapturedFrameReplay):
     def begin(self, selection, cycle):
         if not self._begin_selection(selection, cycle):
             return
-        self.word_service = CoherentWordService(selection, self.codes, initial_cycle=cycle)
+        self.word_service = self._new_word_service(selection, cycle)
         self._count_word("issued")
         self._word_waiting = True
         if not self.clocked:
             while not self.word_service.ready:
                 self.word_service.step()
             self._complete_word_gate()
+
+    def _new_word_service(self, selection, cycle):
+        return CoherentWordService(selection, self.codes, initial_cycle=cycle)
+
+    def _word_service_cost(self):
+        return CoherentWordService.estimate()
 
     def _complete_word_gate(self):
         if not self._word_waiting or not self.word_service.ready:
@@ -150,7 +156,7 @@ class WordConfirmedCapturedFrameReplay(ClockedHeaderCapturedFrameReplay):
 
     def estimate(self):
         original = super().estimate()
-        service = CoherentWordService.estimate()
+        service = self._word_service_cost()
         controller = 3 * 64 + 2
         total = original["register_bits_upper"] + service["register_bits_upper"] + controller
         return original | dict(

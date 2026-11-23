@@ -255,6 +255,20 @@ class CoherentWordService:
             angle = 2**38 if imag > 0 else -(2**38)
         step = rne_shift(angle, 20) & (2**20 - 1)
         yield  # Axis bypass,turn40→20 RNE and modulo register.
+        cr, ci, energy = yield from self._accumulate(source, step)
+        rr, ii = (yield from self._square48(cr)), (yield from self._square48(ci))
+        numerator = yield from self._sum(rr, ii, 97)
+        reference = yield from self._constant(energy, len(self.codes), 59)
+        denominator = reference << 32  # Known Q16 coefficient scale,not a divider.
+        lhs = yield from self._constant(numerator, 20, 110)
+        rhs = yield from self._constant(denominator, 9, 110)
+        decision = yield from self._command("cmp", lhs, rhs, ab=110, bb=110,
+                                            bits=2, signed_result=True)
+        return CoherentWordReceipt(source, self.codes, angle, step, (cr, ci), energy,
+                                   numerator, denominator, decision, self.cycle + 1)
+
+    def _accumulate(self, source, step):
+        """Original serial value/clock program;subclasses may schedule exact words."""
         phase, cr, ci, energy = 0, 0, 0, 0
         for j in range(len(self.codes)):
             self._emit("coherent_cache_read", id=source.ident, index=j)
@@ -280,16 +294,7 @@ class CoherentWordService:
             er, ei = (yield from self._square22(ar)), (yield from self._square22(ai))
             energy = yield from self._sum(energy, er, 52)
             energy = yield from self._sum(energy, ei, 52)
-        rr, ii = (yield from self._square48(cr)), (yield from self._square48(ci))
-        numerator = yield from self._sum(rr, ii, 97)
-        reference = yield from self._constant(energy, len(self.codes), 59)
-        denominator = reference << 32  # Known Q16 coefficient scale,not a divider.
-        lhs = yield from self._constant(numerator, 20, 110)
-        rhs = yield from self._constant(denominator, 9, 110)
-        decision = yield from self._command("cmp", lhs, rhs, ab=110, bb=110,
-                                            bits=2, signed_result=True)
-        return CoherentWordReceipt(source, self.codes, angle, step, (cr, ci), energy,
-                                   numerator, denominator, decision, self.cycle + 1)
+        return cr, ci, energy
 
     def step(self):
         if self.mode in ("aborted", "taken"):

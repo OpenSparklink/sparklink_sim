@@ -62,14 +62,11 @@ class WordCommand:
         if type(self.tag) is not int or not 0 <= self.tag < 128:
             raise ValueError("Need compiled7-bit tag")
         if self.code == "tile" and (
-            self.a_bits != 24
-            or self.b_bits != 17
-            or self.a_signed
-            or self.b_signed
-            or self.bits != 43
-            or not self.signed
+            (self.a_bits, self.b_bits, self.a_signed, self.b_signed)
+            not in ((24, 17, False, False), (22, 18, True, True))
+            or self.bits != 43 or not self.signed
         ):
-            raise ValueError("Native tile is positive24x17 in signed25x18 footprint")
+            raise ValueError("Native tile is positive24x17 or signed22x18 in signed25x18 footprint")
         if self.code == "rne" and (
             (self.a_bits, self.b_bits, self.bits, self.b) != (33, 4, 22, 10)
             or not self.a_signed
@@ -262,7 +259,8 @@ class WordFabric:
         stage0 = self.dsp[0]
         if stage0 is not None:
             job, _ = stage0
-            stage0 = (job, job.c.a * job.c.b)  # Only the native24x17 multiplier.
+            # Both compiled formats fit one signed25x18 primitive. No wide product.
+            stage0 = (job, job.c.a * job.c.b)
         self.dsp = [None, stage0, self.dsp[1]]
 
     def take(self, context):

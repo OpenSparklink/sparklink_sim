@@ -34,6 +34,7 @@ jobs:
       - name: Ruff check
         run: |
           make lint
+          uv run --frozen --no-sync ruff check scripts/model_finite_coherent.py scripts/model_interleaved_coherent.py
           uv run --frozen --no-sync ruff check scripts/check_test_shards.py
           uv run --frozen --no-sync ruff check scripts/model_selected_handoff.py
           uv run --frozen --no-sync ruff check scripts/model_timing_words.py

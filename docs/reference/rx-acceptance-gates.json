@@ -463,5 +463,50 @@
     "old_numeric_and_resource_failures_preserved": true,
     "remaining_services_not_assigned_zero": true,
     "four_RX_gates_passed": false
+  },
+  "interleaved_coherent_confirmation": {
+    "stage": "M34",
+    "reference": "interleaved-coherent-confirmation.md",
+    "explicit_experimental_adoption": true,
+    "default": false,
+    "new_legal_packets_per_split": 12,
+    "development_complete_float_serial_signed_interleaved": [
+      8,
+      6,
+      6,
+      8
+    ],
+    "independent_validation_complete_float_serial_interleaved": [
+      5,
+      3,
+      5
+    ],
+    "original_float_success_losses": [
+      0,
+      0
+    ],
+    "recovered_vs_serial": [
+      2,
+      2
+    ],
+    "new_negative_false_MAC": [
+      0,
+      0
+    ],
+    "unique_negative_samples_per_split": 32768,
+    "exact_arithmetic_words_vs_existing_finite_node": true,
+    "gate_control_bits": 8067,
+    "cap8192_pass": true,
+    "old_RRC_interpolation16KiB_failures_passed": false,
+    "full_streaming": false,
+    "full_fixed_point": false,
+    "whole_resources": false,
+    "continuous16MSps": false,
+    "remaining_explicitly_unmodeled": [
+      "residual carrier and payload decoder clock service",
+      "whole-system RAM/port concurrency",
+      "FT1/GFSK unknown-start stream"
+    ],
+    "no_new_profiles_or_support_claim": true
   }
 }
