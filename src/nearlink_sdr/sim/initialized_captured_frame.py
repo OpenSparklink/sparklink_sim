@@ -241,12 +241,16 @@ class InitializedCapturedFrameReplay(ScheduledCoherentCapturedFrameReplay):
             self.word_service.abort()
             self._word_waiting = False
             self._count_word("cancelled")
-        if self.flow is not None and not self.flow.done:
-            self.flow.abort("cancelled")
+        inner = None
+        if self.flow is not None:
+            inner = self.flow.event if self.flow.done else self.flow.abort("cancelled")
         self.pending = None
         self._count("resource_aborts")
-        event = self._failure(reason)
-        event["frame"]["resource_reason"] = reason
+        # The real owner already stopped above. Keep its checked head and
+        # partial diagnostics;do not turn a resource failure into delivery.
+        event = self._failure(reason) if inner is None else dict(inner)
+        event["frame"] = dict(event["frame"], status=reason,
+                              resource_reason=reason, payload=None)
         self._terminal(event)
 
     def _terminal(self, event):

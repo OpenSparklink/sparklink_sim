@@ -647,5 +647,25 @@
     "remaining_packet_failures": 16,
     "resource_terminal_head_trace_loss": "independently reproduced;nextseparatefix",
     "moving_tail_horizon": "read-only eligibility witness only;notimplemented"
+  },
+  "resource_abort_evidence": {
+    "stage": "M38C failure evidence only",
+    "reference": "initialized-capture-bridge.md",
+    "scope": "already selected finite capture wrapper;reuse actual terminated owner,not generic RF recovery",
+    "real_checked_head_and_partial_trace_preserved": true,
+    "unverified_stays_null_and_bad_head_stays_false": true,
+    "resource_failure_never_delivers_MAC": true,
+    "recorded_port_contexts": 15,
+    "resource_contexts": 4,
+    "actual_known_head_restored_in_frame": 2,
+    "uninitialized_stays_unknown": 2,
+    "normal_decisions_clocks_ports_frontiers_unchanged": true,
+    "MAC_packets_before_after": 8,
+    "pre_fix_saved1491_symbol_trace_exact": true,
+    "new_sample_RAM_DSP_ports_or_radio_math": 0,
+    "hardware_debug_export_cycles_and_buffer": null,
+    "packet_recovery_claim": 0,
+    "old_numeric_and_resource_failures_retained": true,
+    "all_four_RX_gates_passed": false
   }
 }

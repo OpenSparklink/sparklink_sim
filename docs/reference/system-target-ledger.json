@@ -3190,5 +3190,16 @@
     "shadow_clock_bus_borrowed_not_new_counter": true,
     "copy_gate_compare21_mux21_per_active_edge": 1,
     "extra_control_enable_reset_comparators_unmapped": true
+  },
+  "resource_abort_evidence": {
+    "stage": "M38C offline reporting correction",
+    "reference": "initialized-capture-bridge.md",
+    "signal_processing_work_and_sample_storage_unchanged": true,
+    "new_radio_math_DSP_BRAM_ports": 0,
+    "host_action": "borrow already terminated trace arrays;shallow outer/frame metadata copy;no payload delivery",
+    "diagnostic_trace_lifetime_and_serialization_not_free": true,
+    "hardware_debug_export_RAM_ports_cycles_LUT_FF": null,
+    "not_a_zero_cycle_export_model": true,
+    "full_receiver16MSps_or_synthesis": false
   }
 }

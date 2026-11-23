@@ -226,6 +226,70 @@ def test_zero_energy_selected_cache_rejects_without_allocating_a_tail_or_decodin
 
 
 @pytest.mark.parametrize("ft", [2, 3, 4])
+def test_resource_abort_keeps_real_checked_head_and_partial_timing_without_MAC(ft):
+    import numpy as np
+
+    from nearlink_sdr.sim.private_prefetch import ContinuousPrivatePrefetch
+
+    profile, words, _, selection, edge = captured(ft, size=23, pilots=8)
+    node = ContinuousPrivatePrefetch(profile, coherent_threshold=.45, payload_mode="functional")
+    node.begin(selection, edge)
+    while True:
+        node.tick(node.cycle + 1)
+        if (node.header is not None and node.flow.frame.stats["joined_symbols"]
+                > node.header["header_end_symbol"] + 3):
+            break
+        if node.needs_word:
+            node.issue_read(node.source_index, words[node.source_index], node.cycle)
+        assert not node.done and node.cycle < edge + 100000
+    before = node.source_index, node.stats["read_returns"], node.retired_through
+    node.abort("tail_history_expired", node.cycle + 1)
+    event, mac = node.take()
+    inner = node.flow.event
+    assert event["frame"]["status"] == "tail_history_expired" and not mac.packets
+    assert event["frame"]["header_crc"] is event["frame"]["length_ok"] is True
+    assert event["frame"]["mcs"] == node.header["mcs"] == profile.config.mcs_index
+    assert event["frame"]["data_crc"] is event["frame"]["payload"] is None
+    assert event["frame"]["parser_status"] == "truncated_data"
+    assert inner["frame"]["status"] == "cancelled"  # Wrapper did not mutate the inner record.
+    assert len(event["symbols"]) > node.header["header_end_symbol"]
+    for key in ("symbols", "symbol_centers_filtered", "timing_rate_ppm", "timing_detector_error"):
+        assert event[key] is inner[key]  # Borrow the already terminated arrays,no bulk copy.
+        np.testing.assert_array_equal(event[key], inner[key])
+    assert np.all(np.diff(event["symbol_centers_filtered"]) > 0)
+    assert event["symbol_centers_filtered"][0] == selection.start_tick / 8
+    assert (node.source_index, node.stats["read_returns"], node.retired_through) == before
+    assert node.pending is None and not node.needs_word and node.take() is None
+    node.release()
+
+
+def test_resource_abort_preserves_an_actual_bad_head_completed_while_output_blocked():
+    from nearlink_sdr.sim.private_prefetch import ContinuousPrivatePrefetch
+
+    profile, words, _, selection, edge = captured(3, size=23, bad_head=True)
+    node = ContinuousPrivatePrefetch(profile, coherent_threshold=.45, payload_mode="stop")
+    node.begin(selection, edge)
+    while True:
+        node.tick(node.cycle + 1)
+        if (node.flow is not None and node.flow.frame is not None
+                and node.flow.frame.consumer.boundary_kind == "header"):
+            break
+        if node.needs_word:
+            node.issue_read(node.source_index, words[node.source_index], node.cycle)
+        assert not node.done and node.cycle < edge + 100000
+    while not node.flow.done:
+        node.tick(node.cycle + 1, blocked=True)
+        assert node.cycle < edge + 100000
+    assert not node.done and node.flow.event["frame"]["header_crc"] is False
+    node.abort("source_epoch_aborted", node.cycle + 1)
+    event, mac = node.take()
+    assert event["frame"]["status"] == "source_epoch_aborted" and not mac.packets
+    assert event["frame"]["header_crc"] is False
+    assert event["frame"]["data_crc"] is event["frame"]["payload"] is None
+    assert node.horizon.stats["accepted"] == 0 and len(event["symbols"]) > 0
+
+
+@pytest.mark.parametrize("ft", [2, 3, 4])
 def test_initial_failure_releases_but_does_not_consume_the_prefetched_suffix(ft):
     """Inject inconsistent raw/cache ports to exercise cleanup,not RF performance."""
     from dataclasses import replace
