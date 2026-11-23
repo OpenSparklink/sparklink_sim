@@ -1,0 +1,206 @@
+{
+  "stage": "M38B",
+  "status": "frozen-before-development;not an acceptance claim",
+  "candidate_count": 1,
+  "evidence": {
+    "eligibility_witness": "/home/sanchuanhehe/.codex/visualizations/2026/11/15/01a1dfe8-f1ae-7233-a63e-c31ffad2d428/capture-service-observation/COPY-ELIGIBILITY-WITNESS.json",
+    "witness_SHA256": "9477b8430868500de88243e35d3fdbe22e96fee5b6b75ad7eb27d938895880a3",
+    "first_context_cycle": 71442,
+    "next_global_word": 2374,
+    "oldest_global_word": 1615,
+    "free_private_words": 2,
+    "blocked_by_actual_query8_policy": true,
+    "source_arbitration_delivery_and_recovery_not_yet_proven": true
+  },
+  "prior_fix_required": "M38A-true consumed frontier after init cleanup",
+  "changes": "only bounded private copy scheduling;no sync/statistics/CFO/timing/interpolator/CRC changes",
+  "before_head": "after the one accepted confirmation,fill only existing1024word FIFO space;provisional unverified suffix explicitly accounted,never consumed merely because copied",
+  "after_head": "real correct headCRC+legalMCS/length sets fixedend;once serial bound available,copy at most max(actual query8 horizon,static minimum legalNCO tail horizon)",
+  "horizon": "selected_start_Q32+(end_symbol-1)*16943128754;ceil samples+3,clamped to existing sample_limit",
+  "horizon_service": {
+    "remaining_bits": 17,
+    "shifted_constant_bits": 52,
+    "accumulator_bits": 53,
+    "step_counter_bits": 5,
+    "boundary_bits": 21,
+    "mode_bits": 3,
+    "clock_bits": 63,
+    "telemetry_bits": 192,
+    "state_bits": 406,
+    "constant_bits": 35,
+    "multiply_edges": 17,
+    "ceil_and_clamp_edges": 1,
+    "registered_gate_edges": 1,
+    "latency_edges": 19,
+    "adder_bits": 53,
+    "ceil_adder_compare_bits": 21,
+    "RAM_DSP_ports_added": 0,
+    "physical_LUT_FF_Fmax_unknown": true
+  },
+  "new_control_bit_cap": 1024,
+  "total_bridge_cap_bits": 2048,
+  "private_words": 1024,
+  "global_history": 4096,
+  "owned_windows": 3,
+  "additional_BRAM_DSP_global_read_ports": 0,
+  "payload_and_descriptor_service_cycles": null,
+  "unmodeled_service_not_zero": true,
+  "original_and_M37_success_loss_max": 0,
+  "new_false_MAC_max": 0,
+  "new_negative_confirmation_max": 0,
+  "aggregate_resource_exit_increase_max": 0,
+  "numeric_pairs_min": 4,
+  "same_age_budgets": {
+    "center_samples": 0.001,
+    "rate_ppm": 0.1,
+    "normalized_symbol_RMS": 0.0001,
+    "normalized_symbol_peak": 0.001
+  },
+  "benefit_required": "positive complete packet recovery or same-recall service reduction;no gain based on dropped transactions",
+  "held_rule": "only after new development and fixed regression pass;source+policy+budgets frozen;no retuning viewed held",
+  "development_specs": [
+    [
+      4,
+      12,
+      0,
+      [
+        29,
+        157
+      ],
+      36,
+      "clean"
+    ],
+    [
+      3,
+      8,
+      16,
+      [
+        127,
+        59
+      ],
+      44,
+      "tone"
+    ],
+    [
+      2,
+      12,
+      8,
+      [
+        83,
+        197
+      ],
+      20,
+      "wrong-sync"
+    ],
+    [
+      4,
+      8,
+      4,
+      [
+        211,
+        31
+      ],
+      52,
+      "noise"
+    ],
+    [
+      3,
+      12,
+      4,
+      [
+        61,
+        179
+      ],
+      24,
+      "step"
+    ],
+    [
+      2,
+      8,
+      0,
+      [
+        149,
+        43
+      ],
+      32,
+      "burst"
+    ]
+  ],
+  "validation_specs": [
+    [
+      2,
+      12,
+      4,
+      [
+        193,
+        67
+      ],
+      28,
+      "clean"
+    ],
+    [
+      4,
+      8,
+      8,
+      [
+        53,
+        229
+      ],
+      48,
+      "tone"
+    ],
+    [
+      3,
+      12,
+      0,
+      [
+        101,
+        41
+      ],
+      36,
+      "wrong-sync"
+    ],
+    [
+      2,
+      8,
+      16,
+      [
+        173,
+        89
+      ],
+      24,
+      "noise"
+    ],
+    [
+      4,
+      12,
+      16,
+      [
+        71,
+        223
+      ],
+      44,
+      "step"
+    ],
+    [
+      3,
+      8,
+      8,
+      [
+        137,
+        47
+      ],
+      20,
+      "burst"
+    ]
+  ],
+  "payload": "gray(position*73+floor(position/7)*29+id*61+held*137) XOR rotate8(table[floor(position/11)+id+held],floor(position/3)+id) XOR floor(position^2/8)",
+  "seed_bias": {
+    "development": 16475309,
+    "validation": 18475373
+  },
+  "no_new_default": true,
+  "old16KiB18DSPfull12_numeric_failures_retained": true,
+  "four_RX_gates_passed": false,
+  "prospective_plan_SHA256": "60b02555b37fac6682159beaa12e9131df8a310f3a5e6493851eafe4036209a9"
+}

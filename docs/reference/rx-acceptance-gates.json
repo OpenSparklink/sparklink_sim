@@ -617,5 +617,35 @@
     "correct_consumed_end": 1346,
     "unprocessed_suffix_words": 1024,
     "default_receiver_unchanged": true
+  },
+  "continuous_private_prefetch": {
+    "stage": "M38B explicit experimental schedule",
+    "scope": "one1024wordFIFO,one existing source port,actual finite init/timing/head,remaining offclockpayload",
+    "copy_policy": "bounded provisional suffix before real validated head;serial conservative legal end then actual queries",
+    "finite_horizon_bits": 406,
+    "finite_horizon_edges": 19,
+    "private_IQ_capacity_unchanged": true,
+    "complete_streaming": false,
+    "full_fixed_point": false,
+    "system_resources": false,
+    "continuous16MSps": false,
+    "FT1_complete": false,
+    "new_default": false,
+    "old_numeric_resource_failures_retained": true,
+    "adoption": "rejected;newdevelopment1recovered1lost,queue+3;original4successesstilllostpercohort",
+    "development_complete": {
+      "original": 8,
+      "M37": 4,
+      "candidate": 4
+    },
+    "fixed_complete": {
+      "original": 8,
+      "M37": 3,
+      "candidate": 4
+    },
+    "new_held_generated": false,
+    "remaining_packet_failures": 16,
+    "resource_terminal_head_trace_loss": "independently reproduced;nextseparatefix",
+    "moving_tail_horizon": "read-only eligibility witness only;notimplemented"
   }
 }

@@ -3152,5 +3152,43 @@
     "arbitration_or_sharing_credit": false,
     "whole_system_resource_or16MSps_qualification": false,
     "old18DSP16KiB_failures_retained": true
+  },
+  "continuous_private_prefetch": {
+    "stage": "M38B experimental single copy schedule",
+    "added_state_vs_initialized_bridge_bits": 406,
+    "added_state_vs_M37_bits": 322,
+    "compiled_constant_bits": 35,
+    "M37_compiled_constant_bits": 88,
+    "total_bridge_control_bits": 1034,
+    "private_history_words": 1024,
+    "private_BRAM36": 2,
+    "new_IQ_RAM_DSP_or_ports": 0,
+    "tail_horizon_latency_edges": 19,
+    "tail_horizon_ALU_bits": 53,
+    "ceil_compare_bits": 21,
+    "source_copy_bandwidth_increase_must_be_measured": true,
+    "RAM_port_arbitration_and_private_suffix_still_charged": true,
+    "whole_LUT_FF_or_timing": null,
+    "existing_18DSP16KiB_failures_retained": true,
+    "full_receiver16MSps_or_synthesis": false,
+    "development_private_reads": {
+      "M37": 15518,
+      "candidate": 19964
+    },
+    "fixed_private_reads": {
+      "M37": 10869,
+      "candidate": 14924
+    },
+    "development_queue_drops": {
+      "M37": 24,
+      "candidate": 27
+    },
+    "component_budget_pass_does_not_replace_packet_or_whole_system_gates": true,
+    "adoption": "rejected;queue and original-success gatesfailed",
+    "conservative_statistics_add64_units": 3,
+    "step_decrement5_per_request": 17,
+    "shadow_clock_bus_borrowed_not_new_counter": true,
+    "copy_gate_compare21_mux21_per_active_edge": 1,
+    "extra_control_enable_reset_comparators_unmapped": true
   }
 }
