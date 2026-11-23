@@ -20,6 +20,8 @@ class RRCMemory:
     Primitive replication is represented by separate arrays, not ideal RAM.
     """
 
+    _raw_word_bits = 32
+
     def __init__(self, raw_mode="quad", buffers=3, *, diagnostic_sink=None):
         if raw_mode not in ("copies", "dual", "quad") or type(buffers) is not int or buffers not in (2, 3, 4):
             raise ValueError("Need explicit raw mode and2..4owned product slots")
@@ -38,22 +40,22 @@ class RRCMemory:
 
     def estimate(self):
         """UG474 uniform mappings, not synthesized LUT/FF/timing results."""
-        mode = self.raw_mode
+        mode, bits = self.raw_mode, self._raw_word_bits
         return dict(raw_mode=mode, raw_bram36=8 if mode == "copies" else 0,
-            raw_memory_luts=0 if mode == "copies" else 8*32*2,
+            raw_memory_luts=0 if mode == "copies" else 8*bits*2,
             product_memory_luts=4*69*2, product_bram36=0,
-            raw_logical_bits=128*32, product_logical_padded_bits=self.buffers*44*69,
-            raw_replicated_image_bits=128*32*8 if mode == "copies" else
-                8*32*32*(2 if mode == "dual" else 4),
-            raw_allocated_primitive_bits=8*36864 if mode == "copies" else 512*64,
+            raw_logical_bits=128*bits, product_logical_padded_bits=self.buffers*44*69,
+            raw_replicated_image_bits=128*bits*8 if mode == "copies" else
+                8*32*bits*(2 if mode == "dual" else 4),
+            raw_allocated_primitive_bits=8*36864 if mode == "copies" else 8*bits*2*64,
             product_allocated_primitive_bits=4*69*64*2,
-            raw_ideal_slicem_sites=0 if mode == "copies" else 128,
+            raw_ideal_slicem_sites=0 if mode == "copies" else 8*((bits+1)//2),
             product_ideal_slicem_sites=4*35,
             extra_control_and_monitoring_ff=1280,
             product_read_pipeline_bits=4*69, product_read_pipeline_already_in_rrc=True,
             additional_read_pipeline_ff=0, extra_dsp=0,
-            raw_routing_mux_bit_inputs_upper=8*16*32,
-            raw_current_word_bypass_mux_bit_inputs=8*2*32,
+            raw_routing_mux_bit_inputs_upper=8*16*bits,
+            raw_current_word_bypass_mux_bit_inputs=8*2*bits,
             address_control_lut_count=None, placement_and_timing_verified=False,
             monitoring_updates_scheduled=False, whole_rx_accepted=False)
 
@@ -92,7 +94,7 @@ class RRCMemory:
             write_index, word = source_write
             if type(write_index) is not int or write_index != self.count:
                 raise ValueError("All source samples must advance in order, including dropped jobs")
-            word = self._word(word, 32)
+            word = self._word(word, self._raw_word_bits)
             if self.raw_mode == "copies":
                 for replica in self.raw:
                     replica[write_index % 128] = word

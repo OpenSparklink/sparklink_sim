@@ -59,6 +59,7 @@ class PairRRCFlow:
     # Two addition trees, corrections, abs/max, leading code, exponent, clamp,
     # shift, RNE floor/increment, range comparison and final selection register.
     _merge_wide: ClassVar[dict[int, int]] = {1: 4, 2: 2, 3: 2, 4: 2, 5: 1, 13: 2, 14: 4}
+    _input_mantissa_bits: ClassVar[int] = 12
 
     def __init__(self, assumptions=None):
         self.a = a = assumptions or PairRRCFlowAssumptions()
@@ -83,9 +84,11 @@ class PairRRCFlow:
         progress/flags and padding. Version-oracle arrays are not hardware tags.
         """
         a, lanes, acc, product = self.a, 4, 37, 31
+        bits = self._input_mantissa_bits
+        raw_bits = 2 * bits + 8
         product_entry = 2 * product + 7
         storage = dict(
-            combined_raw_history=128 * 32,
+            combined_raw_history=128 * raw_bits,
             coefficient_banks=4 * 11 * 18,
             coefficient_pipeline=2 * 4 * 18,
             owned_padded_products=a.product_buffers * 4 * 11 * product_entry,
@@ -94,8 +97,8 @@ class PairRRCFlow:
             output_fifo=a.fifo_depth * (46 + 63 + 1),
             fir_context_descriptors=2 * 160,
             fir_context_maxima=2 * 4 * 8,
-            fir_alignment=4 * (4 * 12 + 2 + 7),
-            fir_preadd=4 * (2 * 13 + 7),
+            fir_alignment=4 * (4 * bits + 2 + 7),
+            fir_preadd=4 * (2 * (bits + 1) + 7),
             fir_product_and_magnitude=2 * 4 * product_entry,
             fir_leading_codes=4 * (2 * 5 + 7),
             fir_weighted_tag=4 * (5 + 7 + 8),
@@ -150,7 +153,7 @@ class PairRRCFlow:
         )
         return dict(
             format=dict(
-                input_bits=12,
+                input_bits=bits,
                 coefficient_bits=18,
                 output_bits=19,
                 product_bits=31,
@@ -176,7 +179,7 @@ class PairRRCFlow:
             storage_components=storage,
             register_tap_logical_bits=total,
             dedicated_raw_1r1w_ram_copy_bits=total + 7 * storage["combined_raw_history"],
-            raw_read_mux_bit_inputs=8 * 128 * 32,
+            raw_read_mux_bit_inputs=8 * 128 * raw_bits,
             product_bank_read_mux_bit_inputs=4 * a.product_buffers * 11 * product_entry,
             ports=dict(
                 raw_combined_reads=8,

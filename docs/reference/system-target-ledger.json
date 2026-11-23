@@ -2847,5 +2847,78 @@
     "full_RX_16MSps": false,
     "unproved_TX_decoder_MAC_sharing_credit": false,
     "all_old_numeric_and16KiB_failures_retained": true
+  },
+  "rrc_compiled_full14": {
+    "stage": "M35A node qualified only;no live receiver integration",
+    "reference": "rrc-full14.md",
+    "input_mantissa_bits": 14,
+    "coefficient_bits": 18,
+    "product_bits": 31,
+    "accumulator_bits": 37,
+    "output_bits": 19,
+    "raw_word_bits": 36,
+    "product_word_bits": 69,
+    "logical_state_bits": 25460,
+    "old_logical_state_bits": 24900,
+    "increment_bits": 560,
+    "increment_raw_logical_bits": 512,
+    "increment_pipeline_bits": 48,
+    "preferred_raw_LUTRAM_LUT6": 576,
+    "previous_raw_LUTRAM_LUT6": 512,
+    "product_LUTRAM_LUT6": 552,
+    "allocated_raw_primitive_increment_bits": 4096,
+    "extra_DSP": 0,
+    "extra_ports": 0,
+    "extra_FIFO_or_product_slots": 0,
+    "quad_raw_routing_mux_extra_bit_inputs_upper": 512,
+    "quad_current_word_bypass_extra_bit_inputs": 64,
+    "physical_ADC_adapter_cycles": null,
+    "arithmetic_register_cycle_integration": false,
+    "whole_RX_cycles": null,
+    "synthesis_LUT_FF_Fmax": null,
+    "full_RX_16MSps": false,
+    "default_changed": false,
+    "old_numeric_and_16KiB_failures_retained": true,
+    "global_system_budget_approved": false,
+    "note": "compiled coefficient bound removes sign extension only;DSP count assumes15x18 fits primitive;FPGA/ARM split,decoder/TX/MAC/interface reservations retained,not charged zero",
+    "qualification": {
+      "new_development": [
+        24,
+        24
+      ],
+      "new_validation": [
+        30,
+        30
+      ],
+      "fixed_regression_full12": [
+        31,
+        32
+      ],
+      "fixed_regression_full14": [
+        32,
+        32
+      ],
+      "original_failure_local_RMS": [
+        0.0234835255681227,
+        0.005494754337304185
+      ],
+      "original_failure_retained": true,
+      "increment_budget_bits": 640,
+      "increment_raw_LUT6_budget": 64,
+      "numerical_regressions": 0,
+      "range_events": 0,
+      "actual_backend_inputs": 86,
+      "actual_backend_exact_NPY_members": 860
+    },
+    "module_calendar_200MHz_512_samples": {
+      "emitted": 512,
+      "dropped": 0,
+      "max_latency_cycles": 60
+    },
+    "module_calendar_100_160MHz_drops": [
+      236,
+      77
+    ],
+    "whole_system_still_unqualified": true
   }
 }

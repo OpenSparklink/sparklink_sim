@@ -1,0 +1,216 @@
+{
+  "version": 1,
+  "stage": "M35A compiled full14/C18/19 RRC node;not live receiver adoption",
+  "baseline": {
+    "input_bits": 12,
+    "coefficient_bits": 18,
+    "product_bits": 31,
+    "accumulator_bits": 37,
+    "output_bits": 19
+  },
+  "candidate": {
+    "input_bits": 14,
+    "coefficient_bits": 18,
+    "product_bits": 31,
+    "accumulator_bits": 37,
+    "output_bits": 19,
+    "raw_port_bits": 36,
+    "product_port_bits": 69
+  },
+  "candidate_reason": "actual fixed coefficients bound full14 paired products to1034452992<2**30;preserve signed31 product slots and37bit accumulator;not unlimited widening",
+  "numerical_budget": {
+    "global_normalized_rms": 0.002,
+    "global_relative_peak": 0.02,
+    "local64_relative_rms": 0.02,
+    "range_events": 0
+  },
+  "cost_budget": {
+    "extra_logical_state_bits_max": 640,
+    "extra_memory_LUT6_max": 64,
+    "extra_DSP": 0,
+    "extra_ports": 0,
+    "extra_FIFO_or_owned_slots": 0,
+    "extra_32bit_leading_detectors": 0,
+    "II_increase": 0
+  },
+  "old_module_budget_failures_retained": true,
+  "global_system_budget_not_approved": true,
+  "datatype_and_same_mode_chunk_tolerance": "exact finite words and statistics",
+  "float_symmetric_max_abs_over_reference_peak": 1e-12,
+  "selection": "one predeclared candidate;adopt node only if all new development numerical,word,range and resource gates pass;otherwise reject and do not generate holdout",
+  "holdout": "only frozen qualified format,source,parameters and cost rule;any failure rejects without tuning on it",
+  "development_seed": 7100231,
+  "validation_seed": 8100299,
+  "families": [
+    "packet",
+    "burst",
+    "phase-step",
+    "block-gain",
+    "tone-switch",
+    "adc12"
+  ],
+  "development_repeats": 4,
+  "validation_repeats": 5,
+  "development_lengths": [
+    37,
+    83,
+    157,
+    283
+  ],
+  "validation_lengths": [
+    23,
+    109,
+    197,
+    331,
+    419
+  ],
+  "development_offsets": [
+    0.113,
+    0.371,
+    0.697,
+    0.943
+  ],
+  "validation_offsets": [
+    0.071,
+    0.287,
+    0.523,
+    0.769,
+    0.887
+  ],
+  "development_ppm": [
+    -100,
+    0,
+    25,
+    75
+  ],
+  "validation_ppm": [
+    50,
+    -75,
+    10,
+    -25,
+    100
+  ],
+  "development_cfo_Hz": [
+    -91000,
+    39000,
+    67000,
+    -117000
+  ],
+  "validation_cfo_Hz": [
+    -53000,
+    101000,
+    17000,
+    -73000,
+    123000
+  ],
+  "development_block_lengths": [
+    53,
+    97,
+    151,
+    229
+  ],
+  "validation_block_lengths": [
+    41,
+    79,
+    137,
+    211,
+    313
+  ],
+  "development_gains": [
+    1,
+    4096,
+    3.814697265625e-06,
+    31,
+    0.25,
+    0.0078125
+  ],
+  "validation_gains": [
+    8192,
+    7.62939453125e-06,
+    7,
+    0.0625,
+    0.5,
+    9.5367431640625e-07
+  ],
+  "development_tones_Hz": [
+    -1600000,
+    -700000,
+    350000,
+    1300000
+  ],
+  "validation_tones_Hz": [
+    1750000,
+    -1100000,
+    110000,
+    910000,
+    -1450000
+  ],
+  "payload_families": "new quadratic/binary-mask counters,shifted bit planes,SFC64 bytes;varied FT/MCS/pilots/lengths/channels,not seed-only",
+  "profile": "ordinary FT2/3/4,4Msym/SPS4,MCS8/12,pilots0/4/8/16;node waveforms,not a packet acquisition claim",
+  "ADC": "logical adc12 vectors and arbitrary-scale digital waveform stress separate;float adapter is not extra ADC resolution,gain calibration or improved SIR",
+  "EOF": "80 virtual zero flush outputs distinguished from real input;state continuous across host chunks,not reset at packets",
+  "cycle_scope": "existing bounded FIR/product/SUM/merge dependency calendar+actual finite RAM words/ports;not full ALU register RTL or complete RX schedule",
+  "clock_sensitivity_MHz": [
+    100,
+    160,
+    200
+  ],
+  "fixed_memory_modes": [
+    "copies",
+    "dual",
+    "quad"
+  ],
+  "cycle_cases": [
+    "continuous",
+    "blocked",
+    "two_owned",
+    "one_product_port",
+    "slow_feedback"
+  ],
+  "no_new_search_timing_carrier_decoder_parameters": true,
+  "no_default_or_stream_backend_change": true,
+  "new_data_generated": false,
+  "old_failure_input_SHA256": "0e1416d2646719e075ecf9b188df21588114425c7b096ae907cc25b8e1171189",
+  "baseline_record_SHA256": "7cd2484b0387e8102032c01a981f1ab8c1b92b663287325dff96b211b8cf38f5",
+  "freeze_UTC": "2026-11-23T06:00:20.884839+00:00",
+  "recipe": {
+    "policy_SHA256": "51913cdacc8962031595eec414a54794948f01aba8f3baa8edd27f9dd374f587",
+    "UTC": "2026-11-23T06:19:36.296990+00:00",
+    "any_new_development_or_validation_IQ_generated": false,
+    "config": {
+      "frame": "(family+2*repeat+held)%3 -> FT2/3/4",
+      "mcs": "(family+repeat+held)%2 ->8/12",
+      "pilot": "(family+3*repeat+2*held)%4 ->0/4/8/16",
+      "context_index": "1739+family*19+repeat*3+held*200"
+    },
+    "payload": "repeat%3: quadratic with shifted binary mask;rotating bit plane plus block counter;SFC64 seed plus repeat*101+family*1009",
+    "prefix": "37+family*11+repeat*23+held*17",
+    "noise_SNR_dB": {
+      "development": [
+        -3,
+        6,
+        12,
+        24
+      ],
+      "validation": [
+        0,
+        9,
+        15,
+        30,
+        3
+      ]
+    },
+    "packet_reference": "independent field mapper plus analytic oversampled pulse/resampling in tests.maximum_reference.channel;FT3/4 preamble lengths corrected in tests.captured_frame_reference.packet",
+    "adc12": "logical signed12 random I/Q codes, /2048,37 leading and81 trailing zeros;one component every17th sample replaced by alternating unit LSB;length=1024+17*payload_length;no fractional/CFO/SRO added to logical-code controls",
+    "burst": "add gain*(17-13j) for7+2*repeat samples at floor(0.43*N);all families except adc12 start with independently noisy packet",
+    "phase_step": "multiply samples from floor(0.61*N) by exp(j*(0.43+0.17*repeat+0.13*held))",
+    "block_gain": "every split-specific block length multiply by rotated6gain sequence;source channel amplitude1 before multiplier",
+    "tone_switch": "add 0.7*gain tone at split-specific frequency;at floor(N/2) switch to negative0.61frequency preserving phase continuity",
+    "gain": "family-specific split gains for all non-block-gain families;block-gain sequence rolls by repeat",
+    "chunks": "whole;fixed split-specific block length;fresh SFC64 random lengths1..173 development or1..197 validation",
+    "local_windows": "nonoverlapping64 from0 including80virtualEOFsamples;zero denominator exact0 if error0 else infinity",
+    "memory_cycles": "512 actual generated36bit input words;separate synthetic69bit RAM identity producer,not a FIR arithmetic claim;3clocks x3modes,4 resource variations plus blocked output",
+    "source_freeze": "all src/tests/scripts non-cache files,uv.lock,pyproject,CI before any new development;validation requires qualified development and byte-identical sources",
+    "no_new_receiver_capture_or_BER_claim": true
+  }
+}

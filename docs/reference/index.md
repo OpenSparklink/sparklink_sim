@@ -159,6 +159,7 @@ interleaved-coherent-confirmation
 capture-sink-compatibility
 coverage-isolation
 rrc-memory
+rrc-full14
 spline-preparation
 spline-fixed
 spline-flow
@@ -177,4 +178,6 @@ psk-noise-recovery-results
 /apidocs/nearlink_sdr/nearlink_sdr.phy.acquisition_maximum
 /apidocs/nearlink_sdr/nearlink_sdr.sim.maximum_flow
 /apidocs/nearlink_sdr/nearlink_sdr.sim.captured_header_flow
+/apidocs/nearlink_sdr/nearlink_sdr.phy.rrc_full14
+/apidocs/nearlink_sdr/nearlink_sdr.sim.rrc_full14
 ```

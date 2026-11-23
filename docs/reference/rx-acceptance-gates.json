@@ -508,5 +508,32 @@
       "FT1/GFSK unknown-start stream"
     ],
     "no_new_profiles_or_support_claim": true
+  },
+  "rrc_full14_node": {
+    "stage": "M35A isolated compiled RRC node",
+    "reference": "rrc-full14.md",
+    "qualified_node_only": true,
+    "new_development_passed": [
+      24,
+      24
+    ],
+    "new_validation_passed": [
+      30,
+      30
+    ],
+    "fixed_regression_passed": [
+      32,
+      32
+    ],
+    "old_full12_numeric_failure_preserved": true,
+    "old16KiB_failure_preserved": true,
+    "live_receiver_integration": false,
+    "physical_ADC_adapter_cycles": null,
+    "actual_FIR_arithmetic_in_dependency_calendar": false,
+    "packet_gain": null,
+    "full_fixed_point": false,
+    "full_streaming": false,
+    "full_system_resources": false,
+    "continuous_full16MSps": false
   }
 }
