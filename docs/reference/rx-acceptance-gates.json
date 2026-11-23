@@ -779,5 +779,21 @@
     ],
     "same_age_numeric_pairs": 25,
     "old_numeric_and_resource_failures_retained": true
+  },
+  "b1_field_input_guard": {
+    "stage": "M41 input defect fix;not a receiver capability gain",
+    "reference": "b1-length-contract.md",
+    "wire_bits": 11,
+    "invalid_configuration_rejected_before_CRC": true,
+    "valid_bits_and_incoming_empty_control_behavior_unchanged": true,
+    "old_M40_invalid_IQ_preserved": true,
+    "ideal_maximum_only": {
+      "CRC24": 2044,
+      "CRC32": 2043,
+      "unknown_start_IQ": false
+    },
+    "new_per_sample_RX_RAM_DSP_candidate_work": false,
+    "hardware_configuration_interface_cycle_model": null,
+    "all_four_RX_gates_passed": false
   }
 }

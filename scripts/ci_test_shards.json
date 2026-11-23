@@ -205,6 +205,7 @@
       "tests/conformance/test_security.py",
       "tests/test_access.py",
       "tests/test_acquisition_fixed.py",
+      "tests/test_b1_field_bounds.py",
       "tests/test_capture_capacity.py",
       "tests/test_capture_frame_failures.py",
       "tests/test_capture_frame_resources.py",

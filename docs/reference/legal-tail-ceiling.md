@@ -63,6 +63,9 @@ q0来自实际选中同步位置。最大步进包括500ppm积分器限幅之外
 PYTHONPATH=.:src:scripts uv run python scripts/model_legal_tail_ceiling.py --output /tmp/legal-tail-new
 ```
 
+上述为M40冻结提交中的实验命令。后续B1输入检查修复后，该原实验的越界请求
+会明确报错；复核历史结果使用证据目录内归档提交与`reproduce.py`，不重新生成输入。
+
 新开发改变载荷族、FT/MCS、导频、短/长包及干扰联合配置。冻结设计原本想加入
 CRC24的B1最大2044字节载荷，但实际配置继承了CRC32：2044+4=2048，超过11bit。
 独立审计发现生成器把这个值截成0，再生成了正确的空头CRC；理想符号也复现。

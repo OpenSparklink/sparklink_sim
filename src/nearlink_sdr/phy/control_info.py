@@ -478,6 +478,10 @@ class ControlInfoB1:
     upper_link: int       # 1 bit
 
     def pack(self, llid: int) -> NDArray[np.int_]:
+        if (isinstance(self.data_length, (bool, np.bool_))
+                or not isinstance(self.data_length, (int, np.integer))
+                or not 0 <= self.data_length < 2**11):
+            raise ValueError("B1 data_length must be an unsigned11-bit integer")
         info = np.concatenate([
             _int_to_bits(self.frame_format, 1),
             _int_to_bits(self.harq_feedback, 8),
