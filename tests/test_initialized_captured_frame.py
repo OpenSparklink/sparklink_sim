@@ -186,7 +186,8 @@ def test_prefetch_bound_is_below_three_minimum_steps_and_cost_is_not_a_full_rece
     assert cost["new_private_source_BRAM36"] == 2
     assert cost["new_bridge_control_bits"] <= 2048
     assert cost["actual_source_read_ports_added"] == 0
-    assert cost["register_bits_upper"] is None and cost["known_register_bits_lower"] > 0
+    assert cost["register_bits_upper"] is cost["known_register_bits_lower"] is None
+    assert cost["known_register_reservation_subtotal"] > 0
     assert (cost["initialized_static_DSP"] == 19
             and not cost["coherent_and_initial_fit_DSP_sharing_credit"])
     assert cost["payload_cycles"] is cost["complete_latency_cycles"] is None
@@ -403,3 +404,20 @@ def test_legacy_selected_constructor_initial_view_belongs_to_its_actual_history(
     assert owner._filtered_values.base is owner._retained
     assert len(owner._filtered_values) == owner.input_samples == 0
     assert len(owner._retained) == (4096 if capacity is None else 2*capacity)
+
+
+def test_new_cost_never_inherits_zero_peak_or_an_absent_float_raw_mirror(selected):
+    profile, words, _, selection, edge = selected
+    owner = InitializedCapturedFrameReplay(profile, coherent_threshold=.45, payload_mode="stop")
+    drive(owner, selection, edge, words)
+    actual = owner.flow.frame.consumer
+    assert actual.reference_memory()["persistent_numpy_storage_bytes"] > 0
+    assert len(actual._retained) == 0 and owner.history.capacity == 1024
+    cost = owner.estimate()
+    assert cost["actual_peak_reference_bytes"] is None and cost["reference_peak_not_measured"]
+    assert cost["functional_raw_history_samples"] == cost["functional_host_mirror_copies"] == 0
+    assert not cost["old_float_raw_consumer_constructed"]
+    assert cost["private_history"]["capacity_words"] == 1024
+    assert cost["private_history"]["bram36"] == 2
+    assert cost["known_register_bits_lower"] is cost["register_bits_upper"] is None
+    assert cost["known_register_reservation_subtotal"] == 10726

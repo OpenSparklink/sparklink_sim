@@ -140,6 +140,16 @@ PYTHONPATH=.:src:scripts uv run python scripts/model_initialized_capture.py --ou
 最终按100字符规范仅换行/加括号，四文件AST与已冻结实验相同；原始源码SHA和差异保留，
 提交归档另做原输入重放，不将格式变更冒充冻结前同一字节源码。
 
+## 成本报告的后续修正
+
+实际活跃消费者已有334056字节NumPy状态，旧继承字段却仍报告峰值0、浮点原始历史512和
+双镜像2；这些属于未构造的旧消费者。本有限桥的浮点原始历史实际为0，字历史1024另计。
+现在未测完整峰值明确为null，旧镜像字段为实际缺席的0，不将其当整个模型零内存。
+`known_register_reservation_subtotal`为组件预留小计（当前10726bit），
+旧`known_register_bits_lower`和总上界均为null；该小计不证明硅片物理下界或总量。
+本次只修正`estimate()`及描述，不改变数据通路、算法参数、预算、接收结果或调度采用结论。
+冻结证据根`captured-cost-provenance`保留修复前实际报告、数据通路AST和针对性/全量验证。
+
 ```{toctree}
 :hidden:
 

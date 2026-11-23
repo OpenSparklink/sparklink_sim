@@ -289,7 +289,12 @@ class InitializedCapturedFrameReplay(ScheduledCoherentCapturedFrameReplay):
                  + self._word_service_cost()["register_bits_upper"]
                  + port["address_timestamp_and_reply_bits"] + port["statistic_counter_bits"])
         return base | dict(
-            register_bits_upper=None, known_register_bits_lower=known,
+            actual_peak_reference_bytes=None, reference_peak_not_measured=True,
+            functional_raw_history_samples=0, functional_host_mirror_copies=0,
+            old_float_raw_consumer_constructed=False,
+            register_bits_upper=None, known_register_bits_lower=None,
+            known_register_reservation_subtotal=known,
+            register_subtotal_is_component_reservation_not_physical_lower_bound=True,
             complete_initialized_registers_or_profile_descriptor=None,
             new_bridge_control_fields=fields, new_bridge_control_bits=extra,
             new_bridge_control_research_cap_bits=2048,
