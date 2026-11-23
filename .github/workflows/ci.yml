@@ -241,7 +241,7 @@ jobs:
           fi
           uv run --frozen --no-sync pytest "${paths[@]}" -v --tb=short --junitxml=report-$SHARD.xml --durations=20 >test-$SHARD.log 2>&1
       - name: Check actual unit shard duration even on test failure
-        if: always()
+        if: ${{ !cancelled() }}
         env:
           SHARD: ${{ matrix.shard }}
         run: |
@@ -278,7 +278,7 @@ jobs:
   test:
     name: Test (${{ matrix.backend }})
     needs: unit-shards
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -318,47 +318,47 @@ jobs:
           PY
           uv run --frozen --no-sync python scripts/check_test_shards.py report-core.xml report-front.xml report-rrc.xml report-head.xml report-replay.xml report-handoff.xml report-word.xml --output test-budget.json
       - name: Verify original published waveform recipes before algorithm regressions
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           PYTHONPATH=.:src:scripts uv run --frozen --no-sync python scripts/check_frozen_corpora.py --output receiver-diagnostics/frozen-corpora >frozen-corpora.log 2>&1
           cat frozen-corpora.log
       - name: Preserve carrier workload and explicit system resource gap
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_carrier_workload.py --output receiver-diagnostics/carrier-workload >carrier-workload.log 2>&1 || status=$?
           test "$status" -eq 1
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/carrier-workload/workload.json")); assert len(d["cases"]) == 39 and d["whole_system_accepted"] is False and d["format_complex32_validated"] is False'
       - name: Preserve bounded candidate work and queue rejection
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_sync_candidate_work.py --output receiver-diagnostics/sync-candidate-work >sync-candidate-work.log 2>&1 || status=$?
           test "$status" -eq 1
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/sync-candidate-work/model.json")); assert len(d["scenarios"]) == 6 and d["whole_system_accepted"] is False; assert all(r["queue"]["dropped_requests"] > 0 for r in d["scenarios"])'
       - name: Preserve coherent confirmation and bounded NCO resource gaps
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_sync_coherent_work.py --output receiver-diagnostics/sync-coherent-work >sync-coherent-work.log 2>&1 || status=$?
           test "$status" -eq 1
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/sync-coherent-work/model.json")); assert len(d["scenarios"]) == 3 and d["whole_system_accepted"] is False; assert d["nco_calendars"]["stopped"]["incomplete"]; assert all(r["known_capture_partial_total_bits"] > r["memory_budget_bits"] for r in d["scenarios"])'
       - name: Preserve rejected sync carrier initialization resource scenarios
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_sync_carrier_work.py --output receiver-diagnostics/sync-carrier-work >sync-carrier-work.log 2>&1 || status=$?
           test "$status" -eq 1
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/sync-carrier-work/model.json")); assert len(d["scenarios"]) == 6 and d["whole_system_accepted"] is False; assert all(r["known_partial_lower_bits"] > r["budget_bits"] for r in d["scenarios"]); assert not d["coefficient_calendar"]["incomplete"]'
       - name: Preserve bounded capture transport and system resource gap
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_capture_transport.py --output receiver-diagnostics/capture-transport >capture-transport.log 2>&1 || status=$?
           test "$status" -eq 1
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/capture-transport/model.json")); assert len(d["scenarios"]) == 36 and d["whole_system_accepted"] is False; assert d["original_capture_budget_still_failed"]; assert d["rrc_word_control"]["additional_word_errors"] == 0; assert all(r["result"]["peak_owned"] <= 3 and r["result"]["peak_source_operations_per_primitive"] <= 2 for r in d["scenarios"])'
       - name: Preserve RRC memory conflicts and bounded LUTRAM candidates
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_rrc_memory.py --output receiver-diagnostics/rrc-memory >rrc-memory.log 2>&1 || status=$?
@@ -366,7 +366,7 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/rrc-memory/model.json")); assert len(d["scenarios"]) == 23 and d["whole_system_accepted"] is False; assert d["original_budget_still_failed"]; assert all(r["port_candidate_valid"] for r in d["scenarios"] if r["mode"] == "quad"); assert any(not r["port_candidate_valid"] for r in d["scenarios"] if r["mode"] == "dual")'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/rrc-memory"); m=json.loads((p/"manifest.json").read_text()); assert len(m) == 27; assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in m.items()); d=json.loads((p/"model.json").read_text()); assert all(r["sha256"] == m[r["file"]] for r in d["scenarios"])'
       - name: Verify registered conservative pre-fine retirement and retain pressure failures
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_retired_capture --output receiver-diagnostics/retired-capture-development >retired-capture-development.log 2>&1 || status=$?
@@ -382,14 +382,14 @@ jobs:
             uv run --frozen --no-sync python -c 'import json; from pathlib import Path; Path("receiver-diagnostics/retired-capture-held-not-run.json").write_text(json.dumps(dict(reason="development rejected;held not evaluated",whole_RX_accepted=False)))'
           fi
       - name: Preserve actual word-head wait and dense source queue failure
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_captured_header --input-dir tests/data/captured-header-calendar --manifest-sha256 cdda54e1ac97aeb7a680f3c44bf5e724c892bd9d3b29d15ad337f90258aa12cf --output receiver-diagnostics/captured-header-calendar --case-id 3 --case-id 6 >captured-header-calendar.log 2>&1 || status=$?
           test "$status" -eq 1
           uv run --frozen --no-sync python -c 'import json; m=json.load(open("receiver-diagnostics/captured-header-calendar/model.json")); assert m["expected_exit"] == 1 and not m["resource_comparison_passed"] and not m["all_four_RX_gates_passed"] and m["full_chain_latency_cycles"] is None and m["all_fixed_regression"] and not m["new_RF_holdout"]; a,b=m["rows"]; assert a["id"] == 3 and a["original_payload_losses"] == [1] and a["resource_drop_deltas"]["queue_drops"] == 2; assert b["id"] == 6 and b["functional"]["false_MAC"] == b["clocked_head"]["false_MAC"] == 0; assert all(r["owner_cost"]["register_bits_upper"] == 1487 and r["all_three_host_chunks_exact"] for r in m["rows"])'
       - name: Verify captured candidate real CRC legal frame consumption and bounded failures
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_captured_frame --output receiver-diagnostics/captured-frame-development >captured-frame-development.log 2>&1 || status=$?
@@ -405,7 +405,7 @@ jobs:
             uv run --frozen --no-sync python -c 'import json; from pathlib import Path; Path("receiver-diagnostics/captured-frame-held-not-run.json").write_text(json.dumps(dict(reason="development rejected;held not evaluated",full_RX_accepted=False)))'
           fi
       - name: Verify actual RRC coarse window fine clock ownership and bounded loss
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_coarse_capture --output receiver-diagnostics/coarse-capture-development >coarse-capture-development.log 2>&1 || status=$?
@@ -421,7 +421,7 @@ jobs:
             uv run --frozen --no-sync python -c 'import json; from pathlib import Path; Path("receiver-diagnostics/coarse-capture-held-not-run.json").write_text(json.dumps(dict(reason="development rejected;held not evaluated",full_RX_accepted=False)))'
           fi
       - name: Verify bounded exact fine-symbol pipeline and preserve resource boundaries
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_fine_symbols --output receiver-diagnostics/fine-symbols-development >fine-symbols-development.log 2>&1 || status=$?
@@ -437,7 +437,7 @@ jobs:
             uv run --frozen --no-sync python -c 'import json; from pathlib import Path; Path("receiver-diagnostics/fine-symbols-held-not-run.json").write_text(json.dumps(dict(reason="development rejected;held not evaluated",full_RX_accepted=False)))'
           fi
       - name: Verify exact Gauss conjugate difference and preserve resource boundaries
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_spline_gauss --output receiver-diagnostics/spline-gauss-development >spline-gauss-development.log 2>&1 || status=$?
@@ -453,7 +453,7 @@ jobs:
             uv run --frozen --no-sync python -c 'import json; from pathlib import Path; Path("receiver-diagnostics/spline-gauss-held-not-run.json").write_text(json.dumps(dict(reason="development rejected;held not evaluated",full_RX_accepted=False)))'
           fi
       - name: Verify RRC release raw-flag coarse ingress and bounded EOF
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_coarse_ingress --output receiver-diagnostics/coarse-ingress-development >coarse-ingress-development.log 2>&1 || status=$?
@@ -469,7 +469,7 @@ jobs:
             uv run --frozen --no-sync python -c 'import json; from pathlib import Path; Path("receiver-diagnostics/coarse-ingress-held-not-run.json").write_text(json.dumps(dict(reason="development rejected;held not evaluated",full_RX_accepted=False)))'
           fi
       - name: Compare exact serial Q12 normalization and preserve rejected throughput
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_rank_serial --output receiver-diagnostics/rank-serial-development >rank-serial-development.log 2>&1 || status=$?
@@ -495,7 +495,7 @@ jobs:
             uv run --frozen --no-sync python -c 'import json; from pathlib import Path; Path("receiver-diagnostics/rank-serial-held-not-run.json").write_text(json.dumps(dict(reason="developer candidate rejected;held not evaluated",full_RX_accepted=False)))'
           fi
       - name: Preserve bounded native banked scaled-word core and overloads
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           PYTHONPATH=.:src:scripts uv run --frozen --no-sync python -m scripts.model_banked_scaled \
@@ -528,7 +528,7 @@ jobs:
               assert any(r["statistics"]["query_dropped"] for r in d["calendars"])
           PYCODE
       - name: Verify exact rolling exponents and retain startup and full-RX gaps
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           PYTHONPATH=src:scripts uv run --frozen --no-sync python -m scripts.model_scaled_maximum --output receiver-diagnostics/scaled-maximum-development >scaled-maximum-development.log 2>&1 || status=$?
@@ -566,7 +566,7 @@ jobs:
           PYCODE
 
       - name: Verify bounded raw flag word alignment and preserve resource failures
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           PYTHONPATH=src:scripts uv run --frozen --no-sync python -m scripts.model_raw_gate_join --output receiver-diagnostics/raw-gate-development >raw-gate-development.log 2>&1 || status=$?
@@ -602,7 +602,7 @@ jobs:
                   assert r["join_stats"]["flags_accepted"] + r["join_stats"]["flags_discarded"] == 1024
           PYCODE
       - name: Verify integer RRC scaled-word bridge and retain range and resource failures
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           PYTHONPATH=src:scripts uv run --frozen --no-sync python -m scripts.model_rrc_bridge --output receiver-diagnostics/rrc-scaled-bridge-development >rrc-scaled-bridge-development.log 2>&1 || status=$?
@@ -640,7 +640,7 @@ jobs:
                       assert not r["bridge_credit_drops"]
           PYCODE
       - name: Preserve global spline preparation and serial throughput rejection
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_spline_preparation.py --output receiver-diagnostics/spline-preparation >spline-preparation.log 2>&1 || status=$?
@@ -648,7 +648,7 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/spline-preparation/model.json")); assert d["float_structure_pass"]; assert not d["whole_system_accepted"] and not d["fixed_format_accepted"] and not d["default_rx_changed"]; assert len(d["cost"]["scenarios"]) == 6; assert all(r["report"]["queue_drops"] > 0 for r in d["cost"]["scenarios"] if r["request_interval_samples"] == 32)'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/spline-preparation"); m=json.loads((p/"manifest.json").read_text()); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in m.items())'
       - name: Preserve frozen integer spline and incomplete system gate
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/audit_spline_fixed.py --output receiver-diagnostics/spline-fixed >spline-fixed.log 2>&1 || status=$?
@@ -657,7 +657,7 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/spline-fixed/model.json")); r=d["resources"]; assert r["combined_information_lower_bits"] > r["original16kib_budget_bits"]; assert r["fourth_owned_raw_slot_bram36"] == 2 and r["four_engine_system_subtotal"] == 103; assert len(d["all_remaining_new_stream_failures"]) == 6'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/spline-fixed"); m=json.loads((p/"manifest.json").read_text()); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in m.items())'
       - name: Preserve value-carrying spline flow and system failures
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_spline_flow.py --output receiver-diagnostics/spline-flow >spline-flow.log 2>&1 || status=$?
@@ -665,7 +665,7 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/spline-flow/model.json")); assert d["preparation_node_accepted"] and d["development_cases"] == 337 and d["validation_cases"] == 36; assert not d["whole_system_accepted"] and not d["main_rx_default_changed"] and not d["full_interpolation_score_and_feedback_cycle_verified"]; assert all(r["bitexact_arrays"] for r in d["packet_regressions"]); assert d["resources"]["four_engine_ft2_bram36_subtotal"] == 91; assert all(r["result"]["queue_drops"] > 0 for r in d["resources"]["scenarios"] if r["interval"] == 32)'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/spline-flow"); m=json.loads((p/"manifest.json").read_text()); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in m.items())'
       - name: Preserve finite full-word score and rejected serial throughput
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_spline_score.py --output receiver-diagnostics/spline-score >spline-score.log 2>&1 || status=$?
@@ -673,7 +673,7 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/spline-score/model.json")); assert d["preparation_guard_pass"] and d["node_word_pass"] and d["development_pass"] and d["validation_pass"] and d["old_fixture_success_preserved"]; assert not d["whole_system_accepted"] and not d["resource_gate"] and not d["main_rx_default_changed"] and not d["float_all_range_compatibility_pass"]; assert d["representative_flow"]["cycles"] == 63119 and d["one_peak_service_upper_cycles"] == 63759; assert d["normalization_floor_failures"][-1]["score_error"] > .005; assert all(r["result"]["queue_drops"] == 118 for r in d["scenarios"]); assert len(d["failures"]) == 3'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/spline-score"); m=json.loads((p/"manifest.json").read_text()); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in m.items())'
       - name: Preserve rejected bounded-prefix carrier choices
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/audit_carrier_prefix.py --output receiver-diagnostics/carrier-prefix >carrier-prefix.log 2>&1 || status=$?
@@ -681,7 +681,7 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/carrier-prefix/model.json")); assert d["rejected"] and not d["held_evaluated"] and not d["default_receiver_changed"]; assert d["summary"]["full"]["full"] == 7 and d["summary"]["prefix128"]["full"] == 6; assert d["summary"]["prefix256"]["bit_errors"] == 3377; assert len(d["original_fixture_success_losses"]) == 6; assert not d["fixedFFT_format_accepted"] and not d["complete16msps_verified"]; assert any(c["prefix_limit"] == 256 and c["complex_word_bits_assumed"] == 64 and c["clock_hz_assumed"] == 200000000 and c["total_bram36"] == 27 for c in d["costs"])'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/carrier-prefix"); m=json.loads((p/"manifest.json").read_text()); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in m.items())'
       - name: Preserve frozen causal carrier validation and open hardware gates
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           for split in development validation; do
             status=0
@@ -692,7 +692,7 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/carrier-loop-validation/model.json")); assert d["float_validation_passed"] and d["selected"] == "medium-head"; assert d["summary"]["full"]["full"] == d["summary"]["medium-head"]["full"] == 6; assert d["summary"]["full"]["bit_errors"] == d["summary"]["medium-head"]["bit_errors"] == 7; assert d["independent_node_validation"]["passed"]; assert not d["default_changed"] and not d["complete16msps"] and not d["fixed_datapath_verified"]; assert not d["original_success_losses"] and len(d["failures"]) == 4'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; folders=[Path("receiver-diagnostics/carrier-loop-"+s) for s in ("development","validation")]; assert all(all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in json.loads((p/"manifest.json").read_text()).items()) for p in folders)'
       - name: Preserve integer carrier words and finite resource failures
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           for split in development validation; do
             status=0
@@ -703,7 +703,7 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/carrier-fixed-validation/model.json")); assert d["gates"]["q10"]["eligible"] and d["summary"]["q10"]["full"] == d["summary"]["float"]["full"] == 7; assert d["summary"]["q10"]["bit_errors"] == 2 and not d["default_changed"] and not d["complete16msps"]; f=d["flow"]; assert f["cost"]["service_clocks"] == 41 and len(f["scenarios"]) == 10; assert f["depth8_cost"]["logical_bits"]-f["cost"]["logical_bits"] == 224; assert any(r.get("source_batch") == 8 and r.get("input_depth") == 4 and r["resource_packet_invalid"] for r in f["scenarios"]); assert any(r.get("source_batch") == 8 and r.get("input_depth") == 8 and not r["resource_packet_invalid"] for r in f["scenarios"])'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; ps=[Path("receiver-diagnostics/carrier-fixed-"+s) for s in ("development","validation")]; assert all(all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in json.loads((p/"manifest.json").read_text()).items()) for p in ps)'
       - name: Preserve rejected parallel angle carrier and resource boundaries
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           for split in development validation; do
             status=0
@@ -714,7 +714,7 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/carrier-parallel-validation/model.json")); assert not d["gate"]["eligible"] and not d["gate"]["success_losses"]; assert all(s["full"] == 7 and s["captures"] == 8 for s in d["summary"].values()); assert d["summary"]["raw18"]["bit_errors"] == 1737 and d["summary"]["q10"]["bit_errors"] == 1709 and d["summary"]["float"]["bit_errors"] == 1742; assert not any(d["gate"]["numerical_passed"].values()) and d["gate"]["saturations"] == 0; assert not d["default_changed"] and not d["whole16msps"]; f=d["flow"]; assert f["cost"]["service_clocks"] == 32; assert any(r["clock"] == 160000000 and r["batch"] == 1 and not r["blocked"] and r["dropped"] == 0 for r in f["scenarios"]); assert any(r["clock"] == 100000000 and r["dropped"] > 0 for r in f["scenarios"])'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; ps=[Path("receiver-diagnostics/carrier-parallel-"+s) for s in ("development","validation")]; assert all(all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in json.loads((p/"manifest.json").read_text()).items()) for p in ps)'
       - name: Preserve capture fine integration and continuation retention failures
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_capture_fine.py --output receiver-diagnostics/capture-fine >capture-fine.log 2>&1 || status=$?
@@ -724,7 +724,7 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; from pathlib import Path; p=Path("receiver-diagnostics/capture-fine"); c=json.loads((p/"input-containers.json").read_text()); assert len(c) == 24 and all(x["exact_original_member_hashes_verified"] for x in c.values()); assert all(r["EOF_filter_flush_words"] == 42 for r in json.loads((p/"rows.json").read_text())); assert json.loads((p/"protocol.json").read_text())["input_mode"] == "derived-container-original-members-verified"'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/capture-fine"); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in json.loads((p/"manifest.json").read_text()).items())'
       - name: Preserve full-growth power reuse and resource failures
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_spline_power.py --capture-root receiver-diagnostics/capture-fine --output receiver-diagnostics/spline-power >spline-power.log 2>&1 || status=$?
@@ -733,7 +733,7 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/spline-power/model.json")); assert all(c["False"]["fine"]["additional_query_state_upper_bits"] == 6657 and c["True"]["fine"]["additional_query_state_upper_bits"] == 7101 and c["True"]["fine"]["peak_bit_monitor_reserved_slots"] == 80 for c in d["costs"].values()); assert all(sum(s["completed"] for s in d["schedules"] if s["reuse"] == v and s["clock"] == c) == 28 and sum(s["queue_drops"] for s in d["schedules"] if s["reuse"] == v and s["clock"] == c) == 2 and sum(s["potential_continuation_retention_lost"] for s in d["schedules"] if s["reuse"] == v and s["clock"] == c) == 17 for v in (False,True) for c in (100000000,160000000,200000000))'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/spline-power"); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in json.loads((p/"manifest.json").read_text()).items())'
       - name: Preserve post-preparation geometry wait and resource failures
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_spline_geometry.py --capture-root receiver-diagnostics/capture-fine --output receiver-diagnostics/spline-geometry >spline-geometry.log 2>&1 || status=$?
@@ -742,7 +742,7 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; from pathlib import Path; p=Path("receiver-diagnostics/spline-geometry"); waits=[json.loads(f.read_text()) for f in p.glob("*-fine-*-guarded.json") if json.loads(f.read_text())["service"]["disposition"] == "geometry_wait"]; assert len(waits) == 11 and all(x["service"]["start_tick"] is None and x["microtrace"]["best"] is None and x["microtrace"]["numerical_pass"] is None and x["microtrace"]["scores_evaluated"] == 0 for x in waits); d=json.loads((p/"model.json").read_text()); assert all(sum(s["completed"] for s in d["schedules"] if s["guard"] == v and s["clock"] == c) == 28 and sum(s["queue_drops"] for s in d["schedules"] if s["guard"] == v and s["clock"] == c) == 2 and sum(s["potential_continuation_retention_lost"] for s in d["schedules"] if s["guard"] == v and s["clock"] == c) == 17 for v in (False,True) for c in (100000000,160000000,200000000))'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/spline-geometry"); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in json.loads((p/"manifest.json").read_text()).items())'
       - name: Preserve word arithmetic exactness and finite scheduling failures
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_score_words.py --capture-root receiver-diagnostics/capture-fine --output receiver-diagnostics/score-words >score-words.log 2>&1 || status=$?
@@ -751,7 +751,7 @@ jobs:
           uv run --frozen --no-sync python -c 'import json; d=json.load(open("receiver-diagnostics/score-words/model.json")); assert all(c["2"]["fine"]["additional_word_and_context_bits"] == 20936 and c["2"]["fine"]["additional_query_state_upper_bits"] == 28155 for c in d["costs"].values()); assert all(sum(s["completed"] for s in d["schedules"] if s["ALU"] == a and s["clock"] == c) == 28 and sum(s["queue_drops"] for s in d["schedules"] if s["ALU"] == a and s["clock"] == c) == 2 and sum(s["potential_continuation_retention_lost"] for s in d["schedules"] if s["ALU"] == a and s["clock"] == c) == 17 for a in (0,2) for c in (100000000,160000000,200000000))'
           uv run --frozen --no-sync python -c 'import hashlib,json; from pathlib import Path; p=Path("receiver-diagnostics/score-words"); assert all(hashlib.sha256((p/k).read_bytes()).hexdigest() == v for k,v in json.loads((p/"manifest.json").read_text()).items())'
       - name: Preserve bounded tail relay and capacity failures
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_capture_tail.py --capture-root receiver-diagnostics/capture-fine --score-root receiver-diagnostics/score-words --output receiver-diagnostics/capture-tail >capture-tail.log 2>&1 || status=$?
@@ -784,7 +784,7 @@ jobs:
           assert all(hashlib.sha256((p/k).read_bytes()).hexdigest()==v for k,v in manifest.items())
           PY
       - name: Verify selected-frame reference and preserve finite retention failures
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_selected_frame.py --capture-root receiver-diagnostics/capture-fine --score-root receiver-diagnostics/score-words --output receiver-diagnostics/selected-frame >selected-frame.log 2>&1 || status=$?
@@ -808,7 +808,7 @@ jobs:
                      for k,v in json.loads((p / "manifest.json").read_text()).items())
           PYCODE
       - name: Verify sliding raw history and registered word ports without full-RX credit
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_sliding_history.py --selected-root receiver-diagnostics/selected-frame --capture-root receiver-diagnostics/capture-fine --output receiver-diagnostics/sliding-history >sliding-history.log 2>&1 || status=$?
@@ -841,7 +841,7 @@ jobs:
                      for k,v in json.loads((p / "manifest.json").read_text()).items())
           PYCODE
       - name: Preserve word interpolation rejection and finite query deadlines
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_interpolation_word.py --split development --selected-root receiver-diagnostics/selected-frame --capture-root receiver-diagnostics/capture-fine --output receiver-diagnostics/interpolation-development >interpolation-development.log 2>&1 || status=$?
@@ -882,7 +882,7 @@ jobs:
                          for k,v in manifest.items())
           PYCODE
       - name: Verify exact initial-word reuse and preserve unmodeled RX service
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_initial_reuse.py --split development --selected-root receiver-diagnostics/selected-frame --capture-root receiver-diagnostics/capture-fine --word-root receiver-diagnostics/interpolation-development --output receiver-diagnostics/initial-reuse-development >initial-reuse-development.log 2>&1 || status=$?
@@ -922,7 +922,7 @@ jobs:
                          for k,v in json.loads((p / "manifest.json").read_text()).items())
           PYCODE
       - name: Verify guard placement with frozen numeric budgets and finite service
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_alignment_guard.py --split development --selected-root receiver-diagnostics/selected-frame --capture-root receiver-diagnostics/capture-fine --word-root receiver-diagnostics/interpolation-development --output receiver-diagnostics/alignment-development >alignment-development.log 2>&1 || status=$?
@@ -962,7 +962,7 @@ jobs:
                          for k,v in json.loads((p / "manifest.json").read_text()).items())
           PYCODE
       - name: Verify finite known-sync initialization and preserve source overflow
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_sync_initial_fit.py --split development --selected-root receiver-diagnostics/selected-frame --capture-root receiver-diagnostics/capture-fine --word-root receiver-diagnostics/interpolation-development --output receiver-diagnostics/fit-development >fit-development.log 2>&1 || status=$?
@@ -1001,7 +1001,7 @@ jobs:
                          for k,v in json.loads((p/"manifest.json").read_text()).items())
           PYCODE
       - name: Verify actual selected-word handoff and explicit missing compute service
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_selected_handoff.py --split development --selected-root receiver-diagnostics/selected-frame --capture-root receiver-diagnostics/capture-fine --fit-root receiver-diagnostics/fit-development --output receiver-diagnostics/handoff-development >handoff-development.log 2>&1 || status=$?
@@ -1041,7 +1041,7 @@ jobs:
                          for k,v in json.loads((p/"manifest.json").read_text()).items())
           PYCODE
       - name: Verify finite timing words and preserve serialized feedback rejection
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_timing_words.py --split development --handoff-root receiver-diagnostics/handoff-development --capture-root receiver-diagnostics/capture-fine --selected-root receiver-diagnostics/selected-frame --output receiver-diagnostics/timing-development >timing-development.log 2>&1 || status=$?
@@ -1078,7 +1078,7 @@ jobs:
               assert all(hashlib.sha256((p/k).read_bytes()).hexdigest()==v for k,v in json.loads((p/"manifest.json").read_text()).items())
           PYCODE
       - name: Verify actual timing/query ownership and preserve blocked continuous prefixes
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_timing_handoff.py --split development --timing-root receiver-diagnostics/timing-development --capture-root receiver-diagnostics/capture-fine --selected-root receiver-diagnostics/selected-frame --output receiver-diagnostics/timing-handoff-development >timing-handoff-development.log 2>&1 || status=$?
@@ -1128,7 +1128,7 @@ jobs:
           assert bound["current_serial_hold_timing_alone_exceeds_margin"]
           PYCODE
       - name: Verify exact known-sync pipeline and preserve whole-RX resource gaps
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_hold_pipeline.py --split development --timing-root receiver-diagnostics/timing-development --capture-root receiver-diagnostics/capture-fine --selected-root receiver-diagnostics/selected-frame --output receiver-diagnostics/hold-pipeline-development >hold-pipeline-development.log 2>&1 || status=$?
@@ -1177,7 +1177,7 @@ jobs:
           assert ft4["hold_edges"] == 763 < ft4["initial_snapshot"]["margin_edges"] == 1039
           PYCODE
       - name: Verify finite symbol normalization and retain serial full-RX failures
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_normalization_words.py --split development --timing-root receiver-diagnostics/timing-development --capture-root receiver-diagnostics/capture-fine --selected-root receiver-diagnostics/selected-frame --output receiver-diagnostics/normalization-development >normalization-development.log 2>&1 || status=$?
@@ -1221,7 +1221,7 @@ jobs:
           assert all(r["unmodeled_header_residual_carrier_LLR_decoder_cycles"] is None for r in rows)
           PYCODE
       - name: Verify finite cache broadcast and ordered normalization overlap
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_normalization_overlap.py --split development --timing-root receiver-diagnostics/timing-development --capture-root receiver-diagnostics/capture-fine --selected-root receiver-diagnostics/selected-frame --output receiver-diagnostics/normalization-overlap-development >normalization-overlap-development.log 2>&1 || status=$?
@@ -1263,7 +1263,7 @@ jobs:
               assert all(r["complete_latency_cycles"] is None and not r["full_receiver16MSps"] for r in rows)
           PYCODE
       - name: Verify exact registered timing divider prefix and resource exits
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           status=0
           uv run --frozen --no-sync python scripts/model_timing_divider.py --split development --timing-root receiver-diagnostics/timing-development --capture-root receiver-diagnostics/capture-fine --selected-root receiver-diagnostics/selected-frame --output receiver-diagnostics/timing-divider-development >timing-divider-development.log 2>&1 || status=$?
@@ -1302,7 +1302,7 @@ jobs:
               assert all(r["complete_latency_cycles"] is None and not r["full_receiver16MSps"] for r in rows)
           PYCODE
       - name: Verify bounded integer control SSC and physical bank costs
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           uv run --frozen --no-sync python scripts/model_control_polar.py --output receiver-diagnostics/control-polar-word --random-cases 512 >control-polar-word.log 2>&1
           cat control-polar-word.log
@@ -1321,14 +1321,14 @@ jobs:
               assert row["cost"]["unmodeled_head_demap_descramble_CRC_fields_cycles"] is None
           PYCODE
       - name: Verify original SHA-frozen B1 length counterexamples
-        if: always()
+        if: ${{ !cancelled() }}
         env:
           B1_EXPECTED_RUST: ${{ matrix.backend == 'rust' && 'yes' || 'no' }}
         run: |
           uv run --frozen --no-sync python scripts/check_b1_length.py --expected-rust "$B1_EXPECTED_RUST" --output receiver-diagnostics/B1-length >B1-length.log 2>&1
           cat B1-length.log
       - name: Verify finite standard B1 geometry and retained legacy contract
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           uv run --frozen --no-sync python scripts/model_header_geometry.py --output receiver-diagnostics/header-geometry >header-geometry.log 2>&1
           cat header-geometry.log
@@ -1346,7 +1346,7 @@ jobs:
           assert all(not r["live_stream_handoff"] and r["head_CRC_service_cycles"] is None for r in d["original_length_handoff"])
           PYCODE
       - name: Verify real CRC word header and preserve remaining full-RX gaps
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           PYTHONPATH=src uv run --frozen --no-sync python -m scripts.model_header_words --split development --output receiver-diagnostics/header-word-development >header-word-development.log 2>&1
           PYTHONPATH=src uv run --frozen --no-sync python -m scripts.model_header_words --split validation --freeze receiver-diagnostics/header-word-development/freeze.json --output receiver-diagnostics/header-word-validation >header-word-validation.log 2>&1
@@ -1373,7 +1373,7 @@ jobs:
                   assert not cost["synthesis"] and not cost["full_RX_acceptance"]
           PYCODE
       - name: Verify actual B1 MCS differs from negotiated reference on three head paths
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           uv run --frozen --no-sync python - <<'PYCODE' >header-word-MCS.log 2>&1
           from dataclasses import replace
@@ -1404,7 +1404,7 @@ jobs:
           PYCODE
           cat header-word-MCS.log
       - name: Verify actual normalized-word hard header and retain whole-RX gaps
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           PYTHONPATH=src:scripts uv run --frozen --no-sync python -m scripts.model_hard_header --split development --output receiver-diagnostics/hard-head-development >hard-head-development.log 2>&1
           PYTHONPATH=src:scripts uv run --frozen --no-sync python -m scripts.model_hard_header --split validation --freeze receiver-diagnostics/hard-head-development/freeze.json --output receiver-diagnostics/hard-head-validation >hard-head-validation.log 2>&1
@@ -1433,7 +1433,7 @@ jobs:
                       assert not path["cost"]["whole_RX16MSps"]
           PYCODE
       - name: Verify actual clocked head handoff and preserve continuous suffix failures
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           set +e
           PYTHONPATH=src:scripts uv run --frozen --no-sync python -m scripts.model_live_head --output receiver-diagnostics/live-word-head >live-word-head.log 2>&1
@@ -1466,7 +1466,7 @@ jobs:
                       assert row["frame"]["header_crc"] is None
           PYCODE
       - name: Verify exact radix4 timing and preserve finite suffix resource failures
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           for split in development validation; do
             args=()
@@ -1499,7 +1499,7 @@ jobs:
                   assert all(r["actual_epoch_valid"] and r["frame"]["data_crc"] is None for r in rows)
           PYCODE
       - name: Verify paired data service and retain finite source overflows
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           for split in development validation; do
             args=()
@@ -1533,7 +1533,7 @@ jobs:
                   assert all(r["actual_epoch_valid"] and r["frame"]["data_crc"] is None for r in rows)
           PYCODE
       - name: Verify finite power and TED overlap without hiding continuous exits
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           for split in development validation; do
             args=()
@@ -1565,7 +1565,7 @@ jobs:
                   assert all(r["actual_epoch_valid"] and r["frame"]["data_crc"] is None for r in rows)
           PYCODE
       - name: Verify retained raw stencil and preserve continuous source failures
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           for split in development validation; do
             args=()

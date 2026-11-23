@@ -162,3 +162,15 @@ M34 与回调兼容集成的本地完整覆盖率分片最大 103.555 秒，多�
 分片改变只减少测试负载不均，不能计为算法、硬件吞吐或 RAM/DSP 收益。
 原超时/覆盖率失败和四项接收机验收缺口继续保留。证据为冻结根
 `receiver-ci-rebalance-seven/`，包括前后成员、全部 JUnit、覆盖率、源码和实际 CI 关联。
+
+## 诊断失败与取消
+
+旧45144670708轮次的单元时间门失败后，测试作业顶层`always()`使普通取消后仍继续运行，
+最终需强制取消；该轮保持失败/取消，未执行部分不计通过。
+按照[GitHub状态条件](https://docs.github.com/en/actions/reference/workflows-and-actions/expressions#status-check-functions)
+和[取消规则](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-cancellation)，
+计算作业/步骤改为`!cancelled()`：普通失败时仍运行后续诊断，取消时停止计算。
+1个作业及57个计算条件改变，7个上传步骤及其条件、所有执行命令/测试成员/预算不变。
+上传保留原always条件以尽力保存失败或取消时的制品；不保证被强杀的运行仍能上传。
+YAML解析和逐节点对照验证只证明配置语义；新版本实际取消延迟尚未单独实测，
+普通成功CI也不能代替取消分支验证，更不能计为接收算法或FPGA吞吐收益。
