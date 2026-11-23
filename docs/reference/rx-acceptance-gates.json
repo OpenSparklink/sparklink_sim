@@ -600,5 +600,22 @@
     },
     "formal61of96_not_recomputed": true,
     "no_new_held_generated": true
+  },
+  "initial_abort_frontier_cleanup": {
+    "stage": "M38A",
+    "scope": "initial failure RAM release versus real consumed frontier only",
+    "fixed": "existing discarded count reconstructs local processed boundary;unused suffix not retired globally",
+    "streaming": "failure cleanup corrected;full ADC-to-MAC and multipacket service still open",
+    "fixed_point": "no sample or arithmetic-format change;old numerical failures retained",
+    "resources": "no new stored state/RAM/DSP/port;one conditional subtract64 and select;physical mapping unknown",
+    "continuous16MSps": false,
+    "RF_recovery_claimed": false,
+    "FT1_complete": false,
+    "baseline_fault_test": "selected cache kept,raw replay zeroed;not an RF sample",
+    "baseline_copied_end": 2370,
+    "baseline_wrong_consumed_end": 2370,
+    "correct_consumed_end": 1346,
+    "unprocessed_suffix_words": 1024,
+    "default_receiver_unchanged": true
   }
 }

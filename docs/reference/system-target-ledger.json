@@ -3135,5 +3135,22 @@
       "private_peak_words": 1024,
       "complete_fixed_or16MSps": false
     }
+  },
+  "initial_abort_frontier_cleanup": {
+    "stage": "M38A",
+    "placement": "FPGA selected-candidate ownership control model",
+    "existing_private_words": 1024,
+    "existing_private_BRAM36": 2,
+    "new_state_bits": 0,
+    "new_RAM_DSP_ports": 0,
+    "conditional_subtract_bits_upper": 64,
+    "subtracts_per_initial_failure": 1,
+    "mux_and_subtract_LUT_FF_mapping": null,
+    "actual_Fmax_verified": false,
+    "existing_registered_frontier_reused": true,
+    "existing_discarded_count_reused": true,
+    "arbitration_or_sharing_credit": false,
+    "whole_system_resource_or16MSps_qualification": false,
+    "old18DSP16KiB_failures_retained": true
   }
 }

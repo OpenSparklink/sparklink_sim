@@ -284,6 +284,19 @@ class InitializedFrameReplay:
     def pending_service(self):
         return None if self.frame is None else self.frame.pending_service
 
+    @property
+    def consumed_history_end(self):
+        """Local processed frontier;abort cleanup also frees an unconsumed suffix.
+
+        InitialStencilService invalidates its entire borrowed bank on failure.
+        Its RAM retirement is storage release,not evidence those words were
+        processed. The existing discard count reconstructs the last real
+        frontier without another saved pointer or another source read.
+        """
+        if self.frame is None and self.done:
+            return self.history.end - self.stats["initial_discarded_words"]
+        return self.history.head
+
     @staticmethod
     def checked_word_confirmation(receipt, profile, *, start_cycle, start_tick, delta,
                                   differential_score, selected_sync, threshold=None):

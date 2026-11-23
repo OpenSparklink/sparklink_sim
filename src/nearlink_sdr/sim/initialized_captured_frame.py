@@ -199,7 +199,7 @@ class InitializedCapturedFrameReplay(ScheduledCoherentCapturedFrameReplay):
         if not self.flow.done:
             self.flow.step()
         old = self.retired_through
-        self.retired_through = max(old, self.origin + self.history.head)
+        self.retired_through = max(old, self.origin + self.flow.consumed_history_end)
         self._bridge_count("retired_words", self.retired_through - old)
         if not blocked:
             self._observe_head()
@@ -300,6 +300,13 @@ class InitializedCapturedFrameReplay(ScheduledCoherentCapturedFrameReplay):
             new_bridge_control_research_cap_bits=2048,
             private_history=ReceiveHistoryPort(1024).estimate(),
             new_private_source_BRAM36=2, original_global_source_still_reserved=True,
+            initial_abort_frontier=dict(
+                reconstruct_from_existing_discard_count=True,
+                extra_state_bits=0, extra_RAM_DSP_or_ports=0,
+                subtract_bits_upper=64, subtracts_per_initial_abort=1,
+                existing_registered_frontier_reused=True,
+                combinational_select_and_subtract_mapping=None, Fmax_verified=False,
+            ),
             actual_source_read_ports_added=0, private_global_read_copy_and_write_are_charged=True,
             coherent=self._word_service_cost(),
             initialized_static_DSP=19, coherent_and_initial_fit_DSP_sharing_credit=False,

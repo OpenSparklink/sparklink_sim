@@ -225,6 +225,46 @@ def test_zero_energy_selected_cache_rejects_without_allocating_a_tail_or_decodin
     assert owner.bridge_stats["copied_words"] == 0
 
 
+@pytest.mark.parametrize("ft", [2, 3, 4])
+def test_initial_failure_releases_but_does_not_consume_the_prefetched_suffix(ft):
+    """Inject inconsistent raw/cache ports to exercise cleanup,not RF performance."""
+    from dataclasses import replace
+
+    from nearlink_sdr.sim.head_prefetched_capture import HeadPrefetchedCaptureReplay
+
+    profile, words, _, selection, edge = captured(ft, size=23, pilots=8)
+    owner = HeadPrefetchedCaptureReplay(profile, coherent_threshold=.45, payload_mode="stop")
+    processed = []
+
+    def observe(node):
+        if node.flow is not None and not node.flow.done:
+            processed.append(node.origin + node.history.head)
+
+    # The accepted cache is kept;zero raw port words force an invalid finite fit.
+    event, mac = drive(owner, selection, edge, [0] * len(words), after_tick=observe)
+    assert event["frame"]["status"] == "invalid_initial_fit" and not mac.packets
+    assert owner.flow.frame is None and owner.history.live == 0
+    assert owner.flow.stats["initial_discarded_words"] > 0
+    assert event["consumed_source_end"] == processed[-1]
+    assert event["consumed_source_end"] == owner.origin + owner.flow.consumed_history_end
+    assert event["copied_source_end"] > event["consumed_source_end"]
+    assert event["frame"]["header_crc"] is event["frame"]["data_crc"] is None
+    frontier = owner.retired_through
+    owner.release()
+
+    # A descriptor inside that unused suffix must survive the retirement gate.
+    # Only the ownership gate is tested;this translated cache is not a new RF trial.
+    shift = frontier + 2 - selection.source_start_tick // 8
+    later = replace(selection, ident=selection.ident + 1,
+                    source_end=selection.source_end + shift)
+    owner.begin(later, owner.cycle + 1)
+    assert owner.active and not owner.done and owner.retired_through == frontier
+    owner.abort("cancelled", owner.cycle + 1)
+    assert not owner.take()[1].packets
+    assert owner.retired_through == frontier
+    owner.release()
+
+
 @pytest.mark.parametrize("mode", ["functional", "stop"])
 def test_downstream_pause_holds_unknown_payload_and_never_becomes_free_cycles(selected, mode):
     profile, words, _, selection, edge = selected
