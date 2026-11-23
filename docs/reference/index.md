@@ -158,6 +158,7 @@ finite-coherent-capture
 interleaved-coherent-confirmation
 capture-sink-compatibility
 coverage-isolation
+handoff-ci-rebalance
 rrc-memory
 rrc-full14
 rrc-full14-stream

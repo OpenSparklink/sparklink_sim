@@ -3034,7 +3034,6 @@
     "prior_18DSP_16KiB_and_numeric_failures_retained": true,
     "TX_decoder_realMAC_DMA_reserves_unchanged": true,
     "additional_init_sync_cache_BRAM36_vs_old_capture": 1,
-    "additional_BRAM36_vs_old_capture_total": 3,
     "private_source_cap_is_not_total_increment_cap": true,
     "development_reception": {
       "legal_packets": 12,
@@ -3064,6 +3063,34 @@
       "seconds_at16MSps": 0.002048,
       "new_confirmations": 0,
       "false_MAC": 0
-    }
+    },
+    "new_private_and_sync_BRAM36_before_head_replacement": 3,
+    "partial_context_plan_vs_old_head_only": {
+      "A2": {
+        "old_head_sites": [
+          2,
+          3
+        ],
+        "new_private_sync_head_sites": 5,
+        "delta_sites": [
+          2,
+          3
+        ]
+      },
+      "B1": {
+        "old_head_sites": [
+          3,
+          5
+        ],
+        "new_private_sync_head_sites": 6,
+        "delta_sites": [
+          1,
+          3
+        ]
+      }
+    },
+    "net_whole_system_BRAM36_delta": null,
+    "do_not_subtract_unmapped_old_float_history": true,
+    "register_subtotal_is_model_reservation_not_silicon_lower_bound": true
   }
 }
