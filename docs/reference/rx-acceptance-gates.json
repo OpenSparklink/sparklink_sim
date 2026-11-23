@@ -438,5 +438,30 @@
     "all_four_gates_still_open": true,
     "new_quantization_rejection_not_overwritten": true,
     "new_validation_not_generated_without_development_adoption": true
+  },
+  "finite_coherent_selected_cache": {
+    "stage": "M33 experimental",
+    "reference": "finite-coherent-capture.md",
+    "actual_finite_values": true,
+    "actual_positive_node_service": true,
+    "default": false,
+    "ordinary_FT": [
+      2,
+      3,
+      4
+    ],
+    "MCS": [
+      8,
+      12
+    ],
+    "symbol_rate_Msym": 4,
+    "SPS": 4,
+    "head_real_CRC_and_legal_geometry": true,
+    "payload_carrier_and_demap_still_float": true,
+    "complete_latency_cycles": null,
+    "new_IQ_RAM": 0,
+    "old_numeric_and_resource_failures_preserved": true,
+    "remaining_services_not_assigned_zero": true,
+    "four_RX_gates_passed": false
   }
 }

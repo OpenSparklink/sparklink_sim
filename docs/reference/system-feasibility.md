@@ -235,6 +235,15 @@ LUT/FF、头部历史回放、归一化及整链并发仍未闭合，不能把�
 /apidocs/nearlink_sdr/nearlink_sdr.sim.system_resources
 ```
 
+[有限字相干确认](finite-coherent-capture.md)新增专用 1 DSP25×18/1 ALU32、
+4967 bit 节点寄存上界及 194 bit 交接控制；包含原帧所有者合计 6648 bit。
+另外计入 1 RAMB18 系数表（保守预留 1 BRAM36 站）、512 bit 模板和 1280 bit
+CORDIC 常数；仅两类 ROM 的 LUT6 上界为 48，不能当作完整逻辑 LUT 数。
+缓存借用原细搜选择银行，不复制 IQ；新增算术、状态及常数端口不与 TX/译码免费共享。
+节点逐沿值和有限等待已建模，正延迟引起的历史/槽位损失仍使候选未通过调度门。
+全链反馈、载荷服务、整机并发与 100/160/200 MHz 实现时序继续未知；
+旧 18 DSP/16 KiB、RRC 与插值数值失败继续保留，不据此放宽整机预算。
+
 功率/TED无依赖工作重叠见[有限定时结构](power-ted-overlap.md)。额外104bit状态、
 并发加法/对齐与既有timing/normalization银行分别计费；没有RX/TX/MAC共享收益。
 局部反馈缩短后仍需等待查询、插值、头与载荷服务，不能据此关闭系统资源或16MS/s门。

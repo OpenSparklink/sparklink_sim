@@ -108,6 +108,11 @@ class CapturedFrameReplay:
         return self.origin + self.index
 
     def begin(self, selection, cycle):
+        if self._begin_selection(selection, cycle):
+            self._start_reference_consumer()
+
+    def _begin_selection(self, selection, cycle):
+        """Claim the actual chosen window before a composing service executes."""
         if self.active or not isinstance(selection, FineSelection):
             raise ValueError("Need one unowned actual fine selection")
         self._edge(cycle)
@@ -131,17 +136,24 @@ class CapturedFrameReplay:
                     )
                 )
             )
-            return
+            return False
         self._count("accepted")
-        self._count("functional_resolutions")
-        self.rx = SelectedPSKReceiver(
+        return True
+
+    def _make_receiver(self):
+        return SelectedPSKReceiver(
             self.profile,
-            **selection.reference_selection(),
+            **self.selection.reference_selection(),
             sample_limit=self.sample_limit,
             coherent_threshold=self.threshold,
             timing_backend="python",
             history_capacity=512,
         )
+
+    def _start_reference_consumer(self):
+        """Unmodeled bootstrap/feed remain explicit functional operations."""
+        self._count("functional_resolutions")
+        self.rx = self._make_receiver()
         memory = self.rx.reference_memory()["persistent_numpy_storage_bytes"]
         self.peak_reference_bytes = max(memory, self.peak_reference_bytes)
         # This does not read a word or invent a cycle for the confirmation arithmetic.

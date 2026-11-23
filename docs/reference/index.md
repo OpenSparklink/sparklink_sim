@@ -154,6 +154,7 @@ pre-fine-retirement
 capture-coherence-observation
 captured-header-calendar
 queued-window-retirement
+finite-coherent-capture
 coverage-isolation
 rrc-memory
 spline-preparation
