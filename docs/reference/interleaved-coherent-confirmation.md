@@ -159,3 +159,9 @@ Python 数据流模型，不冒充 Rust 实现或 FPGA。命令只重放原 SHA 
 
 /apidocs/nearlink_sdr/nearlink_sdr.sim.coherent_interleaved
 ```
+
+## 后续兼容集成
+
+原 M34 提交和冻结数组保持不变。最新模型另合入[可选回调修复](capture-sink-compatibility.md)：
+仅关闭选择缓存时省略空 sink，活动缓存的实际算术、同步、参数和资源不变。
+双方原子父提交与原始证据均保留；集成回归不作为新开发或独立保留集，不计新的接收增益。

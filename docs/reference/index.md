@@ -156,6 +156,7 @@ captured-header-calendar
 queued-window-retirement
 finite-coherent-capture
 interleaved-coherent-confirmation
+capture-sink-compatibility
 coverage-isolation
 rrc-memory
 spline-preparation

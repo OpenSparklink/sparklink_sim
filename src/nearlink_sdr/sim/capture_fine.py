@@ -144,7 +144,7 @@ class CaptureFineWorker:
             request.peaks,
             minimum_tick=request.minimum_tick,
             lookahead_ticks=request.lookahead_ticks,
-            sink=capture if self.capture_selection else None,
+            **({"sink": capture} if self.capture_selection else {}),
         )
         if self.sink is not None:
             self.sink(event, result)
