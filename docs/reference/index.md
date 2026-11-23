@@ -154,6 +154,7 @@ capture-sink-compatibility
 pre-fine-retirement
 capture-coherence-observation
 coverage-isolation
+handoff-ci-rebalance
 rrc-memory
 spline-preparation
 spline-fixed
