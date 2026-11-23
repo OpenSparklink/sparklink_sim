@@ -535,5 +535,50 @@
     "full_streaming": false,
     "full_system_resources": false,
     "continuous_full16MSps": false
+  },
+  "rrc_full14_stream": {
+    "stage": "M35B qualified explicit RRC functional/numeric integration;not whole RX",
+    "reference": "rrc-full14-stream.md",
+    "same_mode_word_and_sampling_tolerance": "exact",
+    "new_development_and_fixed_regression_then_independent_validation_required": true,
+    "new_development_generated": true,
+    "new_validation_generated": true,
+    "source_positive_recovery_claim": 0,
+    "all_four_RX_gates_passed": false,
+    "complete_FT1_GFSK": false,
+    "unmeasured_carrier_phase_truth_error": null,
+    "full_chain_compute_service": null,
+    "default_changed": false,
+    "results_all_three_RRC_arms": {
+      "development": {
+        "streams": 29,
+        "known": 28,
+        "captured": 23,
+        "head_CRC": 23,
+        "complete": 17
+      },
+      "fixed_regression": {
+        "streams": 88,
+        "known": 64,
+        "captured": 57,
+        "head_CRC": 56,
+        "complete": 39
+      },
+      "independent_validation": {
+        "streams": 35,
+        "known": 35,
+        "captured": 28,
+        "head_CRC": 28,
+        "complete": 22
+      }
+    },
+    "packet_gain": 0,
+    "original_successful_packet_losses": 0,
+    "remaining_packet_failures": 49,
+    "all_actual_RRC_node_numeric_gates_passed": true,
+    "bit_error_increases_on_still_failed_packets_preserved": true,
+    "actual_Python_Rust_decisions_and_words_equal": true,
+    "new_negative_samples_per_split": 40960,
+    "negative_candidates_and_MAC": 0
   }
 }

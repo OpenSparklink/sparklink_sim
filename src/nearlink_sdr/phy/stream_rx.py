@@ -117,15 +117,18 @@ class PSKStreamReceiver:
         if not isinstance(defer_quiet_fir, bool):
             raise ValueError("defer_quiet_fir must be boolean")
         self.defer_quiet_fir = defer_quiet_fir
-        if rrc_backend not in ('reference', 'word-full12-c18'):
-            raise ValueError('rrc_backend must be reference or word-full12-c18')
+        if rrc_backend not in ('reference', 'word-full12-c18', 'word-full14-c18'):
+            raise ValueError('rrc_backend must be reference, word-full12-c18 or word-full14-c18')
         if rrc_backend != 'reference' and (
                 quiet_batching or defer_quiet_fir or cfg.sps != 4 or cfg.symbol_rate_mhz != 4):
             raise ValueError('Word RRC requires SPS4/4Msym, quiet_batching=False and '
                              'defer_quiet_fir=False')
         self.rrc_backend = rrc_backend
         self._rrc_word_model = None
-        if rrc_backend != 'reference':
+        if rrc_backend == 'word-full14-c18':
+            from nearlink_sdr.phy.rrc_full14 import Full14MantissaRRC
+            self._rrc_word_model = Full14MantissaRRC()
+        elif rrc_backend == 'word-full12-c18':
             from nearlink_sdr.phy.rrc_pair import FullMantissaRRC
             from nearlink_sdr.phy.rrc_word import FixedRRCFormat
             self._rrc_word_model = FullMantissaRRC(FixedRRCFormat(12, 18))

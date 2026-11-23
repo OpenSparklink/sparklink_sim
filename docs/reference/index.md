@@ -160,6 +160,7 @@ capture-sink-compatibility
 coverage-isolation
 rrc-memory
 rrc-full14
+rrc-full14-stream
 spline-preparation
 spline-fixed
 spline-flow

@@ -1,0 +1,276 @@
+{
+  "stage": "M35B explicit full14 ->same scaled coarse/sync/Gardner/carrier/word-head/strict MAC",
+  "base_commit": "6c14dc2f867155595e546df4ff025cd5c5157dfb",
+  "UTC": "2026-11-23T07:06:52.179783+00:00",
+  "baseline_source_SHA256": "cb0615a4142ad858e03317c114fa70bcc8e45c1e3cc552c9ae764b35391929f2",
+  "algorithms": [
+    "floating RRC,same scaled coarse",
+    "word-full12-c18",
+    "word-full14-c18"
+  ],
+  "shared_options": {
+    "quiet_batching": false,
+    "defer_quiet_fir": false,
+    "correlation_backend": "scaled",
+    "correlation_mantissa_bits": 10,
+    "sync_search_method": "reference",
+    "timing_subdivisions": 8,
+    "tone_radius": 0.96875,
+    "carrier_method": "coherent"
+  },
+  "profiles": "ordinary A2/B1 standard length and actual40/48/64 preambles;head word-depth-parity;separateWS63 regression",
+  "target": {
+    "symbol_rate_MHz": 4,
+    "SPS": 4,
+    "FT": [
+      2,
+      3,
+      4
+    ],
+    "MCS": [
+      8,
+      12
+    ],
+    "pilots": [
+      0,
+      4,
+      8,
+      16
+    ]
+  },
+  "families": [
+    "clean",
+    "noise",
+    "tone",
+    "wrong-sync",
+    "burst",
+    "dense"
+  ],
+  "development_repeats": 4,
+  "validation_repeats": 5,
+  "development_lengths": [
+    29,
+    73,
+    181,
+    347
+  ],
+  "validation_lengths": [
+    19,
+    113,
+    239,
+    401,
+    547
+  ],
+  "development_offsets": [
+    0.173,
+    0.419,
+    0.683,
+    0.937
+  ],
+  "validation_offsets": [
+    0.089,
+    0.317,
+    0.557,
+    0.797,
+    0.971
+  ],
+  "development_ppm": [
+    -100,
+    25,
+    0,
+    75
+  ],
+  "validation_ppm": [
+    50,
+    -75,
+    100,
+    -25,
+    10
+  ],
+  "development_cfo_Hz": [
+    -103000,
+    47000,
+    83000,
+    -71000
+  ],
+  "validation_cfo_Hz": [
+    61000,
+    -119000,
+    23000,
+    -89000,
+    97000
+  ],
+  "development_gains": [
+    0.0625,
+    0.17,
+    0.5,
+    0.03125
+  ],
+  "validation_gains": [
+    0.09375,
+    0.23,
+    0.046875,
+    0.375,
+    0.125
+  ],
+  "development_SNR_dB": [
+    9,
+    12,
+    16,
+    22
+  ],
+  "validation_SNR_dB": [
+    8,
+    11,
+    15,
+    19,
+    25
+  ],
+  "development_tone_cycles": [
+    0.0417,
+    0.0931,
+    -0.0379,
+    0.1473
+  ],
+  "validation_tone_cycles": [
+    0.0637,
+    -0.1139,
+    0.1697,
+    0.0273,
+    -0.0811
+  ],
+  "development_tone_factors": [
+    1,
+    3,
+    7,
+    12
+  ],
+  "validation_tone_factors": [
+    2,
+    5,
+    9,
+    1.5,
+    15
+  ],
+  "development_dense_gaps_symbols": [
+    4,
+    8,
+    16,
+    32
+  ],
+  "validation_dense_gaps_symbols": [
+    12,
+    20,
+    28,
+    36,
+    44
+  ],
+  "development_seed": 9100321,
+  "validation_seed": 10100419,
+  "payload": "quadratic shifted mask,rotating bitplanes,Philox bytes;varyFT/MCS/pilots/lengths/channel beyondseeds",
+  "config_recipe": "FT=(family+2*r+held)%3;MCS=(family+r+held)%2;pilots=(family+3*r+2*held)%4;index=2411+family*31+r*7+held*301",
+  "prefix_samples": "53+family*17+r*29+held*31",
+  "burst": "7+2*r samples at43% stream;add gain*(17-13j) \u00d7 existing100pulse scale",
+  "wrong_sync": "background PID(profilePID+1)%6,103+r*11payload bytes,amplitude1.7x desired,offset.731,CFO-17000,ppm-25;expectedwrongSSID not a known valid packet",
+  "dense": "two actual packets,newsecondpayload lengthn//2+17,symbolgap aslisted;continuous analytic shaping,not MAC/TDD gap conformance",
+  "negative_inputs": "4families(noise,tone,wrong-sync,burst)x8192samples per split;zero8192 separately;same signal/noise scales;no legit payload;observation40960samples=2.56ms@16MSps",
+  "chunks": "whole,fixed257,Philox random1..509;all decisions/events/selected trajectories same-mode exact",
+  "postdecision_truth": "analytic origin from legacytruth-40*step;sync=origin+actualpreamble*step;association4samples diagnostic only",
+  "budgets": {
+    "original_full12_and_shared_float_success_losses": 0,
+    "additional_negative_candidates": 0,
+    "additional_false_MAC": 0,
+    "duplicate_MAC": 0,
+    "relative_sync_start_samples": 0.125,
+    "relative_sampling_trajectory_samples": 0.25,
+    "true_trajectory_samples_report_only": true,
+    "range_events": 0,
+    "history_limit_increase": 0,
+    "frame_limit_increase": 0,
+    "raw_IQ_slots_increase": 0,
+    "extra_DSP_or_ports_beyond_full14_node": 0
+  },
+  "selection": "single predeclaredfull14 candidate;allnewdev acceptance gates,then freezebyte-identicalsource/options;one independentnewholdout;anyfailure rejects,no otherformat/params chosenonit",
+  "physical_ADC_adapter_cycles": null,
+  "remaining_carrier_payload_decoder_cycles": null,
+  "FIR_arithmetic_register_calendar_not_integrated": true,
+  "full_RX16MSps": false,
+  "old_numeric_interpolation_and16KiB_failures_retained": true,
+  "no_default_change": true,
+  "no_new_IQ_generated": true,
+  "accounting_correction": {
+    "original_budget_relative_history_increase_still0": true,
+    "original_per_path_history_limit_unchanged": true,
+    "baseline_float_full12_and_candidate_all_have2paths": true,
+    "same_control_all3_complete": true,
+    "first41_test_failures_are_shared_observation_accounting_errors": true,
+    "original_test_log_preserved": "TARGET-first.log",
+    "frozen_diagnosis_SHA256": "ed588e1c729a65a1d0919013b2804e68ea28c999d8a3d3de53fb64417afeae24",
+    "correct_total_bound": "2*history_limit +80FIR +31energy +(quantum-1)pending;each path independently <=history_limit",
+    "not_a_new_FPGA_budget_approval": true,
+    "no_IQ_generated_for_new_dev_or_holdout": true
+  },
+  "generation_details": {
+    "UTC": "2026-11-23T07:19:30.558549+00:00",
+    "new_dev_IQ_generated": false,
+    "new_holdout_IQ_generated": false,
+    "seen_unit_fixtures_are_fixed_regression_only": true,
+    "original_policy_SHA256": "023871949f828f6f9fae589e98338d62857a17037249ece2a39a089df39902f6",
+    "positive_noise": "clean/dense no added AWGN;noise/tone/wrong-sync/burst use declared SNR through independent channel before interference",
+    "negative_noise": "sigma_per_component=2.5*split_gain[(family_index+1)%nr],separate quiet2048;zero has exact0;no SNR claim without desired signal",
+    "negative_config": "ft=(2,3,4)[family_index%3],mcs=(8,12)[family_index%2],pilot=(0,4,8,16)[family_index%4],index2411+family_index*31+held301",
+    "negative_gain_tone": "repeat_index=family_index%nr;frequency,tone_factor fromsplit sameindex;tone amplitude100*gain*tone_factor",
+    "negative_burst": "each997samples from97,31samples of100*gain*exp(juniform_phase)",
+    "negative_wrong_sync": "independent wrongPID packet of103bytes,channelclean,prefix0,offset.731,CFO-17000,ppm-25,amplitude1.7gain;resize8192,never mark valid target",
+    "wrong_sync_positive_background": "resize same independentwrongPID packet to exact originalstreamlen,adds on declaredbaseAWGN",
+    "payload_exact_recipe": "familyrepeat%3: (j*j*23+j*47+id*19)xor(j>>3);1<<((5*j+id)%8)xor(j//11*31);Philox(seed+id*313+packet_index*719) bytes",
+    "dense_second_payload": "n//2+17 with id+43,full independent frame;single continuous shaped symbolstream with explicitzero-symbolgap",
+    "cross_backend": {
+      "decisions_payloads_and_all_finite_words": "exact",
+      "sync_center_absolute_samples": 1e-09,
+      "symbols_relative_to_peak": 1e-10,
+      "detector_absolute": 1e-10,
+      "rate_absolute_ppm": 1e-07,
+      "CFO_absolute_Hz": 1e-05
+    },
+    "RRC_numeric": {
+      "global_normalized_rms": 0.002,
+      "global_relative_peak": 0.02,
+      "local64_relative_rms": 0.02,
+      "range_events": 0,
+      "reference": "independent analytic causal convolution;actual observed words including42virtualEOFsamples"
+    },
+    "observability": "readonly copies ofactualRRC output port,postdecision truth/BER;no returnvalue entersreceiver",
+    "resource": "2existingsearchhistories andcoarsebanks counted;raw14 compiled FIR delta560bit/64LUT,no otherincrease;notch/loop/decoder cyclesremainunknown",
+    "adoption": "node numericalbudget also applies toactual new receiver inputs;any newdev failure skips newheldgeneration;any held failure rejects withoutretuning"
+  },
+  "fixed_regression_gate": {
+    "stage": "fixed viewed RRC stream regression,not fresh holdout",
+    "root_relative": "rx-interference-capture/rrc-stream-held-word-full12-c18",
+    "original_plan_SHA256": "a7b5c00ac6aba3a8719c82955517f3e09dc43f19f2cfdff57db793dd721e2425",
+    "original_results_SHA256": "9e2be895d4c3eea6923aaadb62179dd2d7314316acb044a090834f3964a686be",
+    "original_input_index_SHA256": "bb10f494b70ce3e607130c5fef5fde481416646765779e19e721cdb4125eaca7",
+    "streams": 88,
+    "known_packets": 64,
+    "original_complete": 39,
+    "profile": "actual frozen ordinary FT2 context per metaMCS,reference head as original experiment;original options preserved",
+    "chunk_rule": "whole full12/full14 all88;fixed/random on one positive per family and all negative kinds;freshdev validatesall3modes",
+    "selection": "no original full12 or floating success losses;actual14RRC numeric gate;failure rejects adoption,no retune or freshheld",
+    "frozen_metadata_SHA256": "f3ba3fa76658d6ed474c92186bd022d7eb144291c09ec77d934760c2a26321e4"
+  },
+  "truth_diagnostics": {
+    "UTC": "2026-11-23T07:38:28.693454+00:00",
+    "no_new_dev_or_holdout_IQ_generated": true,
+    "truth_timing_window": {
+      "max_abs_error_samples": 0.25,
+      "consecutive_symbols": 64,
+      "begin_after_known_sync": true,
+      "meaning": "first64stabletruthwindow,notnative lock certification"
+    },
+    "cycle_index": "round((actualcenters-truecenters)/true_step);reportinitialindex andindexchange count,diagnostic only",
+    "rate": "last128medianPIstate minusinjectedppm,not independently calibrated clock estimate",
+    "phase_truth_error": null,
+    "phase_note": "gain/phase reference convention not separately qualified;do not label decision residual true phase error",
+    "latency": "actual processed input position atemit minusanalytic frameend;future42samples included;not hardwarecycles"
+  }
+}

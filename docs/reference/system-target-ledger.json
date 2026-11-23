@@ -2920,5 +2920,85 @@
       77
     ],
     "whole_system_still_unqualified": true
+  },
+  "rrc_full14_stream_integration": {
+    "stage": "M35B qualified explicit RRC functional/numeric integration;not whole RX",
+    "reference": "rrc-full14-stream.md",
+    "statically_selected_single_FIR": true,
+    "target": {
+      "symbol_MHz": 4,
+      "SPS": 4,
+      "FT": [
+        2,
+        3,
+        4
+      ],
+      "MCS": [
+        8,
+        12
+      ],
+      "pilots": [
+        0,
+        4,
+        8,
+        16
+      ],
+      "head_backend": "word-depth-parity",
+      "length_contract": "standard"
+    },
+    "raw_and_suppressed_search_paths": 2,
+    "extra_paths_or_bank_ports": 0,
+    "per_path_history_points_FT2_3_4": [
+      384,
+      504,
+      760
+    ],
+    "FIR_history_points": 80,
+    "EOF_virtual_points": 42,
+    "FIR_host_arrays_bytes": 1696,
+    "prior_compiled_node_delta_bits": 560,
+    "prior_compiled_node_delta_raw_memory_LUT6": 64,
+    "new_extra_DSP_beyond_that_node": 0,
+    "per_packet_format_switch_hardware_not_modeled": true,
+    "actual_FIR_register_arithmetic_with_calendar": false,
+    "notch_and_packet_service_cycles": null,
+    "full_system_acceptance": false,
+    "full16MSps": false,
+    "original16KiB_and_numeric_failures_retained": true,
+    "default_changed": false,
+    "new_development_generated": true,
+    "new_validation_generated": true,
+    "results_all_three_RRC_arms": {
+      "development": {
+        "streams": 29,
+        "known": 28,
+        "captured": 23,
+        "head_CRC": 23,
+        "complete": 17
+      },
+      "fixed_regression": {
+        "streams": 88,
+        "known": 64,
+        "captured": 57,
+        "head_CRC": 56,
+        "complete": 39
+      },
+      "independent_validation": {
+        "streams": 35,
+        "known": 35,
+        "captured": 28,
+        "head_CRC": 28,
+        "complete": 22
+      }
+    },
+    "packet_gain": 0,
+    "original_successful_packet_losses": 0,
+    "remaining_packet_failures": 49,
+    "all_actual_RRC_node_numeric_gates_passed": true,
+    "bit_error_increases_on_still_failed_packets_preserved": true,
+    "actual_Python_Rust_decisions_and_words_equal": true,
+    "new_negative_samples_per_split": 40960,
+    "negative_candidates_and_MAC": 0,
+    "full_chain_compute_service": null
   }
 }
