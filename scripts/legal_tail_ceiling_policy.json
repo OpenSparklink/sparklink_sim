@@ -1,0 +1,189 @@
+{
+  "stage": "M40",
+  "candidate_count": 1,
+  "prospective_before_code_and_scientific_IQ": true,
+  "design_SHA256": "6fe4e73d08fe219ebbba1018e0abb906041dfbe64f8c97f9792db5bf07346812",
+  "changes": "only static legal copy fence minimum step -> compiled maximum step;keep original finite controller and all stream/search/PI/carrier/CRC policies",
+  "horizon_service": {
+    "state_bits": 406,
+    "latency_edges": 19,
+    "coefficient_bits": 35,
+    "accumulator_bits": 53,
+    "shifted_bits": 52,
+    "compiled_max_step_Q32": 17416609614
+  },
+  "new_control_bit_cap": 512,
+  "existing_bridge_control_cap": 2048,
+  "private_FIFO_words": 1024,
+  "additional_DSP_BRAM_global_sample_ports": 0,
+  "source_history": 4096,
+  "owned_windows": 3,
+  "after_valid_head": "ceil((selected_q0+(N-1)*maximum_step)/2^32)+3,clamped to existing sample limit;may include unused suffix,never mark copied as consumed",
+  "new_default": false,
+  "no_truth_payload_or_CRC_answer_retry": true,
+  "same_age_budgets": {
+    "center_samples": 0.001,
+    "rate_ppm": 0.1,
+    "normalized_symbol_RMS": 0.0001,
+    "normalized_symbol_peak": 0.001
+  },
+  "minimum_complete_numeric_pairs": 4,
+  "incomplete_not_numeric_passed": true,
+  "original_and_static_success_loss_max": 0,
+  "aggregate_resource_exit_delta_max": 0,
+  "negative_additional_confirmation_and_false_MAC_max": 0,
+  "benefit_required_per_cohort": "positive complete recovery or same-recall fine/check work reduction;dropped work not benefit",
+  "held_only_after_frozen_new_development_and_all_three_fixed_regressions_pass": true,
+  "fixed_manifest_SHA256": [
+    "4001866dc38c513ebcdfe7911da2697da94c387a46420945b9e2f0274c1aee53",
+    "10b132ec5df8cb57a1382a03a6635a5d72a11cfe579b851b2bdeed03eec994de",
+    "4e2dd8c751f4377d15c9cfc21bb11c7988e892f3b5f463b678e461675dd3bc54"
+  ],
+  "development_specs": [
+    [
+      3,
+      12,
+      0,
+      [
+        239,
+        43
+      ],
+      40,
+      "clean"
+    ],
+    [
+      2,
+      8,
+      8,
+      [
+        101,
+        307
+      ],
+      28,
+      "tone"
+    ],
+    [
+      4,
+      12,
+      16,
+      [
+        83,
+        509
+      ],
+      52,
+      "wrong-sync"
+    ],
+    [
+      3,
+      8,
+      4,
+      [
+        2044,
+        19
+      ],
+      36,
+      "noise"
+    ],
+    [
+      4,
+      8,
+      8,
+      [
+        167,
+        61
+      ],
+      44,
+      "step"
+    ],
+    [
+      2,
+      12,
+      4,
+      [
+        193,
+        127
+      ],
+      24,
+      "burst"
+    ]
+  ],
+  "validation_specs": [
+    [
+      4,
+      8,
+      16,
+      [
+        67,
+        541
+      ],
+      24,
+      "clean"
+    ],
+    [
+      3,
+      12,
+      4,
+      [
+        197,
+        31
+      ],
+      48,
+      "tone"
+    ],
+    [
+      2,
+      8,
+      0,
+      [
+        313,
+        89
+      ],
+      36,
+      "wrong-sync"
+    ],
+    [
+      4,
+      12,
+      8,
+      [
+        2044,
+        23
+      ],
+      28,
+      "noise"
+    ],
+    [
+      2,
+      12,
+      16,
+      [
+        109,
+        271
+      ],
+      44,
+      "step"
+    ],
+    [
+      3,
+      8,
+      0,
+      [
+        227,
+        73
+      ],
+      32,
+      "burst"
+    ]
+  ],
+  "payload_family": "16bit odd counter with carry folded across bytes,alternating17byte masks and11byte residue;not prior quadratic/Gray/reversed families",
+  "seed_bias": {
+    "development": 24671209,
+    "validation": 26671327
+  },
+  "negative_samples_per_cohort": 32768,
+  "existing_generator_channel_ranges_unchanged_but_config_payload_interference_joint_combinations_new": true,
+  "legal_length_context": "ordinary CRC24;B1 includes3byte CRC,2044 payload max;A2 excludes CRC;no new waveforms/rates/profiles",
+  "old_numeric16KiB18DSP_failures_preserved": true,
+  "full_fixed_or_system_resource_or16MSps": false,
+  "latest_actual_CI_must_be_checked_before_next_publication": 45245126044
+}

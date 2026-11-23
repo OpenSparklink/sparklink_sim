@@ -715,5 +715,69 @@
     ],
     "diagnostic_no_expiry_recoveries_not_formal": 2,
     "original_guard_word_not_counted_consumed": true
+  },
+  "legal_tail_ceiling": {
+    "stage": "M40 frozen;partial static recoveries,whole adoption rejected",
+    "reference": "legal-tail-ceiling.md",
+    "scope": "same ordinary FT2/3/4,MCS8/12,4Msym/sSPS4;only copy-fence coefficient changes",
+    "compiled_max_step_Q32": 17416609614,
+    "controller_bits": 406,
+    "latency_edges": 19,
+    "same_private_FIFO_words": 1024,
+    "new_IQ_RAM_DSP_ports": 0,
+    "new_default": false,
+    "recovery_claim": "5 same-input actual MAC recoveries vs static lower only;not 5 against original or old61/96",
+    "old_rejections_preserved": true,
+    "all_four_RX_gates_passed": false,
+    "candidate_default": false,
+    "static_complete": [
+      3,
+      4,
+      4,
+      3
+    ],
+    "candidate_complete": [
+      4,
+      5,
+      5,
+      5
+    ],
+    "original_complete": [
+      8,
+      8,
+      8,
+      8
+    ],
+    "static_success_lost": 0,
+    "original_success_lost": [
+      4,
+      3,
+      3,
+      3
+    ],
+    "new_held_generated": false,
+    "cohort_order": [
+      "new-development",
+      "fixed-M38B",
+      "fixed-M37",
+      "fixed-M39"
+    ],
+    "legal_packet_counts": [
+      11,
+      12,
+      12,
+      12
+    ],
+    "nominal_generator_invalid_vectors": 1,
+    "invalid_B1_CRC32_required_length": 2048,
+    "invalid_input_kept_not_repaired": true,
+    "additional_copy_words": [
+      250,
+      274,
+      203,
+      357
+    ],
+    "same_age_numeric_pairs": 25,
+    "old_numeric_and_resource_failures_retained": true
   }
 }

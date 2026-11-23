@@ -3248,5 +3248,78 @@
     "outer_actual_PI_legal_and_changed_compare64_units": 2,
     "outer_eligible_edge_wide_comparisons_not_free": true,
     "complete_cost_supplement": "frozen evidence moving-tail-horizon/ARITHMETIC-COST-SUPPLEMENT.json"
+  },
+  "legal_tail_ceiling": {
+    "stage": "M40 frozen;partial static recoveries,whole adoption rejected",
+    "reference": "legal-tail-ceiling.md",
+    "same_static_lower_controller_bits": 406,
+    "bridge_control_bits": 1034,
+    "compiled_coefficient_bits": 35,
+    "request_edges": 19,
+    "requests_per_validated_frame_max": 1,
+    "request_queue": 0,
+    "existing_private_FIFO_words": 1024,
+    "same_2private_BRAM36": true,
+    "new_IQ_RAM_DSP_ports": 0,
+    "added_copy_traffic_must_be_measured": true,
+    "unconsumed_suffix_not_retired_as_processed": true,
+    "add53_per_request_upper": 17,
+    "ceil_compare21_OR32_and_control_counters_charged": true,
+    "source_and_owned_window_ports_not_removed": true,
+    "old16KiB18DSP_failures_preserved": true,
+    "whole_LUT_FF_timing_synthesis": null,
+    "RX_TX_decoder_realMAC_DMA_budget_unclosed": true,
+    "full_RX16MSps": false,
+    "candidate_default": false,
+    "static_complete": [
+      3,
+      4,
+      4,
+      3
+    ],
+    "candidate_complete": [
+      4,
+      5,
+      5,
+      5
+    ],
+    "original_complete": [
+      8,
+      8,
+      8,
+      8
+    ],
+    "static_success_lost": 0,
+    "original_success_lost": [
+      4,
+      3,
+      3,
+      3
+    ],
+    "new_held_generated": false,
+    "cohort_order": [
+      "new-development",
+      "fixed-M38B",
+      "fixed-M37",
+      "fixed-M39"
+    ],
+    "legal_packet_counts": [
+      11,
+      12,
+      12,
+      12
+    ],
+    "nominal_generator_invalid_vectors": 1,
+    "invalid_B1_CRC32_required_length": 2048,
+    "invalid_input_kept_not_repaired": true,
+    "all_four_RX_gates_passed": false,
+    "additional_copy_words": [
+      250,
+      274,
+      203,
+      357
+    ],
+    "same_age_numeric_pairs": 25,
+    "old_numeric_and_resource_failures_retained": true
   }
 }

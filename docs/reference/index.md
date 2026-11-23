@@ -167,6 +167,7 @@ initialized-capture-bridge
 initialized-head-prefetch
 continuous-private-prefetch
 moving-tail-horizon
+legal-tail-ceiling
 spline-preparation
 spline-fixed
 spline-flow
