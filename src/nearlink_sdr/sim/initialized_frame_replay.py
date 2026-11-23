@@ -21,6 +21,7 @@ from nearlink_sdr.phy.sync_fit_word import (
     unsigned,
 )
 from nearlink_sdr.phy.timing_word import TimingWordFormat, compare_scaled, positive
+from nearlink_sdr.sim.coherent_word_flow import CoherentWordReceipt
 from nearlink_sdr.sim.initial_sync_fit_flow import InitialSyncFitService
 from nearlink_sdr.sim.packed_head_replay import PackedHeadSamplingReplay, _PackedWords
 from nearlink_sdr.sim.receive_history import ReceiveHistoryPort
@@ -131,9 +132,16 @@ class TimingContextInstallService:
 
 
 class _InstalledReceiver(_SplitReceiver):
-    def __init__(self, *args, timing_owners, **kwargs):
+    def __init__(self, *args, timing_owners, confirmed_receipt=None, **kwargs):
         self._installed_owners = timing_owners
+        self._upstream_word_receipt = confirmed_receipt
         super().__init__(*args, **kwargs)
+
+    def _confirm_selected_context(self, *args):
+        receipt = self._upstream_word_receipt
+        if receipt is None:
+            return super()._confirm_selected_context(*args)
+        return receipt.reference_confirmation(), receipt.accepted
 
     def _make_timing_state(self, power, start_tick, hold_symbols, fmt, config):
         self.detector, self.pi = self._installed_owners
@@ -152,8 +160,9 @@ class _InstalledReceiver(_SplitReceiver):
 class _Frame(PackedHeadSamplingReplay):
     _history_capacity = 1024
 
-    def __init__(self, *args, timing_owners, head_owner, **kwargs):
+    def __init__(self, *args, timing_owners, head_owner, confirmed_receipt=None, **kwargs):
         self._installed_owners, self._compiled_head = timing_owners, head_owner
+        self._upstream_word_receipt = confirmed_receipt
         super().__init__(*args, **kwargs)
         del self._installed_owners, self._compiled_head
 
@@ -168,6 +177,7 @@ class _Frame(PackedHeadSamplingReplay):
             normalization_format=self.normalization_format,
             head_owner=self.head_owner,
             timing_owners=self._installed_owners,
+            confirmed_receipt=self._upstream_word_receipt,
             **selection,
         )
 
@@ -193,6 +203,7 @@ class InitializedFrameReplay:
         selected_sync,
         sample_limit,
         coherent_threshold=None,
+        confirmed_receipt=None,
     ):
         sync = _validate_selected_geometry(
             profile, start_tick, delta, differential_score, selected_sync, sample_limit
@@ -201,7 +212,12 @@ class InitializedFrameReplay:
         # PSKReceiveProfile is frozen,but its negotiated TxConfig is mutable.
         profile = replace(profile)
         accepted = differential_score >= 0.85
-        if coherent_threshold is not None:
+        if confirmed_receipt is not None:
+            self.checked_word_confirmation(confirmed_receipt, profile, start_cycle=start_cycle,
+                start_tick=start_tick, delta=delta, differential_score=differential_score,
+                selected_sync=sync, threshold=coherent_threshold)
+            accepted = confirmed_receipt.accepted
+        elif coherent_threshold is not None:
             accepted = coherent_sync_confirmation(
                 sync, profile.sync_symbols(), delta, coherent_threshold
             )["accepted"]  # Host precondition check of the same already selected answer.
@@ -226,6 +242,7 @@ class InitializedFrameReplay:
             profile, layout="dense" if profile.config.frame_type == 2 else "depth-parity"
         )
         self.profile, self.history = profile, history
+        self._upstream_word_receipt = confirmed_receipt  # Borrow same held receipt,not a cache copy.
         self.selection = dict(
             start_tick=start_tick,
             delta=delta,
@@ -265,6 +282,26 @@ class InitializedFrameReplay:
     @property
     def pending_service(self):
         return None if self.frame is None else self.frame.pending_service
+
+    @staticmethod
+    def checked_word_confirmation(receipt, profile, *, start_cycle, start_tick, delta,
+                                  differential_score, selected_sync, threshold=None):
+        """Host wiring checks for the already computed9/20 decision,not a second search.
+
+        No caller success flag. The actual immutable receipt,profile/template,
+        source words/coordinates and availability must describe this transaction.
+        """
+        if (not isinstance(receipt, CoherentWordReceipt) or threshold is not None
+                or not receipt.accepted or type(start_cycle) is not int
+                or start_cycle < receipt.available_cycle
+                or receipt.phase_codes != compile_sync_phases(profile.sync_symbols())):
+            raise ValueError("Need this available accepted word confirmation and no second gate")
+        fields = receipt.selection.reference_selection()
+        if (start_tick != fields["start_tick"] or delta != fields["delta"]
+                or differential_score != fields["differential_score"]
+                or not np.array_equal(selected_sync, fields["selected_sync"])):
+            raise ValueError("Word confirmation belongs to another selected context")
+        return receipt.reference_confirmation()
 
     def write_input(self, word):
         if self.done:
@@ -315,6 +352,7 @@ class InitializedFrameReplay:
                     self.prepared,
                     timing_owners=self.install.take(),
                     head_owner=self.head_owner,
+                    confirmed_receipt=self._upstream_word_receipt,
                     error_age=1,
                     normalization_format=NormalizationFormat(),
                     word_timing_format=TimingWordFormat(30, 32),

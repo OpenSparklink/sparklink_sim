@@ -161,6 +161,7 @@ coverage-isolation
 rrc-memory
 rrc-full14
 rrc-full14-stream
+initialized-capture-bridge
 spline-preparation
 spline-fixed
 spline-flow

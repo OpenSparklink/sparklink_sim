@@ -3000,5 +3000,70 @@
     "new_negative_samples_per_split": 40960,
     "negative_candidates_and_MAC": 0,
     "full_chain_compute_service": null
+  },
+  "initialized_capture_bridge": {
+    "stage": "M36 explicit actual selected capture to existing finite init/frame",
+    "reference": "initialized-capture-bridge.md",
+    "private_source": {
+      "words": 1024,
+      "bits_per_word": 46,
+      "logical_bits": 47104,
+      "BRAM36": 2,
+      "ports": "1R1W registered",
+      "original_global_source_windows_and_cache_still_reserved": true
+    },
+    "bridge_control_bits": 628,
+    "bridge_research_cap_bits": 2048,
+    "global_source_read_ports_added": 0,
+    "initialized_static_DSP": 19,
+    "coherent_static_DSP": 1,
+    "unproved_sharing_credit": false,
+    "head_in_initialized_BRAM36": {
+      "A2": 5,
+      "B1": 6
+    },
+    "head_subtotal_includes_private_source_and_sync_cache": true,
+    "extra_fine_cache_and_coherent_ROM_separate": true,
+    "complete_register_LUT_FF_or_Fmax": null,
+    "descriptor_metadata_cycles": null,
+    "payload_decode_cycles": null,
+    "system_budget_approved": false,
+    "full_fixed": false,
+    "complete_16MSps": false,
+    "synthesis": false,
+    "prior_18DSP_16KiB_and_numeric_failures_retained": true,
+    "TX_decoder_realMAC_DMA_reserves_unchanged": true,
+    "additional_init_sync_cache_BRAM36_vs_old_capture": 1,
+    "additional_BRAM36_vs_old_capture_total": 3,
+    "private_source_cap_is_not_total_increment_cap": true,
+    "development_reception": {
+      "legal_packets": 12,
+      "original_complete": 8,
+      "finite_functional_complete": 4,
+      "recovered": 0,
+      "old_success_lost": 4,
+      "frame_resource_drops": [
+        0,
+        2
+      ],
+      "queue_drops": [
+        22,
+        27
+      ],
+      "fine_service_cycles": [
+        223288,
+        304834
+      ],
+      "same_age_numeric_complete_pairs": 4,
+      "same_age_numeric_passed": true,
+      "unpaired_exits_not_numeric_pass": 5
+    },
+    "adoption": "rejected;no new held generated;default unchanged",
+    "negative_observation": {
+      "samples": 32768,
+      "seconds_at16MSps": 0.002048,
+      "new_confirmations": 0,
+      "false_MAC": 0
+    }
   }
 }

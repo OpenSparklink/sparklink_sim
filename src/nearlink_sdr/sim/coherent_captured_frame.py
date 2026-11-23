@@ -121,9 +121,10 @@ class WordConfirmedCapturedFrameReplay(ClockedHeaderCapturedFrameReplay):
             self._count_word("cancelled")
         return super().abort(reason, cycle)
 
-    def _terminal(self, event):
+    def _coherent_evidence(self):
+        """Describe the actual owned word service without another consumer/decoder."""
         service, receipt = self.word_service, self.word_receipt
-        event["coherent_word_service"] = dict(
+        return dict(
             actual_finite_values=receipt is not None, service_started=service is not None,
             finite_computation_completed=service is not None and service.ready_cycle is not None,
             clocked=self.clocked,
@@ -147,6 +148,8 @@ class WordConfirmedCapturedFrameReplay(ClockedHeaderCapturedFrameReplay):
             functional_mode_is_not_zero_cycle_hardware=not self.clocked,
             complete_RX_cycle_evidence=False,
         )
+    def _terminal(self, event):
+        event["coherent_word_service"] = self._coherent_evidence()
         return super()._terminal(event)
 
     def release(self):

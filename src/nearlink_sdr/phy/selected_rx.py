@@ -93,15 +93,8 @@ class SelectedPSKReceiver(PSKStreamReceiver):
         self.selected_start = start_tick / 8
         self.selected_delta = float(delta)
         self.selected_score = float(differential_score)
-        self._confirmation = None
-        if coherent_threshold is not None:
-            self._confirmation = coherent_sync_confirmation(
-                sync, self.reference, delta, coherent_threshold
-            )
-        self._selection_accepted = (
-            self._confirmation["accepted"]
-            if self._confirmation is not None
-            else differential_score >= 0.85
+        self._confirmation, self._selection_accepted = self._confirm_selected_context(
+            sync, delta, differential_score, coherent_threshold
         )
         self._selection_started = self._terminal = False
         self.last_input_consumed = 0
@@ -109,6 +102,13 @@ class SelectedPSKReceiver(PSKStreamReceiver):
         self.header_decision_after_filtered_samples = None
         self._origin = 0 if self._sample_history is None else self._sample_history.origin
         self._filtered_values = self._retained[:0]
+
+    def _confirm_selected_context(self, sync, delta, differential_score, threshold):
+        """Legacy gate,overridden only by an owner of an actual computed receipt."""
+        confirmation = (None if threshold is None else coherent_sync_confirmation(
+            sync, self.reference, delta, threshold))
+        return confirmation, (differential_score >= .85 if confirmation is None
+                              else confirmation["accepted"])
 
     def _allocate_input_history(self, history_capacity, start_tick):
         """Reference-storage hook;external interpolants need no private raw history."""
