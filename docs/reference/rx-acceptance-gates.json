@@ -580,5 +580,25 @@
     "actual_Python_Rust_decisions_and_words_equal": true,
     "new_negative_samples_per_split": 40960,
     "negative_candidates_and_MAC": 0
+  },
+  "initialized_head_prefetch": {
+    "stage": "M37",
+    "reference": "initialized-head-prefetch.md",
+    "function": "same selected answer;bounded init-only head prefix copy",
+    "streaming": "partial,selected IQ to real head/legal end with functional payload",
+    "fixed": "same finite nodes;descriptor and payload not closed",
+    "resources": "additional84bit state and88bit constant;no new DSP/BRAM/read port;whole unknown",
+    "continuous16MSps": false,
+    "adoption": "rejected;zero packet gain,M36 queue drops29to30,original success loss5",
+    "FT1_complete": false,
+    "original_failures_retained": true,
+    "numeric": {
+      "complete_pairs": 4,
+      "passed": true,
+      "unpaired_not_passed": 3,
+      "original_interpolation_and_RRC_rejections_retained": true
+    },
+    "formal61of96_not_recomputed": true,
+    "no_new_held_generated": true
   }
 }

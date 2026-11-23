@@ -1,0 +1,171 @@
+{
+  "stage": "M37",
+  "goal": "same finite1024word history,existing one source read port; prefetch provably needed head during init",
+  "candidate_count": 1,
+  "head_bound": "minimum legal PI step LOWER_Q32-RNE(KP_Q48*2),selected phase and fixed actual profile head geometry;no CRC length used before head",
+  "changes": "copy schedule only; score/grid/phase/CFO/gains/CRC unchanged",
+  "old_default_unchanged": true,
+  "new_source_RAM_DSP_or_read_ports": 0,
+  "new_control_bit_cap": 128,
+  "new_coordinator_bits_max": 2048,
+  "private_words": 1024,
+  "source_history": 4096,
+  "owned": 3,
+  "reference_clock_MHz": 200,
+  "input_MSps": 16,
+  "same_age_budgets": {
+    "center_samples": 0.001,
+    "rate_ppm": 0.1,
+    "normalized_symbol_RMS": 0.0001,
+    "normalized_symbol_peak": 0.001
+  },
+  "new_original_success_losses_max": 0,
+  "new_false_MAC_max": 0,
+  "new_negative_confirmations_max": 0,
+  "aggregate_resource_exit_deltas_max": 0,
+  "numeric_pairs_min": 4,
+  "adoption": "all previous gates plus positive schedule or recovery benefit vs M36; otherwise rejection,noheld;original16KiB/18DSP/numeric failures retained",
+  "development_specs": [
+    [
+      4,
+      8,
+      16,
+      [
+        19,
+        137
+      ],
+      24,
+      "clean"
+    ],
+    [
+      2,
+      12,
+      4,
+      [
+        109,
+        47
+      ],
+      16,
+      "tone"
+    ],
+    [
+      3,
+      8,
+      0,
+      [
+        73,
+        211
+      ],
+      32,
+      "wrong-sync"
+    ],
+    [
+      4,
+      12,
+      8,
+      [
+        193,
+        61
+      ],
+      40,
+      "noise"
+    ],
+    [
+      2,
+      8,
+      8,
+      [
+        41,
+        167
+      ],
+      12,
+      "step"
+    ],
+    [
+      3,
+      12,
+      16,
+      [
+        151,
+        23
+      ],
+      20,
+      "burst"
+    ]
+  ],
+  "validation_specs": [
+    [
+      3,
+      12,
+      4,
+      [
+        181,
+        43
+      ],
+      32,
+      "clean"
+    ],
+    [
+      4,
+      8,
+      0,
+      [
+        89,
+        239
+      ],
+      20,
+      "tone"
+    ],
+    [
+      2,
+      12,
+      16,
+      [
+        59,
+        131
+      ],
+      40,
+      "wrong-sync"
+    ],
+    [
+      3,
+      8,
+      8,
+      [
+        223,
+        53
+      ],
+      12,
+      "noise"
+    ],
+    [
+      4,
+      12,
+      16,
+      [
+        31,
+        197
+      ],
+      28,
+      "step"
+    ],
+    [
+      2,
+      8,
+      0,
+      [
+        163,
+        79
+      ],
+      16,
+      "burst"
+    ]
+  ],
+  "payload": "new interleaved two-bit planes and position-dependent rotations;not seed only",
+  "seed_bias": {
+    "development": 12775131,
+    "validation": 14775153
+  },
+  "whole_fixed_or16MSps_or_synthesis": false,
+  "unmodeled_payload_and_descriptor_cycles": null
+}

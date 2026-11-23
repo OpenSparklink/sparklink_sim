@@ -34,6 +34,8 @@ jobs:
       - name: Ruff check
         run: |
           make lint
+          uv run --frozen --no-sync ruff check scripts/model_head_prefetch.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_head_prefetch.py src/nearlink_sdr/sim/head_prefetched_capture.py tests/test_head_prefetched_capture.py tests/test_model_head_prefetch.py
           uv run --frozen --no-sync ruff check scripts/model_finite_coherent.py scripts/model_interleaved_coherent.py
           uv run --frozen --no-sync ruff check scripts/check_test_shards.py
           uv run --frozen --no-sync ruff check scripts/model_selected_handoff.py
@@ -190,6 +192,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 4
       matrix:
         backend: [python, rust]
         shard: [core, front, rrc, head, replay, handoff, word]

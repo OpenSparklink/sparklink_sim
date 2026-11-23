@@ -163,6 +163,7 @@ rrc-memory
 rrc-full14
 rrc-full14-stream
 initialized-capture-bridge
+initialized-head-prefetch
 spline-preparation
 spline-fixed
 spline-flow
