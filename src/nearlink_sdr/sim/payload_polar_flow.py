@@ -124,7 +124,8 @@ def _evaluate(kind, operands):
 class _Datapath:
     """Registered data and ROM banks; a bounded issue/ALU/writeback pipeline."""
 
-    def __init__(self, n_code, k_info, llr, lanes, fraction_bits, geometry):
+    def __init__(self, n_code, k_info, llr, lanes, fraction_bits, geometry, *,
+                 banks=None, advance=None, read_x=None):
         self.n, self.k, self.lanes = n_code, k_info, lanes
         self.ordered = geometry != "indexed"
         self.family = None
@@ -132,7 +133,9 @@ class _Datapath:
         self.maximum = (64 << fraction_bits) * n_code
         self.data = {bank: [None] * depth for bank, depth in _depth_shapes(n_code).items()}
         for lane in range(3):
-            self.data["X", lane] = llr[lane::3]
+            self.data["X", lane] = llr[lane::3] if banks is None else banks[lane]
+        self.advance, self.read_x = advance, read_x
+        self.input_last_read_cycle = self.input_load_cycles = None
         if geometry == "threshold":
             banks, directories = _threshold_rom()
             dimensions, self.node_base = directories[n_code]
@@ -172,6 +175,8 @@ class _Datapath:
         i = 0
         last = None
         while i < count or any(pipe):
+            if self.advance is not None:
+                self.advance(self.cycles)
             ports = Counter()
             overwritten = set()
             for writes, values in pipe[2]:
@@ -221,6 +226,10 @@ class _Datapath:
     def _read(self, requests, ports):
         values = []
         for bank, address in requests:
+            if bank[0] == "X":
+                self.input_last_read_cycle = self.cycles
+                if self.read_x is not None:
+                    self.read_x(bank[1], address)
             value = self.data[bank][address]
             if value is None:
                 raise RuntimeError("SSC RAM read before write")
@@ -240,6 +249,7 @@ class _Datapath:
         def a(plane, depth, i):
             return _address(n, plane, depth, i)
         self.group("load", n, lambda i: _Op((a("X", 0, i),), (a("L", 0, i),)))
+        self.input_load_cycles = self.cycles
 
         def walk(start, length, depth, node, right):
             # A frame has only these bounded fields; the maximum depth is 11.
@@ -319,12 +329,18 @@ class _Datapath:
 
     def summary(self):
         return dict(
-            cycles=self.cycles, peak_abs_alpha=self.peak_llr, port_stalls=self.port_stalls,
+            cycles=self.cycles, input_last_read_cycle=self.input_last_read_cycle,
+            input_load_cycles=self.input_load_cycles, peak_abs_alpha=self.peak_llr,
+            port_stalls=self.port_stalls,
             split_issue_edges=self.splits, blocks=self.blocks, operations=dict(self.ops),
             reads={str(bank): count for bank, count in self.reads.items()},
             writes={str(bank): count for bank, count in self.writes.items()},
             peak_ports={str(bank): count for bank, count in self.peak_ports.items()},
         )
+
+
+def _quantize_llr(value, scale):
+    return round(max(-64., min(64., value)) * scale)
 
 
 def decode_payload_polar_word(
@@ -343,7 +359,7 @@ def decode_payload_polar_word(
     if len(values) != n_code or not all(map(isfinite, values)):
         raise ValueError("Need exactly N finite input LLRs")
     scale = 1 << fraction_bits
-    q = [round(max(-64., min(64., value)) * scale) for value in values]
+    q = [_quantize_llr(value, scale) for value in values]
     model = _Datapath(n_code, k_info, q, lanes, fraction_bits, geometry)
     model.decode()
     summary = model.summary()
@@ -437,18 +453,25 @@ class B1PayloadArrival:
     bits_per_symbol: int
 
 
-def payload_polar_calendar(frames, *, word_cycles, clock_hz, stall_until=0):
+def payload_polar_calendar(
+    frames, *, word_cycles, clock_hz, stall_until=0, input_load_cycles=None,
+    discard_failed_suffix=False, trace_ownership=False,
+):
     """Schedule two ingress slots and a single ordered held output.
 
     Completion refers to the unchecked Polar output boundary, not MAC delivery.
     B1 input cannot pause. A word with no free slot on its first beat is lost;
-    earlier owned words and later words remain fully accounted for.
+    earlier owned words remain fully accounted for. With measured LOAD edges,
+    ingress ownership may retire before decode completes. First loss marks the
+    frame incomplete. Optional suffix suppression affects later reservations.
+    Ownership tracing exposes the wire geometry for finite RAM replay.
     """
     if clock_hz not in (100_000_000, 160_000_000, 200_000_000):
         raise ValueError("Use a modeled clock: 100, 160 or 200 MHz")
     if type(stall_until) is not int or stall_until < 0:
         raise ValueError("Downstream release edge must be non-negative")
     period = Fraction(clock_hz, 4_000_000)
+    detailed = trace_ownership or input_load_cycles is not None or discard_failed_suffix
     # At most two live ingress reservations; expired slots retain no state.
     slots = [0, 0]
     engine_until = 0
@@ -464,34 +487,48 @@ def payload_polar_calendar(frames, *, word_cycles, clock_hz, stall_until=0):
             raise ValueError("Need legal-range B1 length and QPSK/8PSK")
         blocks = b1_code_block_plan(frame.payload_with_crc_bits, frame.rate, standard=True)
         physical_bit = 0
+        failed = False
         for block_no, block in enumerate(blocks):
             for word_no, (n, k) in enumerate(block.codewords):
                 first = frame.first_edge + ceil(physical_bit // bps * period)
+                phase = physical_bit % bps
                 physical_bit += n
                 last = frame.first_edge + ceil((physical_bit - 1) // bps * period)
                 cost = word_cycles[n, k]
                 if type(cost) is not int or cost <= 0:
                     raise ValueError("Need positive executed Polar edge counts")
+                load = cost if input_load_cycles is None else input_load_cycles[n, k]
+                if type(load) is not int or not 0 < load <= cost:
+                    raise ValueError("Need LOAD retirement within measured decode service")
+                row = dict(frame=frame_no, block=block_no, word=word_no, shape=(n,k),
+                           first=first, last=last)
+                if detailed:
+                    row.update(bits_per_symbol=bps, first_symbol_phase=phase)
+                if discard_failed_suffix and failed:
+                    yield row | dict(lost=True, peak_ingress=peak,
+                                     status="incomplete_suffix", first_frame_loss=False)
+                    continue
                 slot = next((i for i, avail in enumerate(slots) if avail <= first), None)
                 if slot is None:
-                    yield dict(frame=frame_no, block=block_no, word=word_no, shape=(n,k),
-                               first=first, last=last, lost=True, peak_ingress=peak)
+                    if detailed:
+                        row.update(status="resource_drop", first_frame_loss=not failed)
+                    failed = True
+                    yield row | dict(lost=True, peak_ingress=peak)
                     continue
                 start = max(last + 1, engine_until)
                 done = start + cost
                 output_start = max(done, stall_until)
-                # Two single-read O banks, fixed registered read; downstream
-                # takes at most two bits per edge once it becomes ready.
+                # Result RAM banks have registered reads, two bits per edge.
                 release_output = output_start + (k + 1) // 2
                 engine_until = release_output + 1
-                # The full word input stays attached through decode (conservative
-                # ownership); last + 1 retires the essential ingress write.
-                slots[slot] = done
+                slots[slot] = start + load
                 peak = max(peak, sum(end > first for end in slots))
-                yield dict(frame=frame_no, block=block_no, word=word_no, shape=(n,k),
-                           first=first, last=last, launch=start, decoded=done,
-                           output_start=output_start, taken=release_output,
-                           lost=False, ingress_slot=slot, peak_ingress=peak,
-                           queue_wait=start-last-1, output_wait=output_start-done,
-                           ordered_result_edge=release_output)
+                if detailed:
+                    row.update(status="accepted", ingress_release=slots[slot],
+                               first_frame_loss=False)
+                yield row | dict(launch=start, decoded=done, output_start=output_start,
+                                 taken=release_output, lost=False, ingress_slot=slot,
+                                 peak_ingress=peak, queue_wait=start-last-1,
+                                 output_wait=output_start-done,
+                                 ordered_result_edge=release_output)
         next_boundary = frame.first_edge + ceil(ceil(Fraction(physical_bit, bps)) * period)

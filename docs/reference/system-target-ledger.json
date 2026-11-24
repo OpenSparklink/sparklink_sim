@@ -3617,5 +3617,25 @@
     "synthesis_evidence": false,
     "whole_rx_gates_closed": false,
     "reference": "payload-polar-geometry.md"
+  },
+  "standard_B1_payload_ingress_ownership": {
+    "scope": "measured LOAD retirement, two ingress slots and failure suffix events",
+    "observed_single_port_ram_banks": 6,
+    "new_data_banks": 0,
+    "new_DSP": 0,
+    "executed_replay_arms": 30,
+    "value_carrying_reads": 55040,
+    "reuse_during_decode": 24,
+    "fixed_schedules": 324,
+    "held_schedules": 144,
+    "held_200MHz_two_lane_frames": 288,
+    "held_200MHz_original_dropped": 168,
+    "held_200MHz_combined_dropped": 55,
+    "held_200MHz_new_drops": 1,
+    "default_adopted": false,
+    "crc_merge_and_MAC_delivery_cycles_unmodeled": true,
+    "synthesis_evidence": false,
+    "whole_rx_gates_closed": false,
+    "reference": "payload-polar-ingress.md"
   }
 }
