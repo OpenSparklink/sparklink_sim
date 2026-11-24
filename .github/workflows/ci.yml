@@ -42,6 +42,8 @@ jobs:
           uv run --frozen --no-sync ruff check scripts/model_moving_tail.py
           uv run --frozen --no-sync ruff check scripts/model_legal_tail_ceiling.py
           uv run --frozen --no-sync ruff check scripts/model_queued_tail.py
+          uv run --frozen --no-sync ruff check scripts/model_fine_frame_overlap.py
+          uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_fine_frame_overlap.py tests/test_fine_frame_overlap.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_queued_tail.py tests/test_queued_tail_composition.py tests/test_model_queued_tail.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_legal_tail_ceiling.py src/nearlink_sdr/sim/legal_tail_ceiling.py tests/test_legal_tail_ceiling.py tests/test_model_legal_tail_ceiling.py
           uv run --frozen --no-sync ruff check --isolated --select E501 --line-length 100 scripts/model_moving_tail.py src/nearlink_sdr/sim/moving_tail_horizon.py tests/test_moving_tail_horizon.py tests/test_model_moving_tail.py

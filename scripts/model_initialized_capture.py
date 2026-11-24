@@ -105,8 +105,9 @@ def numeric_pair(event, floating):
     return result
 
 
-def compare(out, root, row, *, retire_queued=False):
-    if type(retire_queued) is not bool:
+def compare(out, root, row, *, retire_queued=False, overlap_fine=False):
+    if (type(retire_queued) is not bool or type(overlap_fine) is not bool
+            or (overlap_fine and not retire_queued)):
         raise ValueError("Need an explicit queued-retirement experiment choice")
     iq, quiet = load_input(root, row)
     profile = replace(PSKReceiveProfile.ordinary(TxConfig(**row["config"])),
@@ -127,6 +128,8 @@ def compare(out, root, row, *, retire_queued=False):
         with patch("tests.captured_frame_reference.CapturedFrameReplay", factory), patch(
                 "tests.captured_frame_reference.pack_filter_word", observe):
             options = dict(retire_queued=True) if retire_queued and name != "original" else {}
+            if overlap_fine and name != "original":
+                options["overlap_fine"] = True
             run = reference.run_arm(profile, iq, quiet, True, **options)
         n = len(iq)
         assert len(words) == 3*n and words[:n] == words[n:2*n] == words[2*n:]

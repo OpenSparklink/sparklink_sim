@@ -32,9 +32,10 @@ def payload(n, ident, held):
                  for k in range(n))
 
 
-def compare(out, root, row, *, enabled):
+def compare(out, root, row, *, enabled, overlap_fine=False):
     with patch.object(old, "InitializedCapturedFrameReplay", UpperTailCaptureReplay):
-        value = old.compare(out, root, row, retire_queued=enabled)
+        options = dict(overlap_fine=True) if overlap_fine else {}
+        value = old.compare(out, root, row, retire_queued=enabled, **options)
     if enabled:
         raw = json.loads((out / f"stream{row['id']}-finite.json").read_text())
         result = raw["result"]
@@ -72,7 +73,12 @@ def qualify(rows, baseline):
 
 
 def main():
-    parser = argparse.ArgumentParser(__doc__)
+    return run_study(__doc__, POLICY, sources, payload, compare, qualify)
+
+
+def run_study(description, policy, source_map, payload_factory, evaluate_arm, qualification):
+    """Evaluate a prospective transport factor on the same frozen input protocol."""
+    parser = argparse.ArgumentParser(description)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--split", choices=("development", "validation"), default="development")
     parser.add_argument("--role", choices=("development", "fixed-regression"),
@@ -82,31 +88,32 @@ def main():
     parser.add_argument("--freeze", type=Path)
     parser.add_argument("--regression-freeze", type=Path, action="append", default=[])
     args = parser.parse_args()
-    frozen = sources()
+    frozen = source_map()
     if args.split == "validation":
-        if (args.freeze is None or len(args.regression_freeze) != 4 or args.inputs is not None
-                or args.role != "development"):
+        if (args.freeze is None
+                or len(args.regression_freeze) != len(policy["fixed_manifest_SHA256"])
+                or args.inputs is not None or args.role != "development"):
             parser.error("Need new development and fixed regression freezes before new held")
         for file, role in [(args.freeze, "development"),
                            *[(f, "fixed-regression") for f in args.regression_freeze]]:
             f = json.loads(file.read_text())
-            if (f["source"] != frozen or f["policy"] != POLICY or f["role"] != role
+            if (f["source"] != frozen or f["policy"] != policy or f["role"] != role
                     or not f["qualification"]["passed"]):
                 parser.error("Changed source/policy or rejected/seen freeze;no held generated")
         manifests = [json.loads(f.read_text())["input_manifest_SHA256"]
                      for f in args.regression_freeze]
-        if sorted(manifests) != sorted(POLICY["fixed_manifest_SHA256"]):
-            parser.error("Need all four distinct fixed input cohorts before held")
+        if sorted(manifests) != sorted(policy["fixed_manifest_SHA256"]):
+            parser.error("Need all distinct fixed input cohorts before held")
     elif args.freeze is not None or args.regression_freeze:
         parser.error("Development does not import a held decision")
     if args.baseline is not None and (args.inputs is None or args.role != "fixed-regression"):
         parser.error("External baseline needs a literal fixed-regression input manifest")
     args.output.mkdir(parents=True, exist_ok=False)
-    write(args.output / "PRE-RUN-SOURCE-AND-POLICY.json", dict(source=frozen, policy=POLICY))
+    write(args.output / "PRE-RUN-SOURCE-AND-POLICY.json", dict(source=frozen, policy=policy))
     if args.inputs is None:
         old.reference.make_inputs(args.output, args.split,
-            specs=POLICY[args.split+"_specs"], payload_fn=payload,
-            seed_bias=POLICY["seed_bias"][args.split])
+            specs=policy[args.split+"_specs"], payload_fn=payload_factory,
+            seed_bias=policy["seed_bias"][args.split])
         manifest = args.output / "inputs.json"
     else:
         manifest = args.inputs
@@ -118,7 +125,7 @@ def main():
         base_dir.mkdir()
         baseline = []
         for row in rows:
-            baseline.append(compare(base_dir, root, row, enabled=False))
+            baseline.append(evaluate_arm(base_dir, root, row, enabled=False))
             write(base_dir / "results.json", baseline)
             print(json.dumps(dict(baseline_id=row["id"],
                 complete=baseline[-1]["modes"]["finite"]["complete"])), flush=True)
@@ -134,7 +141,7 @@ def main():
         input_manifest_SHA256=sha, baseline_results_SHA256=baseline_sha))
     results = []
     for row in rows:
-        value = compare(args.output, root, row, enabled=True)
+        value = evaluate_arm(args.output, root, row, enabled=True)
         previous = json.loads((baseline_file.parent / f"stream{row['id']}-original.json")
                               .read_text())
         measured = json.loads((args.output / f"stream{row['id']}-original.json").read_text())
@@ -145,15 +152,14 @@ def main():
         print(json.dumps(dict(id=row["id"], complete=value["modes"]["finite"]["complete"],
                               original_losses=value["comparison"]["old_success_losses"])),
               flush=True)
-    if (sources() != frozen or old.reference.shared.sha(manifest) != sha
+    if (source_map() != frozen or old.reference.shared.sha(manifest) != sha
             or old.reference.shared.sha(baseline_file) != baseline_sha):
         raise ValueError("Source,policy,input or baseline changed during frozen run")
-    qualification = qualify(results, baseline)
-    write(args.output / "decision.json", dict(source=frozen, policy=POLICY, role=args.role,
-        input_manifest_SHA256=sha, baseline_results_SHA256=baseline_sha,
-        qualification=qualification))
-    print(json.dumps(qualification))
-    return 0 if qualification["passed"] else 1
+    decision = qualification(results, baseline)
+    write(args.output / "decision.json", dict(source=frozen, policy=policy, role=args.role,
+        input_manifest_SHA256=sha, baseline_results_SHA256=baseline_sha, qualification=decision))
+    print(json.dumps(decision))
+    return 0 if decision["passed"] else 1
 
 
 if __name__ == "__main__":

@@ -169,6 +169,7 @@ continuous-private-prefetch
 moving-tail-horizon
 legal-tail-ceiling
 queued-tail-composition
+fine-frame-overlap
 spline-preparation
 spline-fixed
 spline-flow

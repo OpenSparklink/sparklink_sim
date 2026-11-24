@@ -111,6 +111,11 @@ class InitializedCapturedFrameReplay(ScheduledCoherentCapturedFrameReplay):
         return min(self.sample_limit, frame.future_end + extra)
 
     @property
+    def selection_cache_released(self):
+        """The installed frame consumes derived state; raw fine words only serve diagnostics."""
+        return self.flow is not None and self.flow.frame is not None
+
+    @property
     def needs_word(self):
         return (self.active and not self.done and not self.eof and not self._word_waiting
                 and self.pending is None and self.history is not None

@@ -1,0 +1,178 @@
+{
+  "stage": "M43",
+  "baseline_commit": "ccaed4b34b2860e215b6214321f66cb60afa952e",
+  "studied_factor": "one fine service overlapping one frame, original selection and gates",
+  "deadline_evidence_sha256": "4f0e0c338709fe277e29ccf825f4fe8844522958b63e92e4179b16cf32f1d81f",
+  "source_history": 4096,
+  "owned": 3,
+  "private_FIFO": 1024,
+  "fine_parallel_workers": 1,
+  "frame_owners": 1,
+  "selection_credits": 1,
+  "registered_pre_fine_gate_cycles": 1,
+  "extra_metadata_read_bound_bits": 448,
+  "extra_register_cap_bits": 160,
+  "extra_IQ_RAM_DSP_ports": 0,
+  "candidate_retains_original_and_baseline_complete": true,
+  "extra_false_MAC_or_negative_confirmations_max": 0,
+  "aggregate_resource_exit_delta_max": 0,
+  "fine_cycles_cap": "no greater than original reference",
+  "gain_required_per_cohort": "new complete payload or lower known drain with unchanged recall",
+  "same_age_budgets": {
+    "center_samples": 0.001,
+    "rate_ppm": 0.1,
+    "normalized_symbol_RMS": 0.0001,
+    "normalized_symbol_peak": 0.001
+  },
+  "minimum_complete_numeric_pairs": 4,
+  "held_only_after_newdev_and_all_fixed_pass": true,
+  "fixed_manifest_SHA256": [
+    "4287c022fb35eb98090e95943f3eb56a4ead1184b169db89012c6d5d42e018ca",
+    "4e2dd8c751f4377d15c9cfc21bb11c7988e892f3b5f463b678e461675dd3bc54",
+    "10b132ec5df8cb57a1382a03a6635a5d72a11cfe579b851b2bdeed03eec994de",
+    "4001866dc38c513ebcdfe7911da2697da94c387a46420945b9e2f0274c1aee53",
+    "9d2e248cebf9fa8d86a548d4426c798c3662271eceee293125225dbcda9e5707"
+  ],
+  "development_specs": [
+    [
+      4,
+      12,
+      16,
+      [
+        303,
+        61
+      ],
+      42,
+      "clean"
+    ],
+    [
+      2,
+      8,
+      8,
+      [
+        167,
+        71
+      ],
+      40,
+      "tone"
+    ],
+    [
+      3,
+      12,
+      4,
+      [
+        105,
+        177
+      ],
+      26,
+      "wrong-sync"
+    ],
+    [
+      4,
+      8,
+      8,
+      [
+        719,
+        51
+      ],
+      50,
+      "noise"
+    ],
+    [
+      2,
+      12,
+      16,
+      [
+        205,
+        126
+      ],
+      30,
+      "step"
+    ],
+    [
+      3,
+      8,
+      0,
+      [
+        533,
+        193
+      ],
+      36,
+      "burst"
+    ]
+  ],
+  "validation_specs": [
+    [
+      3,
+      8,
+      8,
+      [
+        67,
+        219
+      ],
+      36,
+      "clean"
+    ],
+    [
+      4,
+      12,
+      16,
+      [
+        151,
+        83
+      ],
+      26,
+      "tone"
+    ],
+    [
+      2,
+      12,
+      0,
+      [
+        73,
+        153
+      ],
+      34,
+      "wrong-sync"
+    ],
+    [
+      3,
+      12,
+      4,
+      [
+        493,
+        45
+      ],
+      38,
+      "noise"
+    ],
+    [
+      4,
+      8,
+      16,
+      [
+        121,
+        193
+      ],
+      30,
+      "step"
+    ],
+    [
+      2,
+      8,
+      4,
+      [
+        217,
+        105
+      ],
+      42,
+      "burst"
+    ]
+  ],
+  "seed_bias": {
+    "development": 41701339,
+    "validation": 44302719
+  },
+  "new_default": false,
+  "whole_RX16MSps": false
+}

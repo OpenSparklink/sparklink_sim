@@ -160,7 +160,7 @@ class CaptureTransport:
 
     def estimate(
         self, *, measured_worker=False, released_requests=False, retire_before_fine=False,
-        retire_queued=False,
+        retire_queued=False, overlap_fine=False,
     ):
         """Concrete uniform primitive layouts, not a synthesized minimum.
 
@@ -180,6 +180,8 @@ class CaptureTransport:
             raise ValueError("Need explicit compatible actual frame retirement cost mode")
         if type(retire_queued) is not bool or (retire_queued and not retire_before_fine):
             raise ValueError("Queued retirement requires the actual pre-fine/frame context")
+        if type(overlap_fine) is not bool or (overlap_fine and not retire_queued):
+            raise ValueError("Fine overlap requires the bounded queued-retirement context")
         lanes = 8 if a.mode == "copied8" else 2 if a.mode == "tdp2" else 1
         width, depth = (36, 1024) if a.mode == "tdp2" else (72, 512)
         source_copies = 8 if a.mode == "copied8" else 1
@@ -224,6 +226,8 @@ class CaptureTransport:
             registers["retirement_gate"] = 64 + 2
         if retire_queued:
             registers["queued_retirement_gate"] = 64 + 2
+        if overlap_fine:
+            registers["fine_frame_overlap"] = 5 + 2 * 64
         cost = dict(
             mode=a.mode,
             source_bram36=source_tiles,
@@ -310,6 +314,18 @@ class CaptureTransport:
                 clocks_MHz=[100, 160, 200], achieved_Fmax=None,
                 actual_synthesis=False, whole16MSps=False,
             )
+        if overlap_fine:
+            cost["fine_frame_overlap"] = dict(
+                register_bits=registers["fine_frame_overlap"],
+                extra_frame_slot_and_valid_bits=5, activity_counter_bits=2 * 64,
+                extra_descriptor_read_mux_bits_upper=descriptor_bits,
+                shared_comparator_issues_per_cycle=1, prefine_has_comparator_priority=True,
+                extra_IQ_RAM_DSP_or_sample_ports=0, fine_workers=1, frame_owners=1,
+                selection_credits=1, handoff_keeps_owned_bank=True,
+                slot_reuse_waits_for_installed_frame=True,
+                separate_fine_and_frame_owned_banks=True,
+                physical_timing_verified=False, synthesis_verified=False,
+            )
         return cost
 
     def simulate(
@@ -327,6 +343,7 @@ class CaptureTransport:
         retire_before_fine=False,
         retirement_observer=None,
         retire_queued=False,
+        overlap_fine=False,
     ):
         """Stream fixed-width path tuples and sorted(after_sample_count,path).
 
@@ -347,6 +364,8 @@ class CaptureTransport:
             raise ValueError("Need explicit frame retirement and optional read-only observer")
         if type(retire_queued) is not bool or (retire_queued and not retire_before_fine):
             raise ValueError("Queued retirement requires the actual pre-fine/frame context")
+        if type(overlap_fine) is not bool or (overlap_fine and not retire_queued):
+            raise ValueError("Fine overlap requires the bounded queued-retirement context")
         a = self.a
         if source_owner is not None:
             from nearlink_sdr.sim.coarse_capture_source import CoarseCaptureSource
@@ -372,6 +391,11 @@ class CaptureTransport:
                         frame_replay.profile.sync_symbols())):
                 raise ValueError(
                     "Need fresh matched live source,selected cache and one frame owner")
+        if overlap_fine:
+            from nearlink_sdr.sim.initialized_captured_frame import InitializedCapturedFrameReplay
+
+            if not isinstance(frame_replay, InitializedCapturedFrameReplay):
+                raise ValueError("Fine overlap needs the frame's explicit cache release")
         if tail_replay is not None and (
             not isinstance(tail_replay, CaptureTailReplay)
             or tail_replay.a.owned != a.owned
@@ -408,7 +432,7 @@ class CaptureTransport:
         source = [[0] * a.history for _ in range(a.paths)]
         slots = [[0] * a.window for _ in range(a.owned)]
         free, copying, ready = deque(range(a.owned)), deque(), deque()
-        active, pipeline = None, []
+        active, frame_job, pipeline = None, None, []
         stream = iter(requests)
         pending, last_request, ident = next(stream, None), 0, 0
         last_available = 0
@@ -434,6 +458,8 @@ class CaptureTransport:
         queued_check = None  # Borrows the immutable ready FIFO head,not another descriptor.
         if retire_queued:
             stats["queued_retired"] = 0
+        if overlap_fine:
+            stats.update(fine_frame_overlap_cycles=0, selected_result_wait_cycles=0)
         source_pulse, source_epoch_aborted = None, False
         if source_owner is not None:
             stats.update(source_epoch_drops=0, source_invalid_pulses=0, source_gap_samples=0)
@@ -473,7 +499,7 @@ class CaptureTransport:
                 retirement_observer(row)
 
         def start_fine(job):
-            if retire_before_fine and frame_replay.active:
+            if retire_before_fine and frame_replay.active and not overlap_fine:
                 raise RuntimeError("Retirement frontier cannot advance during fine service")
             observe_retirement("fine_start", job)
             service_cycles = a.fine_service_cycles
@@ -548,8 +574,28 @@ class CaptureTransport:
             if sink is not None:
                 sink(event, data)
 
+        def take_frame(job):
+            job["frame_outcome"] = frame_replay.take()
+            outcome, mac = job["frame_outcome"]
+            stats["frame_terminal"] += 1
+            stats["frame_payloads"] += len(mac.packets)
+            status = outcome["frame"]["status"]
+            stats["frame_resource_drops"] += int(status in (
+                "tail_history_expired", "history_overflow", "retention_limit"))
+            stats["frame_overlap_retired"] += int(status == "source_already_consumed")
+            frame_replay.release()
+
+        def complete_job(job):
+            nonlocal max_latency
+            stats["completed"] += 1
+            max_latency = max(max_latency, cycle - job["arrival"])
+            notify(job, "completed", slots[job["slot"]])
+            if tail_replay is not None:
+                tail_replay.close(job["slot"])
+            free.append(job["slot"])
+
         while ((count < n if source_owner is None else not source_owner.done)
-               or pending is not None or copying or ready or active or pipeline):
+               or pending is not None or copying or ready or active or frame_job or pipeline):
             prior_frontier = frame_replay.retired_through if retire_queued else None
             if source_owner is not None:
                 source_pulse, request = source_owner.advance(cycle)
@@ -561,12 +607,15 @@ class CaptureTransport:
                     live = {job["id"]: job for job in (*copying, *ready)}
                     if active is not None:
                         live[active["id"]] = active
+                    if frame_job is not None:
+                        live[frame_job["id"]] = frame_job
                     for job, _, _ in pipeline:
                         live[job["id"]] = job
                     if frame_replay is not None:
                         if frame_replay.active:
                             frame_replay.abort("source_epoch_aborted", cycle)
-                            active["frame_outcome"] = frame_replay.take()
+                            owner = frame_job if overlap_fine else active
+                            owner["frame_outcome"] = frame_replay.take()
                             stats["frame_terminal"] += 1
                             stats["frame_resource_drops"] += 1
                         fine_worker.cancel_selection()
@@ -578,7 +627,7 @@ class CaptureTransport:
                     copying.clear()
                     ready.clear()
                     queued_check = None  # Epoch already accounts this borrowed live slot once.
-                    active, pipeline = None, []
+                    active, frame_job, pipeline = None, None, []
                     free = deque(range(a.owned))
                     source_epoch_aborted = True
             while stall_index < len(stalls) and cycle >= stalls[stall_index][1]:
@@ -602,9 +651,13 @@ class CaptureTransport:
                     free.append(job["slot"])
             if frame_replay is not None and frame_replay.active:
                 frame_replay.tick(cycle, blocked=blocked)
+            if frame_job is not None and frame_replay.done and not blocked:
+                take_frame(frame_job)
+                complete_job(frame_job)
+                frame_job = None
             if (active is not None and active.get("retirement_pending")
                     and cycle >= active["finish"]):
-                if frame_replay.active:
+                if frame_replay.active and not overlap_fine:
                     raise RuntimeError("Registered retirement check lost exclusive frame ownership")
                 active["retirement_pending"] = False
                 if active.pop("retirement_exclude"):
@@ -621,7 +674,7 @@ class CaptureTransport:
                     and cycle >= active["finish"]):
                 frame_needed = (frame_replay is not None and active["service"].disposition in
                                 ("ready", "confirm_pending"))
-                if frame_needed and not blocked:
+                if frame_needed and not blocked and frame_job is None:
                     if not active.get("frame_started"):
                         selection = fine_worker.take_selection(active["id"], cycle)
                         if selection is None:
@@ -630,15 +683,9 @@ class CaptureTransport:
                         frame_replay.begin(selection, cycle)
                         active["frame_started"] = True
                     if frame_replay.done:
-                        active["frame_outcome"] = frame_replay.take()
-                        outcome, mac = active["frame_outcome"]
-                        stats["frame_terminal"] += 1
-                        stats["frame_payloads"] += len(mac.packets)
-                        status = outcome["frame"]["status"]
-                        stats["frame_resource_drops"] += int(status in (
-                            "tail_history_expired", "history_overflow", "retention_limit"))
-                        stats["frame_overlap_retired"] += int(status == "source_already_consumed")
-                        frame_replay.release()
+                        take_frame(active)
+                    elif overlap_fine:
+                        frame_job, active = active, None
                 replay_needed = tail_replay is not None and active["service"].disposition in (
                     "ready",
                     "confirm_pending",
@@ -651,16 +698,13 @@ class CaptureTransport:
                     ):
                         tail_replay.begin(active["slot"], slots[active["slot"]], cycle)
                         active["replay_started"] = cycle
-                elif not blocked and (not frame_needed or "frame_outcome" in active):
+                elif active is not None and not blocked and (
+                    not frame_needed or "frame_outcome" in active
+                ):
                     if frame_replay is not None and not frame_needed:
                         observe_retirement("fine_available", active)
                         fine_worker.take_selection(active["id"], cycle)
-                    stats["completed"] += 1
-                    max_latency = max(max_latency, cycle - active["arrival"])
-                    notify(active, "completed", slots[active["slot"]])
-                    if tail_replay is not None:
-                        tail_replay.close(active["slot"])
-                    free.append(active["slot"])
+                    complete_job(active)
                     active = None
                 if active is not None and blocked and not active.get("blocked", False):
                     active["blocked"] = True
@@ -785,26 +829,31 @@ class CaptureTransport:
                     copying.append(job)
                     stats["peak_owned"] = max(stats["peak_owned"], a.owned - len(free))
                 pending = next(stream, None) if source_owner is None else None
-            if active is None and ready and ready[0]["copied"] < cycle:
+            prefine_issued = False
+            cache_free = frame_job is None or frame_replay.selection_cache_released
+            if active is None and cache_free and ready and ready[0]["copied"] < cycle:
                 active = ready.popleft()
                 if retire_before_fine:
-                    if frame_replay.active or fine_worker._selection is not None:
+                    if ((frame_replay.active and not overlap_fine)
+                            or fine_worker._selection is not None):
                         raise RuntimeError("Retirement check needs idle frame and selected credit")
                     exclude = active["count"] <= frame_replay.retired_through
                     observe_retirement("check", active, exclude)
                     active.update(retirement_pending=True, retirement_exclude=exclude,
                                   finish=cycle+1)
+                    prefine_issued = True
                 else:
                     start_fine(active)
             frame_source_read = 0
-            if (frame_replay is not None and active is not None and active.get("frame_started")
+            owner = frame_job if overlap_fine else active
+            if (frame_replay is not None and owner is not None and owner.get("frame_started")
                     and frame_replay.needs_word and not blocked):
                 index = frame_replay.source_index
-                if index < active["count"]:
-                    local = index-(active["count"]-a.window)
+                if index < owner["count"]:
+                    local = index-(owner["count"]-a.window)
                     if not 0 <= local < a.window:
                         raise RuntimeError("Frame prefix is outside its borrowed owned window")
-                    frame_replay.issue_read(index, slots[active["slot"]][local], cycle)
+                    frame_replay.issue_read(index, slots[owner["slot"]][local], cycle)
                     stats["frame_prefix_reads"] += 1
                 elif index < count:
                     if index < count-a.history:
@@ -812,7 +861,7 @@ class CaptureTransport:
                     elif input_write and index % a.history == (count-1) % a.history:
                         read_write_deferrals += 1
                     else:
-                        frame_replay.issue_read(index, source[active["path"]][index % a.history],
+                        frame_replay.issue_read(index, source[owner["path"]][index % a.history],
                                                 cycle)
                         stats["frame_source_reads"] += 1
                         frame_source_read = 1
@@ -871,8 +920,17 @@ class CaptureTransport:
                         tail_replay.close(slot)
                         free.append(slot)
                         active = None
-            if retire_queued and frame_replay.active and ready and ready[0]["copied"] < cycle:
-                if active is None or active.get("retirement_pending"):
+            if overlap_fine and active is not None and not active.get("retirement_pending"):
+                if frame_job is not None and active["slot"] == frame_job["slot"]:
+                    raise RuntimeError("Fine and frame need separate immutable owned banks")
+                if cycle < active["finish"] and frame_job is not None:
+                    stats["fine_frame_overlap_cycles"] += 1
+                if (cycle >= active["finish"]
+                        and active["service"].disposition in ("ready", "confirm_pending")):
+                    stats["selected_result_wait_cycles"] += 1
+            if (retire_queued and frame_replay.active and ready and ready[0]["copied"] < cycle
+                    and not prefine_issued):
+                if not overlap_fine and (active is None or active.get("retirement_pending")):
                     raise RuntimeError("Queued and pre-fine comparator phases must not overlap")
                 job = ready[0]
                 if any(writer is job for writer, _, _ in pipeline):
@@ -943,7 +1001,7 @@ class CaptureTransport:
                     measured_worker=True, released_requests=True,
                     retire_before_fine=True)["retirement_gate"],
                 retirement_check_registered=True,
-                retirement_frontier_exclusive_during_fine=True,
+                retirement_frontier_exclusive_during_fine=not overlap_fine,
                 pre_fine_retirement_is_not_fine_completion=True,
             )
         if retire_queued:
@@ -966,6 +1024,10 @@ class CaptureTransport:
                 ),
                 resource_feedback_to_capture_algorithm=False,
             )
+        if overlap_fine:
+            result["fine_frame_overlap_cost"] = self.estimate(
+                measured_worker=True, released_requests=True, retire_before_fine=True,
+                retire_queued=True, overlap_fine=True)["fine_frame_overlap"]
         if tail_replay is not None:
             assert not any(tail_replay.leases) and tail_replay.active is None
             result.update(

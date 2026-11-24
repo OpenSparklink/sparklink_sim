@@ -258,6 +258,7 @@
       "tests/test_private_prefetch.py"
     ],
     "group12": [
+      "tests/test_fine_frame_overlap.py",
       "tests/test_head_prefetched_capture.py",
       "tests/test_head_word_replay.py"
     ]
