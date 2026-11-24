@@ -32,12 +32,13 @@ def _sample_beats(rows, period):
 class _Ingress:
     """Each slot has one access per modulo-three bank and one logical owner."""
 
-    def __init__(self, beats, llrs, scale, observer):
+    def __init__(self, beats, llrs, scale, observer, drain_at_eof):
         self.beats = iter(beats)
         self.pending = next(self.beats, None)
         self.llrs = iter(llrs)
         self.scale = scale
         self.observer = observer
+        self.drain_at_eof = drain_at_eof
         self.banks = tuple(tuple([None] * ((1026 - lane) // 3) for lane in range(3))
                            for _ in range(2))
         self.owners = [None, None]
@@ -57,8 +58,11 @@ class _Ingress:
             self.edge, row, start, count = self.pending
             values = tuple(float(x) for x in islice(self.llrs, count))
             if len(values) != count:
-                self.report("truncated", row)
-                raise ValueError("Truncated input before complete B1 LLR stream")
+                self.report("truncated", row, partial_reservation=start > 0 and not row["lost"])
+                if not self.drain_at_eof:
+                    raise ValueError("Truncated input before complete B1 LLR stream")
+                self.pending = None
+                break
             if not all(map(isfinite, values)):
                 raise ValueError("Need finite B1 input LLRs")
             if row["lost"]:
@@ -107,6 +111,7 @@ class _Ingress:
 def replay_payload_polar_ingress(
     frames, llrs, *, word_cycles, clock_hz, lanes=2, fraction_bits=0, geometry="indexed",
     stall_until=0, input_load_cycles=None, discard_failed_suffix=False, observer=None,
+    output_pair=None, drain_at_eof=False,
 ):
     """Execute value and port checks on an ordered stream of input LLRs.
 
@@ -114,6 +119,7 @@ def replay_payload_polar_ingress(
     suppressed suffixes are reported to the observer as separate events.
     Returned words remain unchecked. In particular, a later missing word can
     invalidate a frame that has already produced a prefix of unchecked bits.
+    With drain_at_eof, complete admitted words retire after a truncated beat.
     """
     _formats(lanes, fraction_bits, geometry)
     rows = payload_polar_calendar(
@@ -122,7 +128,7 @@ def replay_payload_polar_ingress(
         trace_ownership=True,
     )
     ingress = _Ingress(_sample_beats(rows, clock_hz // 4_000_000), llrs,
-                       1 << fraction_bits, observer)
+                       1 << fraction_bits, observer, drain_at_eof)
     while ingress.pending is not None or ingress.ready:
         if not ingress.ready:
             ingress.advance(ingress.pending[0])
@@ -147,7 +153,12 @@ def replay_payload_polar_ingress(
         if input_load_cycles is not None and model.input_load_cycles != input_load_cycles[n, k]:
             raise ValueError("LOAD retirement disagrees with actual Polar execution")
         ingress.advance(row["decoded"])
-        bits, output = model.drain()
+        def emit(offset, pair):
+            edge = row["output_start"] + offset
+            ingress.advance(edge)
+            output_pair(row, edge, 2 * (offset - 1), pair)
+
+        bits, output = model.drain(emit if output_pair is not None else None)
         if output["output_to_last_bit_cycles"] != row["taken"] - row["output_start"]:
             raise RuntimeError("Output retirement disagrees with actual result ports")
         ingress.advance(row["taken"])

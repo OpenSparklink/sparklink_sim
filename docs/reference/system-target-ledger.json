@@ -3637,5 +3637,27 @@
     "synthesis_evidence": false,
     "whole_rx_gates_closed": false,
     "reference": "payload-polar-ingress.md"
+  },
+  "standard_B1_payload_crc_service": {
+    "scope": "post-header FT3/4 standard B1, registered Polar pairs to checked payload",
+    "data_ram_bytes": 2044,
+    "estimated_new_RAMB18": 1,
+    "estimated_new_DSP": 0,
+    "max_outstanding_word_frame_tags": 3,
+    "crc_register_bits": 56,
+    "estimated_additional_control_bits": 579,
+    "held_frame_outcomes": {
+      "delivered": 56,
+      "crc_failed": 16,
+      "resource_drop": 32,
+      "mac_buffer_busy": 4
+    },
+    "independent_held_arms": 36,
+    "accounted_crc_and_MAC_local_edges": true,
+    "default_adopted": false,
+    "entire_capture_and_mac_handshake_modeled": false,
+    "full_rx_gates_closed": false,
+    "synthesis_evidence": false,
+    "reference": "b1-payload-service.md"
   }
 }

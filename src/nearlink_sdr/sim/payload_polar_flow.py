@@ -303,13 +303,15 @@ class _Datapath:
         else:
             self.group("extract", self.k, lambda i: _Op((a("I", 0, i),), (a("O", 0, i),)))
 
-    def drain(self):
+    def drain(self, emit=None):
         """Pass at most two bits per edge via registered, single-read ports."""
         plane = "U" if self.ordered else "O"
         result, pending = [], ()
         read_edges = 0
         used = Counter()
         for start in range(0, self.k, 2):
+            if pending and emit is not None:
+                emit(read_edges, pending)
             result.extend(pending)
             addrs = tuple(_address(self.n, plane, 0, i)
                           for i in range(start, min(start + 2, self.k)))
@@ -320,6 +322,8 @@ class _Datapath:
             used.update(ports)
             read_edges += 1
         # The last registered pair is visible one edge after the final read.
+        if emit is not None:
+            emit(read_edges, pending)
         result.extend(pending)
         return tuple(result), dict(
             output_to_last_bit_cycles=read_edges,

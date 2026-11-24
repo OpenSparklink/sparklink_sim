@@ -129,6 +129,7 @@ b1-coded-payload
 payload-polar-flow
 payload-polar-geometry
 payload-polar-ingress
+b1-payload-service
 head-length-words
 head-word-gate
 hard-header-words
@@ -197,4 +198,5 @@ psk-noise-recovery-results
 /apidocs/nearlink_sdr/nearlink_sdr.sim.rrc_full14
 /apidocs/nearlink_sdr/nearlink_sdr.sim.payload_polar_flow
 /apidocs/nearlink_sdr/nearlink_sdr.sim.payload_polar_ingress
+/apidocs/nearlink_sdr/nearlink_sdr.sim.b1_payload_service
 ```
