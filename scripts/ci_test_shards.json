@@ -32,7 +32,6 @@
       "tests/test_interference_funnel.py",
       "tests/test_link_control_ext.py",
       "tests/test_model_full14_stream.py",
-      "tests/test_moving_tail_horizon.py",
       "tests/test_multitone.py",
       "tests/test_normalization_word_model.py",
       "tests/test_psk_hard_flow.py",
@@ -255,6 +254,7 @@
     "group11": [
       "tests/test_legal_tail_ceiling.py",
       "tests/test_model_legal_tail_ceiling.py",
+      "tests/test_moving_tail_horizon.py",
       "tests/test_private_prefetch.py"
     ],
     "group12": [
