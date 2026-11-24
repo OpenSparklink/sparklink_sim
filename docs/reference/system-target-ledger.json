@@ -3685,5 +3685,31 @@
     "full_rx_gates_closed": false,
     "synthesis_evidence": false,
     "reference": "psk-word-demap.md"
+  },
+  "psk_known_sync_finite_gain": {
+    "scope": "bounded normalized known sync to timed B1 soft gain",
+    "sample_Q": "signed18 Q14",
+    "max_known_sync_symbols": 256,
+    "residual_sum_bits": 45,
+    "restoring_quotient_edges": 17,
+    "last_symbol_to_gain_edges": 23,
+    "estimated_added_DSP": 1,
+    "estimated_added_data_RAM": 0,
+    "estimated_state_bits": 398,
+    "held": {
+      "integer_ratio_cases": 240,
+      "soft_bits": 94080,
+      "max_quantized_code_difference": 1,
+      "frame_deliveries": 33,
+      "crc_failures": 9,
+      "resource_drops": 6,
+      "regressions": 0
+    },
+    "opted_in": true,
+    "default_receiver_adopted": false,
+    "all_source_stages_clocked": false,
+    "whole_rx_gates_closed": false,
+    "synthesis_evidence": false,
+    "reference": "psk-sync-gain.md"
   }
 }

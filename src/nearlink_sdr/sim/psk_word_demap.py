@@ -10,6 +10,7 @@ from nearlink_sdr.common.scrambler import _lfsr_step
 from nearlink_sdr.phy.tx_pipeline import TxConfig, _head_len
 from nearlink_sdr.sim.b1_payload_service import B1PayloadFrame, replay_b1_payload_frames
 from nearlink_sdr.sim.payload_polar_ingress import TimedLLR
+from nearlink_sdr.sim.psk_sync_gain import PSKSoftGain, _q14
 
 __all__ = ["B1SymbolFrame", "PSKWordDemapper", "replay_b1_symbol_frames"]
 
@@ -49,7 +50,7 @@ def _signed(value, width):
 
 
 def _variance_gain(variance):
-    if not isfinite(variance) or variance <= 0:
+    if variance is None or not isfinite(variance) or variance <= 0:
         raise ValueError("Need finite positive normalized variance")
     ratio = 2.0 / max(variance, 1e-12)
     frac, exp = frexp(ratio)
@@ -78,16 +79,18 @@ class B1SymbolFrame:
     payload: B1PayloadFrame
     symbol_index: int
     whitening_seed: int
-    variance: float
+    variance: float | None
     head_coded_bits: int
+    prepared_gain: PSKSoftGain | None = None
 
     @classmethod
     def from_config(cls, first_edge: int, length_bytes: int, cfg: TxConfig, *,
-                    symbol_index: int, noise_variance: float):
+                    symbol_index: int, noise_variance: float | None = None,
+                    prepared_gain: PSKSoftGain | None = None):
         frame = B1PayloadFrame.from_config(first_edge, length_bytes, cfg)
         frame = replace(frame, arrival=replace(frame.arrival, pilot_interval=cfg.pilot_interval))
         return cls(frame, symbol_index, cfg.whitening_seed, noise_variance,
-                   _head_len(cfg.frame_type))
+                   _head_len(cfg.frame_type), prepared_gain)
 
     @property
     def coded_bits(self):
@@ -109,7 +112,7 @@ class PSKWordDemapper:
 
     def __init__(self, *, bits_per_symbol, n_bits, pilot_interval, symbol_index,
                  first_edge, clock_hz, noise_variance, whitening_seed=0,
-                 head_coded_bits=0, fraction_bits=0, observer=None):
+                 head_coded_bits=0, fraction_bits=0, observer=None, prepared_gain=None):
         fields = (bits_per_symbol, n_bits, pilot_interval, symbol_index, first_edge,
                   clock_hz, whitening_seed, head_coded_bits, fraction_bits)
         if any(type(x) is not int for x in fields):
@@ -125,7 +128,14 @@ class PSKWordDemapper:
         self.edge, self.period = first_edge, clock_hz // 4_000_000
         self.state = _jump_header(whitening_seed, head_coded_bits)
         self.frac = fraction_bits
-        self.mantissa, exp = _variance_gain(noise_variance)
+        if prepared_gain is None:
+            self.mantissa, exp = _variance_gain(noise_variance)
+        else:
+            if not isinstance(prepared_gain, PSKSoftGain) or noise_variance is not None:
+                raise ValueError("Supply one prepared gain or floating variance")
+            if prepared_gain.ready_edge > first_edge:
+                raise ValueError("Sync gain missed first payload symbol edge")
+            self.mantissa, exp = prepared_gain.mantissa, prepared_gain.exponent
         self.shift = 47 - exp - fraction_bits
         self.observer = observer
         self.since_pilot = 0
@@ -136,10 +146,9 @@ class PSKWordDemapper:
         return self.remaining == 0
 
     def _sample(self, part):
-        value = round(max(-8., min(8., part)) * 16384)
-        clip = min(131071, max(-131072, value))
-        self.counts["clipped_components"] += int(clip != value or not -8.0 <= part <= 8.0)
-        return clip
+        value, clipped = _q14(part)
+        self.counts["clipped_components"] += int(clipped)
+        return value
 
     def _maxima(self, x, y, parity):
         # Eight multiplier issues at most. Each combination adds the two
@@ -233,6 +242,7 @@ def replay_b1_symbol_frames(
                 first_edge=a.first_edge, clock_hz=clock_hz, noise_variance=item.variance,
                 whitening_seed=item.whitening_seed, head_coded_bits=item.head_coded_bits,
                 fraction_bits=fraction_bits, observer=demap_observer,
+                prepared_gain=item.prepared_gain,
             )
             while not model.done:
                 value = next(source, end)
