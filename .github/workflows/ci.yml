@@ -204,7 +204,7 @@ jobs:
       max-parallel: 4
       matrix:
         backend: [python, rust]
-        shard: [core, group1, group2, group3, group4, group5, group6, group7, group8, group9, group10]
+        shard: [core, group1, group2, group3, group4, group5, group6, group7, group8, group9, group10, group11, group12]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -298,7 +298,7 @@ jobs:
           from scripts.run_test_shard import verify_receipts
           verify_receipts(json.load(open("backend.json")))
           PYCODE
-          uv run --frozen --no-sync python scripts/check_test_shards.py report-core.xml report-group1.xml report-group2.xml report-group3.xml report-group4.xml report-group5.xml report-group6.xml report-group7.xml report-group8.xml report-group9.xml report-group10.xml --output test-budget.json
+          uv run --frozen --no-sync python scripts/check_test_shards.py report-core.xml report-group1.xml report-group2.xml report-group3.xml report-group4.xml report-group5.xml report-group6.xml report-group7.xml report-group8.xml report-group9.xml report-group10.xml report-group11.xml report-group12.xml --output test-budget.json
       - name: Verify original published waveform recipes before algorithm regressions
         if: ${{ !cancelled() }}
         run: |
@@ -1686,7 +1686,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [core, group1, group2, group3, group4, group5, group6, group7, group8, group9, group10]
+        shard: [core, group1, group2, group3, group4, group5, group6, group7, group8, group9, group10, group11, group12]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -1740,14 +1740,14 @@ jobs:
           combine_status=0
           xml_status=0
           report_status=0
-          uv run --frozen --no-sync coverage combine --keep coverage-core.data coverage-group1.data coverage-group2.data coverage-group3.data coverage-group4.data coverage-group5.data coverage-group6.data coverage-group7.data coverage-group8.data coverage-group9.data coverage-group10.data >coverage-combine.log 2>&1 || combine_status=$?
+          uv run --frozen --no-sync coverage combine --keep coverage-core.data coverage-group1.data coverage-group2.data coverage-group3.data coverage-group4.data coverage-group5.data coverage-group6.data coverage-group7.data coverage-group8.data coverage-group9.data coverage-group10.data coverage-group11.data coverage-group12.data >coverage-combine.log 2>&1 || combine_status=$?
           if test "$combine_status" -eq 0; then
             uv run --frozen --no-sync coverage xml -o coverage.xml >coverage-xml.log 2>&1 || xml_status=$?
             uv run --frozen --no-sync coverage report --fail-under=90.1 >coverage-report.log 2>&1 || report_status=$?
           fi
           cat coverage-*.log
           test "$combine_status" -eq 0 && test "$xml_status" -eq 0 && test "$report_status" -eq 0
-          uv run --frozen --no-sync python scripts/check_test_shards.py coverage-tests-core.xml coverage-tests-group1.xml coverage-tests-group2.xml coverage-tests-group3.xml coverage-tests-group4.xml coverage-tests-group5.xml coverage-tests-group6.xml coverage-tests-group7.xml coverage-tests-group8.xml coverage-tests-group9.xml coverage-tests-group10.xml --output coverage-test-budget.json
+          uv run --frozen --no-sync python scripts/check_test_shards.py coverage-tests-core.xml coverage-tests-group1.xml coverage-tests-group2.xml coverage-tests-group3.xml coverage-tests-group4.xml coverage-tests-group5.xml coverage-tests-group6.xml coverage-tests-group7.xml coverage-tests-group8.xml coverage-tests-group9.xml coverage-tests-group10.xml coverage-tests-group11.xml coverage-tests-group12.xml --output coverage-test-budget.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
