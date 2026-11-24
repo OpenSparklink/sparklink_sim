@@ -159,6 +159,7 @@ def _verified_mac_packets(frames):
     for row in frames:
         if (row["status"] != "valid" or row.get("header_crc") is not True
                 or row.get("data_crc") is not True or row.get("length_ok") is not True
+                or any(ok is not True for ok in row.get("code_block_crcs", ()))
                 or row.get("payload") is None):
             continue
         packets.append(MacRxResult(

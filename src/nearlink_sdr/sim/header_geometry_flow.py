@@ -14,7 +14,7 @@ from nearlink_sdr.phy.sync_fit_word import signed, unsigned
 __all__ = ["HeaderGeometryService"]
 
 
-def _program(frame_type, crc_len, contract):
+def _program(frame_type, crc_len, contract, b1_code_block_mode):
     standard_b1 = frame_type != 2 and contract == "standard"
     p = [("copy", "payload", "length", 0), ("copy", "present", 1, 0)]
     empty_branch = None
@@ -70,8 +70,26 @@ def _program(frame_type, crc_len, contract):
             ("div", "blocks", "tmp", "Kcbminus24"),
             ("select", "tmp", "blocks", "cond"),
             ("max1", "blocks", "tmp", 0),
-            ("shl", "coded", "blocks", 10),
         ]
+        if b1_code_block_mode == "standard":
+            p += [
+                ("sub", "leading", "blocks", 1),
+                ("mul", "tmp", "leading", "Kcbminus24"),
+                ("sub", "tail", "B", "tmp"),
+                ("select", "tmp", 24, "cond"),
+                ("add", "tail", "tail", "tmp"),
+                ("add", "tmp", "tail", "K64minus1"),
+                ("div", "units", "tmp", "K64"),
+                ("gt", "tail_full", "units", 16),
+                ("sub", "tmp", 16, "units"),
+                ("select", "tmp", "tmp", "tail_full"),
+                ("add", "units", "units", "tmp"),
+                ("shl", "tmp", "units", 6),
+                ("shl", "coded", "leading", 10),
+                ("add", "coded", "coded", "tmp"),
+            ]
+        else:
+            p.append(("shl", "coded", "blocks", 10))
     jump = len(p)
     p.append(("jump", "", 0, 0))
     p[branch] = ("uncoded", "", len(p), 0)
@@ -105,8 +123,8 @@ class HeaderGeometryService:
     are read combinationally;results register at each modeled edge (no timing proof).
     """
 
-    def __init__(self, frame_type, crc_len, pilot_interval, *,
-                 length_contract="standard", observer=None):
+    def __init__(self, frame_type, crc_len, pilot_interval, *, length_contract="standard",
+                 b1_code_block_mode="legacy", observer=None):
         if (
             type(frame_type) is not int
             or frame_type not in (2, 3, 4)
@@ -118,11 +136,16 @@ class HeaderGeometryService:
             raise ValueError("Need compiled PSK frame,CRC24/32 and legal pilot interval")
         if observer is not None and not callable(observer):
             raise ValueError("Observer must be callable")
+        if (b1_code_block_mode not in ("legacy", "standard")
+                or (b1_code_block_mode == "standard" and frame_type == 2)):
+            raise ValueError("Standard B1 code blocks require an FT3/4 context")
         control_data_length(0, "A2" if frame_type == 2 else "B1", crc_len,
                             contract=length_contract)
         self.length_contract = length_contract
+        self.b1_code_block_mode = b1_code_block_mode
         self.frame_type, self.crc_len, self.pilot = frame_type, crc_len, pilot_interval
-        self.program, self.observer = _program(frame_type, crc_len, length_contract), observer
+        self.program = _program(frame_type, crc_len, length_contract, b1_code_block_mode)
+        self.observer = observer
         self.rows = []
         for mcs in range(13):
             entry = get_mcs(mcs)
@@ -403,6 +426,7 @@ class HeaderGeometryService:
             product_steps=10,
             program_instructions=len(self.program),
             length_contract=self.length_contract,
+            **({"b1_code_block_mode": "standard"} if self.b1_code_block_mode == "standard" else {}),
             input_length_bits=11,
             payload_length_bits=11,
             data_presence_bits=1,

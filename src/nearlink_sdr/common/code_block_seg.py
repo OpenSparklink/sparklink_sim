@@ -3,12 +3,15 @@
 
 __all__ = [
     "RATE_TABLE_2",
+    "b1_code_block_plan",
+    "segment_b1_standard",
     "segment_with_crc",
     "segment_without_crc",
 ]
 
 
 import math
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -210,6 +213,60 @@ def segment_with_crc(
         if sub_segs is not None:
             segments = segments[:-1] + sub_segs
 
+    return segments
+
+
+@dataclass(frozen=True)
+class _B1CodeBlock:
+    data_bits: int
+    crc_bits: int
+    codewords: tuple[tuple[int, int], ...]
+
+
+def b1_code_block_plan(bit_count: int, rate_str: str, *, standard: bool):
+    """Logical B1 blocks and their physical (N,K) Polar words (§6.9.1.3).
+
+    The frame CRC is part of bit_count. The 24-bit CRC belongs to a logical
+    block even when its last portion is carried by several Polar words.
+    """
+    if type(bit_count) is not int or bit_count <= 0 or type(standard) is not bool:
+        raise ValueError("Need a positive B1 bit count and explicit code-block layout")
+    _get_rate_value(rate_str)
+    table = RATE_TABLE[rate_str]
+    capacity = table[1024]
+    crc_bits = 24 if bit_count > capacity else 0
+    step = capacity - crc_bits
+    preceding = (bit_count - 1) // step
+    full = _B1CodeBlock(step, crc_bits, ((1024, capacity),))
+    remaining = bit_count - preceding * step
+    tail_bits = remaining + crc_bits
+    unit = table[64]
+    if not standard or tail_bits > 16 * unit:
+        codewords = ((1024, capacity),)
+    else:
+        units = (tail_bits + unit - 1) // unit
+        codewords = ((1024, 16 * unit),) if units == 16 else tuple(
+            (n, table[n]) for n in (512, 256, 128, 64) if units & (n // 64)
+        )
+    return (full,) * preceding + (_B1CodeBlock(remaining, crc_bits, codewords),)
+
+
+def segment_b1_standard(bits: np.ndarray, rate_str: str, *, seed: int):
+    """Produce reference words for the explicitly selected standard B1 layout."""
+    segments = []
+    pos = 0
+    for block in b1_code_block_plan(len(bits), rate_str, standard=True):
+        info = bits[pos:pos + block.data_bits]
+        pos += block.data_bits
+        if block.crc_bits:
+            check = crc_calculate(info, CRC24B_POLY, block.crc_bits, seed=seed)
+            info = np.concatenate((info, check))
+        size = sum(k for _, k in block.codewords)
+        padded = np.pad(info, (size - len(info), 0))
+        at = 0
+        for n, k in block.codewords:
+            segments.append((n, padded[at:at+k]))
+            at += k
     return segments
 
 

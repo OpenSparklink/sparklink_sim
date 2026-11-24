@@ -71,6 +71,7 @@
       "tests/test_timing_radix4.py"
     ],
     "group4": [
+      "tests/test_b1_coded_payload.py",
       "tests/test_acquisition_scaled.py",
       "tests/test_alignment_guard.py",
       "tests/test_capture_tail.py",

@@ -58,7 +58,8 @@ class HeaderWordService:
         self.codec = self._make_codec(self.format, layout, self._codec_event)
         self.geometry = HeaderGeometryService(
             cfg.frame_type, cfg.crc_len, cfg.pilot_interval,
-            length_contract=profile.length_contract, observer=self._geometry_event
+            length_contract=profile.length_contract, b1_code_block_mode=cfg.b1_code_block_mode,
+            observer=self._geometry_event
         )
         self.layout = (
             (("lqi", 8), *control_field_layout("A2"))

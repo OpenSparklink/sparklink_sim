@@ -312,7 +312,7 @@ def _decode_psk_payload(y, profile, header, *, carrier_method="coherent",
                                             variance_source=source, llr_bound=64.)
         else:
             row["soft_information"] = dict(method="legacy hard +/-10")
-    payload, ok = decode_payload(bits, cfg, row["payload_length_bytes"] * 8, llr=llr)
+    checked = decode_payload(bits, cfg, row["payload_length_bytes"] * 8, llr=llr, details=True)
     pilot_mask = np.ones(len(data), dtype=bool)
     pilot_mask[positions] = False
     pilots = np.flatnonzero(pilot_mask)
@@ -324,8 +324,13 @@ def _decode_psk_payload(y, profile, header, *, carrier_method="coherent",
             data[pilots] * reference.conj()) ** 2)))
     else:
         row["pilot_phase_rms_rad"] = None
-    row.update(status="valid" if ok else "bad_data_crc", data_crc=bool(ok),
+    status = "valid" if checked.data_crc else "bad_data_crc"
+    if checked.code_block_crcs:
+        row["code_block_crcs"] = checked.code_block_crcs
+        if not all(checked.code_block_crcs):
+            status = "bad_code_block_crc"
+    row.update(status=status, data_crc=checked.data_crc,
                modulation=cfg.mod_str, code_rate=cfg.rate_str)
-    if ok:
-        row["payload"] = np.packbits(payload, bitorder=profile.payload_bitorder).tobytes()
+    if checked.passed:
+        row["payload"] = np.packbits(checked.data_bits, bitorder=profile.payload_bitorder).tobytes()
     return row

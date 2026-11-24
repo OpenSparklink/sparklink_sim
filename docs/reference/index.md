@@ -125,6 +125,7 @@ normalization-overlap
 timing-divider-prefix
 control-polar-word
 b1-length-contract
+b1-coded-payload
 head-length-words
 head-word-gate
 hard-header-words

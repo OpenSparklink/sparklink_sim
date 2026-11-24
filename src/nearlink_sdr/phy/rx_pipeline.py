@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 __all__ = [
+    "PayloadChecks",
     "RxResult",
     "decode_head",
     "decode_payload",
@@ -21,12 +22,13 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from nearlink_sdr.common.code_block_seg import segment_with_crc, segment_without_crc
+from nearlink_sdr.common.code_block_seg import b1_code_block_plan, segment_without_crc
 from nearlink_sdr.common.crc import (
+    CRC24B_POLY,
     crc_check,
 )
 from nearlink_sdr.common.mcs import Modulation
-from nearlink_sdr.common.polar import RATE_TABLE, get_polar_decoder
+from nearlink_sdr.common.polar import get_polar_decoder
 from nearlink_sdr.common.scrambler import scramble_sequence
 from nearlink_sdr.phy.control_info import polar_decode_control
 from nearlink_sdr.phy.frame import FrameConfig, symbols_to_data_bits
@@ -65,6 +67,17 @@ class RxResult:
     diagnostic_data_bits: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int8))
 
 
+@dataclass(frozen=True)
+class PayloadChecks:
+    data_bits: np.ndarray
+    data_crc: bool
+    code_block_crcs: tuple[bool, ...]
+
+    @property
+    def passed(self) -> bool:
+        return self.data_crc and all(self.code_block_crcs)
+
+
 def payload_coded_length(n_info_bits: int, cfg: TxConfig) -> int:
     """Exact payload codeword length from a verified length and negotiated PHY context."""
     if (not isinstance(n_info_bits, int) or isinstance(n_info_bits, bool)
@@ -73,22 +86,32 @@ def payload_coded_length(n_info_bits: int, cfg: TxConfig) -> int:
     b_len = n_info_bits + cfg.crc_len
     if cfg.is_uncoded:
         return b_len
-    segments = (segment_with_crc(np.zeros(b_len, dtype=int), cfg.rate_str)
-                if cfg.frame_type in (3, 4) else
-                segment_without_crc(np.zeros(b_len, dtype=int), cfg.rate_str, crc_len=cfg.crc_len))
+    if cfg.frame_type in (3, 4):
+        plan = b1_code_block_plan(
+            b_len, cfg.rate_str, standard=cfg.b1_code_block_mode == "standard",
+        )
+        return sum(n for block in plan for n, _ in block.codewords)
+    segments = segment_without_crc(np.zeros(b_len, dtype=int), cfg.rate_str, crc_len=cfg.crc_len)
     return sum(n for n, _ in segments)
 
 
 def decode_payload(scrambled_bits: np.ndarray, cfg: TxConfig,
-                   n_info_bits: int, *, llr: np.ndarray | None = None) -> tuple[np.ndarray, bool]:
+                   n_info_bits: int, *, llr: np.ndarray | None = None,
+                   details: bool = False) -> tuple[np.ndarray, bool] | PayloadChecks:
     """载荷解码: 解扰 → [Polar 解码] → CRC 校验。
 
     :param scrambled_bits: 加扰后的载荷比特 (txPyLdW)。
     :param cfg: 发射/接收配置。
     :param n_info_bits: 原始信息比特数 (data_bytes * 8, 不含 CRC)。
     :param llr: 可选加扰域真实符号 LLR（正值为0）；省略时保留理想仿真的硬判决接口。
-    :returns: (data_bits, crc_ok) — 原始数据比特和 CRC 校验结果。
+    :param details: 分别返回整帧 CRC 及逐逻辑码块 CRC。
+    :returns: 默认返回 (data_bits, crc_ok)，CRC 通过要求所有适用校验成功。
     """
+    result = _decode_payload(scrambled_bits, cfg, n_info_bits, llr)
+    return result if details else (result.data_bits, result.passed)
+
+
+def _decode_payload(scrambled_bits, cfg, n_info_bits, llr):
     if (not isinstance(n_info_bits, int) or isinstance(n_info_bits, bool)
             or not 0 <= n_info_bits <= 2047 * 8):
         raise ValueError("Payload information length must be an integer in [0,16376]")
@@ -102,7 +125,7 @@ def decode_payload(scrambled_bits: np.ndarray, cfg: TxConfig,
         if llr.shape != scrambled_bits.shape or not np.isfinite(llr).all():
             raise ValueError("LLR must be finite and match the scrambled coded bits")
     if len(scrambled_bits) != expected:
-        return np.empty(0, dtype=np.int8), False
+        return PayloadChecks(np.empty(0, dtype=np.int8), False, ())
     # 解扰
     offset = _HEAD_CODED_LEN[cfg.frame_type]
     sc = scramble_sequence(offset + len(scrambled_bits), cfg.whitening_seed)
@@ -110,18 +133,22 @@ def decode_payload(scrambled_bits: np.ndarray, cfg: TxConfig,
     soft = (None if llr is None else np.clip(llr, -64., 64.) *
             (1.0 - 2.0 * sc[offset:offset+len(scrambled_bits)].astype(float)))
 
+    block_crcs = []
     if cfg.is_uncoded:
         data_with_crc = coded.astype(np.int8)
     else:
-        segments = (segment_with_crc(np.zeros(b_len, dtype=int), cfg.rate_str)
-                    if cfg.frame_type in (3, 4) else
-                    segment_without_crc(np.zeros(b_len, dtype=int), cfg.rate_str,
-                                        crc_len=cfg.crc_len))
-        # 按 N 切分编码比特, 逐块 Polar 解码
+        b1 = cfg.frame_type in (3, 4)
+        standard = cfg.b1_code_block_mode == "standard"
+        plan = b1_code_block_plan(b_len, cfg.rate_str, standard=standard) if b1 else ()
+        if plan:
+            dimensions = (word for block in plan for word in block.codewords)
+        else:
+            segments = segment_without_crc(np.zeros(b_len, dtype=int), cfg.rate_str,
+                                           crc_len=cfg.crc_len)
+            dimensions = ((n, len(info)) for n, info in segments)
         pos = 0
         info_blocks: list[np.ndarray] = []
-        for n_code, info in segments:
-            k = len(info)
+        for n_code, k in dimensions:
             block = coded[pos: pos + n_code]
             # Compatibility fallback is explicitly hard; strict coded RX supplies soft LLR.
             block_llr = ((1.0 - 2.0 * block.astype(np.float64)) * 10.0
@@ -130,34 +157,24 @@ def decode_payload(scrambled_bits: np.ndarray, cfg: TxConfig,
             info_blocks.append(dec.decode(block_llr))
             pos += n_code
 
-        # FT3/FT4: 处理 segment_with_crc 的分段结构
-        if cfg.frame_type in (3, 4):
-            K_cb = RATE_TABLE[cfg.rate_str][1024]
-            C = len(segments)
-            if C == 1:
-                # 单码块: 前端补零对齐, 取尾部有效比特
-                data_with_crc = np.concatenate(info_blocks)[-b_len:]
-            else:
-                # 多码块: 每块含 per-segment CRC24B, 需逐块剥离
-                L = 24  # per-segment CRC24B
-                recovered: list[np.ndarray] = []
-                for i, blk_decoded in enumerate(info_blocks):
-                    if i < C - 1:
-                        # 非末块: 前 K_cb-L 比特为原始信息
-                        recovered.append(blk_decoded[:K_cb - L])
-                    else:
-                        # 末块: sub-segmentation 可能补零对齐
-                        K_r = b_len - (C - 1) * (K_cb - L) + L
-                        # 去除前端补零, 取末尾 K_r 比特, 再剥离 CRC24B
-                        recovered.append(blk_decoded[-K_r:-L])
-                data_with_crc = np.concatenate(recovered)
-        else:
-            data_with_crc = np.concatenate(info_blocks)
+        if plan:
+            # 合并物理子码字，再扔掉逻辑块前导填充并校验该块。
+            recovered, index = [], 0
+            seed = cfg.crc_seed if standard else 0
+            for block in plan:
+                end = index + len(block.codewords)
+                raw = np.concatenate(info_blocks[index:end])[-(block.data_bits + block.crc_bits):]
+                if block.crc_bits:
+                    block_crcs.append(bool(crc_check(raw, CRC24B_POLY, block.crc_bits, seed=seed)))
+                recovered.append(raw[:block.data_bits])
+                index = end
+            info_blocks = recovered
+        data_with_crc = np.concatenate(info_blocks)
 
     # CRC 校验
     ok = crc_check(data_with_crc, cfg.crc_poly, cfg.crc_len, seed=cfg.crc_seed)
     data = data_with_crc[: -cfg.crc_len]
-    return data, ok
+    return PayloadChecks(data, bool(ok), tuple(block_crcs))
 
 
 def decode_head(scrambled_bits: np.ndarray, cfg: TxConfig) -> tuple[np.ndarray, bool]:

@@ -3338,6 +3338,44 @@
     "hardware_configuration_interface_cycle_model": null,
     "all_four_RX_gates_passed": false
   },
+  "b1_coded_payload": {
+    "stage": "FT3/4 explicit standard coded block mode",
+    "reference": "b1-coded-payload.md",
+    "frames": [
+      3,
+      4
+    ],
+    "coded_MCS": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      9,
+      10,
+      11
+    ],
+    "symbol_rate": 4000000,
+    "independent_legal_tail_layouts": 2,
+    "original_legacy_accepts_preserved": 2,
+    "old_corrupted_codeblock_false_deliveries_rejected": 4,
+    "actual_outer_crc_and_code_block_crc_recorded_separately": true,
+    "source_waveforms_regenerated": false,
+    "processed_arms_per_backend": 32,
+    "independently_extracted_annex_rows": 414,
+    "actual_finite_checks_against_annex": 828,
+    "peak_finite_geometry_edges": 115,
+    "extra_ROM_bits": 416,
+    "extra_DSP": 0,
+    "extra_RAMB18": 0,
+    "LUT_or_achieved_Fmax": null,
+    "carrier_soft_deinterleave_Polar_and_payload_cycle_cost": null,
+    "finite_full_RX": false,
+    "whole_RX_four_gates_closed": false
+  },
   "queued_tail_composition": {
     "stage": "M42",
     "reference": "queued-tail-composition.md",

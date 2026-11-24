@@ -182,15 +182,19 @@ def receive(
 
         def observe(*args, **kwargs):
             value = original(*args, **kwargs)
+            if isinstance(value, rx_pipeline.PayloadChecks):
+                bits, passed = value.data_bits, value.passed
+            else:
+                bits, passed = value
             decoder_observer(
                 dict(
                     id=frame.selection.ident,
-                    bits=value[0].copy(),
-                    CRC=value[1],
+                    bits=bits.copy(),
+                    CRC=passed,
                     MCS=args[1].mcs_index,
                 )
             )
-            return value  # The exact original tuple;no reference/decision changes.
+            return value  # Preserve the real decoder receipt and decision.
 
         with patch.object(rx_pipeline, "decode_payload", observe):
             result = calendar()

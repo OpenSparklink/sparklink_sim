@@ -21,7 +21,11 @@ from fractions import Fraction
 
 import numpy as np
 
-from nearlink_sdr.common.code_block_seg import segment_with_crc, segment_without_crc
+from nearlink_sdr.common.code_block_seg import (
+    segment_b1_standard,
+    segment_with_crc,
+    segment_without_crc,
+)
 from nearlink_sdr.common.crc import (
     CRC12_POLY,
     CRC24A_POLY,
@@ -67,6 +71,7 @@ class TxConfig:
     :ivar pilot_interval: 导频间隔 (4/8/16), 0 表示无导频
     :ivar sps: 每符号采样数 (脉冲成型用)
     :ivar symbol_rate_mhz: 符号速率 (MHz)
+    :ivar b1_code_block_mode: FT3/4 编码载荷的标准分段或历史 1024 字合同
     """
     frame_type: int = 2
     mcs_index: int = 7
@@ -80,9 +85,13 @@ class TxConfig:
     symbol_rate_mhz: float = 1.0
     head_crc_seed: int | None = None
     head_llid: int | None = None
+    b1_code_block_mode: str = "legacy"
     _mcs: object = field(init=False, repr=False, default=None)
 
     def __post_init__(self) -> None:
+        if (self.b1_code_block_mode not in ("legacy", "standard")
+                or (self.b1_code_block_mode == "standard" and self.frame_type not in (3, 4))):
+            raise ValueError("Standard B1 code blocks require an FT3/4 context")
         self._mcs = get_mcs(self.mcs_index)
 
     @property
@@ -166,7 +175,9 @@ def encode_payload(data_bits: np.ndarray, cfg: TxConfig) -> np.ndarray:
         coded = with_crc
     else:
         # 码块分割 + Polar 编码
-        if cfg.frame_type in (3, 4):
+        if cfg.b1_code_block_mode == "standard":
+            segments = segment_b1_standard(with_crc, cfg.rate_str, seed=cfg.crc_seed)
+        elif cfg.frame_type in (3, 4):
             segments = segment_with_crc(with_crc, cfg.rate_str)
         else:
             segments = segment_without_crc(with_crc, cfg.rate_str, crc_len=cfg.crc_len)
