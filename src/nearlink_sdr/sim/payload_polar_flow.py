@@ -455,6 +455,11 @@ class B1PayloadArrival:
     payload_with_crc_bits: int
     rate: str
     bits_per_symbol: int
+    pilot_interval: int = 0
+
+
+def _wire_index(data_index, pilot_interval):
+    return data_index + (data_index // pilot_interval if pilot_interval else 0)
 
 
 def payload_polar_calendar(
@@ -482,7 +487,9 @@ def payload_polar_calendar(
     next_boundary = 0
     peak = 0
     for frame_no, frame in enumerate(frames):
-        bps = frame.bits_per_symbol
+        bps, pilot = frame.bits_per_symbol, frame.pilot_interval
+        if type(pilot) is not int or pilot not in (0, 1, 4, 8, 16):
+            raise ValueError("Need legal B1 pilot interval")
         if type(frame.first_edge) is not int or frame.first_edge < next_boundary:
             raise ValueError("Payload symbol intervals must be non-overlapping and non-negative")
         if bps not in (2, 3) or (type(frame.payload_with_crc_bits) is not int
@@ -494,10 +501,11 @@ def payload_polar_calendar(
         failed = False
         for block_no, block in enumerate(blocks):
             for word_no, (n, k) in enumerate(block.codewords):
-                first = frame.first_edge + ceil(physical_bit // bps * period)
-                phase = physical_bit % bps
+                data_index, phase = divmod(physical_bit, bps)
+                first = frame.first_edge + ceil(_wire_index(data_index, pilot) * period)
                 physical_bit += n
-                last = frame.first_edge + ceil((physical_bit - 1) // bps * period)
+                last_index = _wire_index((physical_bit - 1) // bps, pilot)
+                last = frame.first_edge + ceil(last_index * period)
                 cost = word_cycles[n, k]
                 if type(cost) is not int or cost <= 0:
                     raise ValueError("Need positive executed Polar edge counts")
@@ -508,6 +516,8 @@ def payload_polar_calendar(
                            first=first, last=last)
                 if detailed:
                     row.update(bits_per_symbol=bps, first_symbol_phase=phase)
+                    if pilot:
+                        row.update(pilot_interval=pilot, data_symbol_index=data_index)
                 if discard_failed_suffix and failed:
                     yield row | dict(lost=True, peak_ingress=peak,
                                      status="incomplete_suffix", first_frame_loss=False)
@@ -535,4 +545,4 @@ def payload_polar_calendar(
                                  peak_ingress=peak, queue_wait=start-last-1,
                                  output_wait=output_start-done,
                                  ordered_result_edge=release_output)
-        next_boundary = frame.first_edge + ceil(ceil(Fraction(physical_bit, bps)) * period)
+        next_boundary = frame.first_edge + ceil((last_index + 1) * period)

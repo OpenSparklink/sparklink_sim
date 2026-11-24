@@ -1,6 +1,7 @@
 """Replay the standard B1 Polar ingress calendar with two actual RAM owners."""
 
 from collections import deque
+from dataclasses import dataclass
 from itertools import islice
 from math import isfinite
 
@@ -11,7 +12,15 @@ from nearlink_sdr.sim.payload_polar_flow import (
     payload_polar_calendar,
 )
 
-__all__ = ["replay_payload_polar_ingress"]
+__all__ = ["TimedLLR", "replay_payload_polar_ingress"]
+
+
+@dataclass(frozen=True)
+class TimedLLR:
+    """One bit available at the specified decoder ingress edge."""
+
+    edge: int
+    value: float
 
 
 def _sample_beats(rows, period):
@@ -20,13 +29,18 @@ def _sample_beats(rows, period):
         bps, phase = row["bits_per_symbol"], row["first_symbol_phase"]
         start = 0
         edge = row["first"]
-        while start < n:
+        pilot = row.get("pilot_interval", 0)
+        data_index = row.get("data_symbol_index", 0)
+        while True:
             count = min(bps - phase, n - start)
             yield edge, row, start, count
             start += count
+            if start == n:
+                assert edge == row["last"]
+                break
             phase = 0
-            edge += period
-        assert edge - period == row["last"]
+            data_index += 1
+            edge += period * (2 if pilot and data_index % pilot == 0 else 1)
 
 
 class _Ingress:
@@ -56,7 +70,7 @@ class _Ingress:
             raise RuntimeError("Ingress clock moved backwards")
         while self.pending is not None and self.pending[0] <= edge:
             self.edge, row, start, count = self.pending
-            values = tuple(float(x) for x in islice(self.llrs, count))
+            values = tuple(self._value(x) for x in islice(self.llrs, count))
             if len(values) != count:
                 self.report("truncated", row, partial_reservation=start > 0 and not row["lost"])
                 if not self.drain_at_eof:
@@ -72,6 +86,13 @@ class _Ingress:
                 self._write(row, start, values)
             self.pending = next(self.beats, None)
         self.edge = edge
+
+    def _value(self, item):
+        if isinstance(item, TimedLLR):
+            if item.edge != self.edge:
+                raise ValueError("LLR missed its registered ingress edge")
+            item = item.value
+        return float(item)
 
     def _write(self, row, start, values):
         slot = row["ingress_slot"]

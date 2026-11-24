@@ -3659,5 +3659,31 @@
     "full_rx_gates_closed": false,
     "synthesis_evidence": false,
     "reference": "b1-payload-service.md"
+  },
+  "psk_finite_soft_demap": {
+    "scope": "normalized carrier-corrected QPSK/8PSK through clock-tagged LLR into B1",
+    "symbol_rate": 4000000,
+    "modeled_result_edges": 24,
+    "modeled_clocks_MHz": [
+      100,
+      160,
+      200
+    ],
+    "estimated_DSP": 3,
+    "estimated_new_data_RAM": 0,
+    "nominal_held_exact_bits": 2946,
+    "boundary_held_bits_over_budget": 3,
+    "boundary_max_error_codes": 128,
+    "held_outcomes": {
+      "delivered": 40,
+      "CRC_failed": 4,
+      "resource_drop": 10,
+      "regressed": 0
+    },
+    "tested_default_adopted": false,
+    "clocked_gain_preparation_and_full_carrier_unmodeled": true,
+    "full_rx_gates_closed": false,
+    "synthesis_evidence": false,
+    "reference": "psk-word-demap.md"
   }
 }
