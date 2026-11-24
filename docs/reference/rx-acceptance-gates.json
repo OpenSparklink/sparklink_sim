@@ -904,5 +904,78 @@
     "hardware_synthesis_or_Fmax": null,
     "old_18DSP_16KiB_and_RRC_failures_preserved": true,
     "four_RX_gates_passed": false
+  },
+  "completed_fine_retirement": {
+    "stage": "M44",
+    "reference": "completed-fine-retirement.md",
+    "accepted": false,
+    "default_changed": false,
+    "sample_rate": 16000000,
+    "modeled_clock": 200000000,
+    "valid_packets": 83,
+    "original": 57,
+    "serial": 44,
+    "retirement": 45,
+    "recovered_vs_serial": 5,
+    "lost_vs_serial": 4,
+    "lost_vs_original": 12,
+    "recovered_vs_overlap": 6,
+    "lost_vs_overlap": 0,
+    "legal_failures": 38,
+    "frozen_invalid_B1": 1,
+    "comparison": {
+      "fixed_legal_packets": 71,
+      "fixed_overlap_success": 32,
+      "fixed_retirement_success": 38
+    },
+    "negative_observations": {
+      "streams": 28,
+      "samples": 229376,
+      "confirmations": 0,
+      "false_MAC": 0,
+      "requests": 0,
+      "fine_calls": 0
+    },
+    "numeric_maxima": {
+      "center_samples": 3.92132733395556e-06,
+      "rate_ppm": 0.0029984292826412684,
+      "normalized_symbol_RMS": 9.60625140240433e-06,
+      "normalized_symbol_peak": 7.775595602266087e-05
+    },
+    "complete_numeric_pairs": 56,
+    "numeric_failures": [],
+    "unpaired": 24,
+    "arrays_equal": 795,
+    "completed_retirements": 32,
+    "fine_work": 3216558,
+    "comparator_issues": 965868,
+    "peak": {
+      "peak_owned": 3,
+      "peak_sample_port_accesses": 2,
+      "private_history_peak_words": 1024,
+      "worst_known_latency_edges": 478633
+    },
+    "captures": 64,
+    "head_crc": 55,
+    "data_crc": 45,
+    "source_samples": 740500,
+    "ber_errors": 1293,
+    "ber_bits": 87968,
+    "extra_register_bits": 1,
+    "extra_comparator_input_mux_bits_upper": 64,
+    "extra_IQ_RAM_DSP_or_sample_ports": 0,
+    "old_module_budgets_preserved": true,
+    "rejected": [
+      "development",
+      "seen-development",
+      "fixed-M42",
+      "fixed-M37",
+      "fixed-M38B",
+      "fixed-M39",
+      "fixed-M40"
+    ],
+    "independent_held_generated": false,
+    "full_receiver_16MSps": false,
+    "whole_RX_four_gates_closed": false
   }
 }

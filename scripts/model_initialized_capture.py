@@ -105,10 +105,14 @@ def numeric_pair(event, floating):
     return result
 
 
-def compare(out, root, row, *, retire_queued=False, overlap_fine=False):
+def compare(
+    out, root, row, *, retire_queued=False, overlap_fine=False, retire_completed_fine=False,
+):
     if (type(retire_queued) is not bool or type(overlap_fine) is not bool
             or (overlap_fine and not retire_queued)):
         raise ValueError("Need an explicit queued-retirement experiment choice")
+    if type(retire_completed_fine) is not bool or (retire_completed_fine and not overlap_fine):
+        raise ValueError("Completed fine retirement requires overlapping ownership")
     iq, quiet = load_input(root, row)
     profile = replace(PSKReceiveProfile.ordinary(TxConfig(**row["config"])),
                       head_backend=row["head_backend"], allowed_mcs=(row["config"]["mcs_index"],))
@@ -130,6 +134,8 @@ def compare(out, root, row, *, retire_queued=False, overlap_fine=False):
             options = dict(retire_queued=True) if retire_queued and name != "original" else {}
             if overlap_fine and name != "original":
                 options["overlap_fine"] = True
+            if retire_completed_fine and name != "original":
+                options["retire_completed_fine"] = True
             run = reference.run_arm(profile, iq, quiet, True, **options)
         n = len(iq)
         assert len(words) == 3*n and words[:n] == words[n:2*n] == words[2*n:]

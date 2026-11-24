@@ -32,9 +32,11 @@ def payload(n, ident, held):
                  for k in range(n))
 
 
-def compare(out, root, row, *, enabled, overlap_fine=False):
+def compare(out, root, row, *, enabled, overlap_fine=False, retire_completed_fine=False):
     with patch.object(old, "InitializedCapturedFrameReplay", UpperTailCaptureReplay):
         options = dict(overlap_fine=True) if overlap_fine else {}
+        if retire_completed_fine:
+            options["retire_completed_fine"] = True
         value = old.compare(out, root, row, retire_queued=enabled, **options)
     if enabled:
         raw = json.loads((out / f"stream{row['id']}-finite.json").read_text())

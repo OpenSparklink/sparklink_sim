@@ -19,8 +19,9 @@ def sources():
     }
 
 
-def compare(out, root, row, *, enabled):
-    result = queued.compare(out, root, row, enabled=True, overlap_fine=enabled)
+def compare(out, root, row, *, enabled, retire_completed_fine=False):
+    result = queued.compare(out, root, row, enabled=True, overlap_fine=enabled,
+                            retire_completed_fine=retire_completed_fine)
     if enabled:
         transport = json.loads((out / f"stream{row['id']}-finite.json").read_text())["result"]
         result["comparison"]["fine_frame_overlap"] = {

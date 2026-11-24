@@ -217,7 +217,10 @@ def event_metadata(frames):
     ]
 
 
-def run_arm(profile, iq, quiet, enabled, *, retire_queued=False, overlap_fine=False):
+def run_arm(
+    profile, iq, quiet, enabled, *, retire_queued=False, overlap_fine=False,
+    retire_completed_fine=False,
+):
     if type(retire_queued) is not bool or (retire_queued and not enabled):
         raise ValueError("Queued retirement needs the actual pre-fine retirement gate")
     options = dict(retire_queued=True) if retire_queued else {}
@@ -225,6 +228,10 @@ def run_arm(profile, iq, quiet, enabled, *, retire_queued=False, overlap_fine=Fa
         raise ValueError("Fine overlap requires queued retirement")
     if overlap_fine:
         options["overlap_fine"] = True
+    if type(retire_completed_fine) is not bool or (retire_completed_fine and not overlap_fine):
+        raise ValueError("Completed fine retirement requires overlapping ownership")
+    if retire_completed_fine:
+        options["retire_completed_fine"] = True
     checks, decoded, fine, windows, coherence = [], [], {}, {}, []
 
     def fine_result(descriptor, result):

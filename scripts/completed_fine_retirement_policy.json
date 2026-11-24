@@ -1,0 +1,183 @@
+{
+  "stage": "M44",
+  "base_commit": "9d929a43411ac3b8d244b29dc98d0ff909af9716",
+  "compared_factor": "release an already completed fine result whose whole copied window is consumed",
+  "probe_preserved_as_seen": "a604be73f0c5d77b3e8b20b5d78b87f1abaa22585564b2ef105398c8f8c11a81",
+  "guard": "entire copied window end <= previous actual consumed frontier; no fine cancellation",
+  "uses_previous_committed_frontier": true,
+  "one_comparison_per_edge": true,
+  "comparator_arbitration": "pre-fine first; completed result on even edges; ready head on others",
+  "same_IQ_RAM_4096_3_1024_one_selected_cache_two_source_ports": true,
+  "extra_register_bits_max": 2,
+  "extra_comparator_input_mux_bits_max": 64,
+  "no_added_hardware_counter_or_event_queue": true,
+  "caller_observes_terminal_cause": true,
+  "positional_iteration": "same candidate order and fine range until release of proven spent window",
+  "numerical_caps": {
+    "center_samples": 0.001,
+    "rate_ppm": 0.1,
+    "normalized_symbol_RMS": 0.0001,
+    "normalized_symbol_peak": 0.001
+  },
+  "retention_reference": [
+    "untouched original",
+    "M42 serialized queued",
+    "M43 overlap"
+  ],
+  "zero_original_or_M42_losses": true,
+  "zero_new_false_MAC_or_negative_confirmations": true,
+  "resource_exit_totals_never_increase_vs_preferred_serial": true,
+  "fine_service_cost_max": "original reference per cohort; a completed retiring service is charged",
+  "gain": "one additional full payload or same recall and lower known drain relative to M42",
+  "held_after_all_gates": true,
+  "previous_budgets_not_redefined": true,
+  "fixed_receipts": {
+    "seen-development": "86d1d30d738b17e0757e1634475f080a91ed55c7d2d63dc4e91708b9920c8dbd",
+    "fixed-M42": "7be43998172fda70b6bb1c83b956b5223ae710185a71c278f09b48cb89e6472a",
+    "fixed-M37": "689a2feb3fa13347a778a47c3c945dc57762606a4191336cc9f797a1c0ecaa55",
+    "fixed-M38B": "fbf83887b8bd33b0284882c3dcd9c0964c308b54c2b6eede744cc6c1d340f353",
+    "fixed-M39": "009400c0eac93674e8c41ea31cb1da509da0bcd62cd3ccbd2f49cae03773c6ea",
+    "fixed-M40": "d096ad1cf86c58c3ec57f39b4b4e8b48c4281113d9dabc6d27d181b5bfb41b8c"
+  },
+  "development_specs": [
+    [
+      2,
+      8,
+      0,
+      [
+        17,
+        127
+      ],
+      25,
+      "clean"
+    ],
+    [
+      4,
+      8,
+      4,
+      [
+        451,
+        123
+      ],
+      46,
+      "tone"
+    ],
+    [
+      3,
+      12,
+      16,
+      [
+        229,
+        87
+      ],
+      33,
+      "wrong-sync"
+    ],
+    [
+      3,
+      8,
+      8,
+      [
+        611,
+        189
+      ],
+      49,
+      "noise"
+    ],
+    [
+      4,
+      12,
+      8,
+      [
+        126,
+        487
+      ],
+      39,
+      "step"
+    ],
+    [
+      2,
+      12,
+      16,
+      [
+        41,
+        319
+      ],
+      24,
+      "burst"
+    ]
+  ],
+  "validation_specs": [
+    [
+      4,
+      8,
+      8,
+      [
+        79,
+        111
+      ],
+      46,
+      "clean"
+    ],
+    [
+      3,
+      12,
+      4,
+      [
+        201,
+        117
+      ],
+      27,
+      "tone"
+    ],
+    [
+      2,
+      8,
+      16,
+      [
+        113,
+        503
+      ],
+      42,
+      "wrong-sync"
+    ],
+    [
+      4,
+      12,
+      0,
+      [
+        423,
+        83
+      ],
+      37,
+      "noise"
+    ],
+    [
+      2,
+      12,
+      4,
+      [
+        321,
+        212
+      ],
+      31,
+      "step"
+    ],
+    [
+      3,
+      8,
+      0,
+      [
+        35,
+        89
+      ],
+      29,
+      "burst"
+    ]
+  ],
+  "development_seed_offset": 48917047,
+  "validation_seed_offset": 51171911,
+  "payload_generator": "seeded counter word mixed with a length-dependent mask and folded byte position",
+  "default_changed": false,
+  "whole_receiver_16MSps": false
+}

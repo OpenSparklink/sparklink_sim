@@ -160,7 +160,7 @@ class CaptureTransport:
 
     def estimate(
         self, *, measured_worker=False, released_requests=False, retire_before_fine=False,
-        retire_queued=False, overlap_fine=False,
+        retire_queued=False, overlap_fine=False, retire_completed_fine=False,
     ):
         """Concrete uniform primitive layouts, not a synthesized minimum.
 
@@ -182,6 +182,9 @@ class CaptureTransport:
             raise ValueError("Queued retirement requires the actual pre-fine/frame context")
         if type(overlap_fine) is not bool or (overlap_fine and not retire_queued):
             raise ValueError("Fine overlap requires the bounded queued-retirement context")
+        if (type(retire_completed_fine) is not bool
+                or (retire_completed_fine and not overlap_fine)):
+            raise ValueError("Completed fine retirement requires overlapping ownership")
         lanes = 8 if a.mode == "copied8" else 2 if a.mode == "tdp2" else 1
         width, depth = (36, 1024) if a.mode == "tdp2" else (72, 512)
         source_copies = 8 if a.mode == "copied8" else 1
@@ -228,6 +231,8 @@ class CaptureTransport:
             registers["queued_retirement_gate"] = 64 + 2
         if overlap_fine:
             registers["fine_frame_overlap"] = 5 + 2 * 64
+        if retire_completed_fine:
+            registers["completed_fine_retirement"] = 1  # Borrowed owner tag.
         cost = dict(
             mode=a.mode,
             source_bram36=source_tiles,
@@ -326,6 +331,14 @@ class CaptureTransport:
                 separate_fine_and_frame_owned_banks=True,
                 physical_timing_verified=False, synthesis_verified=False,
             )
+        if retire_completed_fine:
+            cost["completed_fine_retirement"] = dict(
+                register_bits=registers["completed_fine_retirement"],
+                comparator_input_mux_bits_upper=64, shared_unsigned_comparator_bits=63,
+                compared_frontier_is_previous_committed=True, result_latency_edges=1,
+                extra_IQ_RAM_DSP_or_sample_ports=0, completed_worker_only=True,
+                no_new_telemetry_counter_or_pending_descriptor=True, physical_timing_verified=False,
+            )
         return cost
 
     def simulate(
@@ -344,6 +357,7 @@ class CaptureTransport:
         retirement_observer=None,
         retire_queued=False,
         overlap_fine=False,
+        retire_completed_fine=False,
     ):
         """Stream fixed-width path tuples and sorted(after_sample_count,path).
 
@@ -366,6 +380,9 @@ class CaptureTransport:
             raise ValueError("Queued retirement requires the actual pre-fine/frame context")
         if type(overlap_fine) is not bool or (overlap_fine and not retire_queued):
             raise ValueError("Fine overlap requires the bounded queued-retirement context")
+        if (type(retire_completed_fine) is not bool
+                or (retire_completed_fine and not overlap_fine)):
+            raise ValueError("Completed fine retirement requires overlapping ownership")
         a = self.a
         if source_owner is not None:
             from nearlink_sdr.sim.coarse_capture_source import CoarseCaptureSource
@@ -455,7 +472,7 @@ class CaptureTransport:
                          frame_payloads=0, frame_resource_drops=0, frame_overlap_retired=0)
         if retire_before_fine:
             stats["pre_fine_retired"] = 0
-        queued_check = None  # Borrows the immutable ready FIFO head,not another descriptor.
+        queued_check = None  # Borrows the immutable ready head or completed fine descriptor.
         if retire_queued:
             stats["queued_retired"] = 0
         if overlap_fine:
@@ -637,17 +654,27 @@ class CaptureTransport:
                 and stalls[stall_index][0] <= cycle < stalls[stall_index][1]
             )
             if queued_check is not None:
-                job, exclude = queued_check
-                if not ready or ready[0] is not job:
-                    raise RuntimeError("Registered queued check lost its held ready FIFO head")
+                job, exclude, checked_completed = queued_check
                 queued_check = None
-                observe_retirement("queued_retired" if exclude else "queued_kept", job, exclude)
+                if checked_completed:
+                    if active is not job:
+                        raise RuntimeError("Registered check lost the completed fine result")
+                    if exclude:
+                        observe_retirement("completed_fine_retired", job, True)
+                        fine_worker.take_selection(job["id"], cycle)
+                        active, status = None, "retired_after_fine"
+                else:
+                    if not ready or ready[0] is not job:
+                        raise RuntimeError("Registered queued check lost its held ready FIFO head")
+                    observe_retirement("queued_retired" if exclude else "queued_kept", job, exclude)
+                    if exclude:
+                        if stats["queued_retired"] == 2**64 - 1:
+                            raise OverflowError("Queued retirement statistic exhausted")
+                        stats["queued_retired"] += 1
+                        ready.popleft()
+                        status = "retired_while_queued"
                 if exclude:
-                    if stats["queued_retired"] == 2**64 - 1:
-                        raise OverflowError("Queued retirement statistic exhausted")
-                    stats["queued_retired"] += 1
-                    ready.popleft()
-                    notify(job, "retired_while_queued", slots[job["slot"]])
+                    notify(job, status, slots[job["slot"]])
                     free.append(job["slot"])
             if frame_replay is not None and frame_replay.active:
                 frame_replay.tick(cycle, blocked=blocked)
@@ -928,7 +955,14 @@ class CaptureTransport:
                 if (cycle >= active["finish"]
                         and active["service"].disposition in ("ready", "confirm_pending")):
                     stats["selected_result_wait_cycles"] += 1
-            if (retire_queued and frame_replay.active and ready and ready[0]["copied"] < cycle
+            if (retire_completed_fine and active is not None and frame_job is not None
+                    and not active.get("retirement_pending") and cycle >= active["finish"]
+                    and active["service"].disposition in ("ready", "confirm_pending")
+                    and cycle % 2 == 0 and not prefine_issued):
+                exclude = active["count"] <= prior_frontier
+                observe_retirement("completed_fine_check", active, exclude, frontier=prior_frontier)
+                queued_check = active, exclude, True
+            elif (retire_queued and frame_replay.active and ready and ready[0]["copied"] < cycle
                     and not prefine_issued):
                 if not overlap_fine and (active is None or active.get("retirement_pending")):
                     raise RuntimeError("Queued and pre-fine comparator phases must not overlap")
@@ -937,7 +971,7 @@ class CaptureTransport:
                     raise RuntimeError("Queued retirement needs an immutable completed copy")
                 exclude = job["count"] <= prior_frontier
                 observe_retirement("queued_check", job, exclude, frontier=prior_frontier)
-                queued_check = job, exclude
+                queued_check = job, exclude, False
             cycle += 1
         assert queued_check is None
         result = dict(
@@ -1025,9 +1059,12 @@ class CaptureTransport:
                 resource_feedback_to_capture_algorithm=False,
             )
         if overlap_fine:
-            result["fine_frame_overlap_cost"] = self.estimate(
+            ownership_cost = self.estimate(
                 measured_worker=True, released_requests=True, retire_before_fine=True,
-                retire_queued=True, overlap_fine=True)["fine_frame_overlap"]
+                retire_queued=True, overlap_fine=True, retire_completed_fine=retire_completed_fine)
+            result["fine_frame_overlap_cost"] = ownership_cost["fine_frame_overlap"]
+            if retire_completed_fine:
+                result["completed_fine_retirement_cost"] = ownership_cost["completed_fine_retirement"]
         if tail_replay is not None:
             assert not any(tail_replay.leases) and tail_replay.active is None
             result.update(

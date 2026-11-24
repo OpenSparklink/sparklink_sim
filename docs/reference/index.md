@@ -170,6 +170,7 @@ moving-tail-horizon
 legal-tail-ceiling
 queued-tail-composition
 fine-frame-overlap
+completed-fine-retirement
 spline-preparation
 spline-fixed
 spline-flow
