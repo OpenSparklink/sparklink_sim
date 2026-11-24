@@ -105,7 +105,9 @@ def numeric_pair(event, floating):
     return result
 
 
-def compare(out, root, row):
+def compare(out, root, row, *, retire_queued=False):
+    if type(retire_queued) is not bool:
+        raise ValueError("Need an explicit queued-retirement experiment choice")
     iq, quiet = load_input(root, row)
     profile = replace(PSKReceiveProfile.ordinary(TxConfig(**row["config"])),
                       head_backend=row["head_backend"], allowed_mcs=(row["config"]["mcs_index"],))
@@ -124,7 +126,8 @@ def compare(out, root, row):
 
         with patch("tests.captured_frame_reference.CapturedFrameReplay", factory), patch(
                 "tests.captured_frame_reference.pack_filter_word", observe):
-            run = reference.run_arm(profile, iq, quiet, True)
+            options = dict(retire_queued=True) if retire_queued and name != "original" else {}
+            run = reference.run_arm(profile, iq, quiet, True, **options)
         n = len(iq)
         assert len(words) == 3*n and words[:n] == words[n:2*n] == words[2*n:]
         if all_words is None:

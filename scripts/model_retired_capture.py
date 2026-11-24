@@ -217,7 +217,10 @@ def event_metadata(frames):
     ]
 
 
-def run_arm(profile, iq, quiet, enabled):
+def run_arm(profile, iq, quiet, enabled, *, retire_queued=False):
+    if type(retire_queued) is not bool or (retire_queued and not enabled):
+        raise ValueError("Queued retirement needs the actual pre-fine retirement gate")
+    options = dict(retire_queued=True) if retire_queued else {}
     checks, decoded, fine, windows, coherence = [], [], {}, {}, []
 
     def fine_result(descriptor, result):
@@ -251,6 +254,7 @@ def run_arm(profile, iq, quiet, enabled):
         fine_observer=fine_result,
         copied_window_observer=window_result,
         coherence_observer=coherence.append,
+        **options,
     )
     result, frames, reads, _, _, _ = observed
     baseline_metadata = event_metadata(frames)
@@ -264,6 +268,7 @@ def run_arm(profile, iq, quiet, enabled):
             retire_before_fine=enabled,
             retirement_observer=other_checks.append if enabled else None,
             coherence_observer=other_coherence.append,
+            **options,
         )
         assert other[0] == result and other[2] == reads and checks == other_checks
         assert other_coherence == coherence

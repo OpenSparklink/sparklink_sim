@@ -1,0 +1,187 @@
+{
+  "stage": "M42",
+  "candidate_count": 1,
+  "prospective_before_implementation": true,
+  "change": "compose existing legal upper fence with existing retire_queued=True;no new retirement algorithm,threshold,phase,PI or carrier",
+  "baseline_source": "946f0c8aff5780eb47f73a16b63e06b00a0bf473",
+  "diagnosis_SHA256": "9b0a1aa5339fda72b6f32daf28d32d32363e7982aa5fb71825da9d884f877e8c",
+  "new_default": false,
+  "new_IQ_RAM_DSP_or_ports": 0,
+  "extra_queue_gate_bits": 66,
+  "existing_queue_gate_cap_bits": 128,
+  "combined_pre_fine_queued_bits": 132,
+  "existing_bridge_control_bits": 1034,
+  "existing_bridge_control_cap": 2048,
+  "owned": 3,
+  "history": 4096,
+  "private_FIFO": 1024,
+  "gate_check_II": 1,
+  "comparison_bits": 63,
+  "extra_mux2_bits": 63,
+  "fine_parallel_workers": 1,
+  "fine_geometry_phase_range_unchanged": true,
+  "fine_cycles_cap": "no greater than original-reference fine cycles on same input cohort;pre-fine and overlapping queued comparisons reported separately",
+  "candidate_recall_rule": "no original or upper-baseline complete success loss;no extra falseMAC or negative confirmations;resource exits aggregate not increased;positive recovery or same-recall fine work benefit per cohort",
+  "same_age_budgets": {
+    "center_samples": 0.001,
+    "rate_ppm": 0.1,
+    "normalized_symbol_RMS": 0.0001,
+    "normalized_symbol_peak": 0.001
+  },
+  "minimum_complete_numeric_pairs": 4,
+  "source_and_all_budgets_frozen_before_new_development": true,
+  "held_only_after_newdev_and_all_fixed_pass": true,
+  "old_budget_failures_preserved": true,
+  "whole_RX16MSps": false,
+  "policy_version": 1,
+  "design_SHA256": "fd671e2f5e68278305a50c8298dca22213d64c275c0f1797ee67bd1566ed506e",
+  "development_specs": [
+    [
+      4,
+      12,
+      8,
+      [
+        277,
+        59
+      ],
+      36,
+      "clean"
+    ],
+    [
+      3,
+      8,
+      0,
+      [
+        89,
+        349
+      ],
+      44,
+      "tone"
+    ],
+    [
+      2,
+      12,
+      16,
+      [
+        109,
+        73
+      ],
+      24,
+      "wrong-sync"
+    ],
+    [
+      3,
+      8,
+      16,
+      [
+        2043,
+        17
+      ],
+      52,
+      "noise"
+    ],
+    [
+      2,
+      8,
+      4,
+      [
+        157,
+        283
+      ],
+      32,
+      "step"
+    ],
+    [
+      4,
+      12,
+      0,
+      [
+        229,
+        139
+      ],
+      28,
+      "burst"
+    ]
+  ],
+  "validation_specs": [
+    [
+      3,
+      8,
+      8,
+      [
+        67,
+        431
+      ],
+      28,
+      "clean"
+    ],
+    [
+      4,
+      12,
+      4,
+      [
+        181,
+        47
+      ],
+      40,
+      "tone"
+    ],
+    [
+      2,
+      8,
+      0,
+      [
+        283,
+        101
+      ],
+      32,
+      "wrong-sync"
+    ],
+    [
+      4,
+      8,
+      0,
+      [
+        2043,
+        29
+      ],
+      44,
+      "noise"
+    ],
+    [
+      3,
+      12,
+      16,
+      [
+        137,
+        233
+      ],
+      36,
+      "step"
+    ],
+    [
+      2,
+      12,
+      8,
+      [
+        251,
+        97
+      ],
+      24,
+      "burst"
+    ]
+  ],
+  "seed_bias": {
+    "development": 26781023,
+    "validation": 28781131
+  },
+  "fixed_manifest_SHA256": [
+    "9d2e248cebf9fa8d86a548d4426c798c3662271eceee293125225dbcda9e5707",
+    "4001866dc38c513ebcdfe7911da2697da94c387a46420945b9e2f0274c1aee53",
+    "10b132ec5df8cb57a1382a03a6635a5d72a11cfe579b851b2bdeed03eec994de",
+    "4e2dd8c751f4377d15c9cfc21bb11c7988e892f3b5f463b678e461675dd3bc54"
+  ],
+  "historical_invalid_M40_input_preserved_not_counted_as_legal": true,
+  "minimum_original_complete": 3,
+  "minimum_candidate_complete": 3
+}

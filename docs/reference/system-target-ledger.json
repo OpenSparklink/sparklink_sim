@@ -3337,5 +3337,33 @@
     "new_per_sample_RX_RAM_DSP_candidate_work": false,
     "hardware_configuration_interface_cycle_model": null,
     "all_four_RX_gates_passed": false
+  },
+  "queued_tail_composition": {
+    "stage": "M42",
+    "reference": "queued-tail-composition.md",
+    "original_reference_unchanged": true,
+    "default_changed": false,
+    "accepted": false,
+    "original_complete": 41,
+    "upper_complete": 24,
+    "combined_complete": 33,
+    "legal_packets": 59,
+    "old_invalid_B1_inputs_preserved": 1,
+    "original_success_losses": 8,
+    "first_tail_expiry_words": [
+      204,
+      1039
+    ],
+    "queue_control_bits": 66,
+    "combined_retirement_bits": 132,
+    "existing_bridge_bits": 1034,
+    "extra_metadata_mux2_bits": 63,
+    "extra_IQ_RAM_DSP_ports": 0,
+    "negative_samples": 163840,
+    "false_MAC": 0,
+    "old_18DSP_16KiB_failures_preserved": true,
+    "hardware_synthesis_or_Fmax": null,
+    "full_receiver_16MSps": false,
+    "four_RX_gates_passed": false
   }
 }

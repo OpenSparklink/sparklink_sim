@@ -168,6 +168,7 @@ initialized-head-prefetch
 continuous-private-prefetch
 moving-tail-horizon
 legal-tail-ceiling
+queued-tail-composition
 spline-preparation
 spline-fixed
 spline-flow
