@@ -127,3 +127,57 @@ def test_all_resident_roms_and_three_way_ingress_accounted():
     assert q8["synthesized"] is False and q8["verified_clock_hz"] is None
     with pytest.raises(ValueError):
         ssc_geometry(200, 100)
+
+
+@pytest.mark.parametrize("n,k", [(64, 12), (64, 44), (128, 104), (512, 288), (1024, 896)])
+@pytest.mark.parametrize("fraction_bits", [0, 1])
+def test_ordered_layout_matches_indexed_and_removes_extract(n, k, fraction_bits):
+    llr = np.random.default_rng(n + k).normal(-.125, 3, n)
+    exact, base = decode_payload_polar_word(llr, n, k, fraction_bits=fraction_bits)
+    for geometry in ("ordered", "threshold"):
+        actual, report = decode_payload_polar_word(
+            llr, n, k, fraction_bits=fraction_bits, geometry=geometry,
+        )
+        assert actual == exact
+        assert report["peak_abs_alpha"] == base["peak_abs_alpha"]
+        assert report["cycles"] == base["cycles"] - (k + 1) // 2 - 4
+        assert report["operations"] == {
+            name: count for name, count in base["operations"].items() if name != "extract"
+        }
+        assert all(not bank.startswith(("('I'", "('O'")) for bank in report["reads"])
+        assert all(bank.startswith("('U'") for bank in report["output_reads"])
+        assert sum(report["output_reads"].values()) == k
+        assert report["output_peak_reads_per_bank"] == 1
+        assert report["output_to_last_bit_cycles"] == base["output_to_last_bit_cycles"]
+
+
+@pytest.mark.parametrize("geometry", ["ordered", "threshold"])
+def test_single_lane_output_drains_two_ports_after_decode(geometry):
+    llr = np.random.default_rng(541).normal(0, 1, size=128)
+    expected, base = decode_payload_polar_word(llr, 128, 88, lanes=1)
+    actual, report = decode_payload_polar_word(llr, 128, 88, lanes=1, geometry=geometry)
+    assert actual == expected
+    assert report["cycles"] == base["cycles"] - 88 - 4
+    assert report["output_to_last_bit_cycles"] == 44
+
+
+def test_threshold_native_table_and_ordered_u_cost():
+    indexed = payload_polar_cost()
+    ordered = payload_polar_cost(geometry="ordered")
+    compact = payload_polar_cost(geometry="threshold")
+    assert indexed["RAMB18_equivalents"] - ordered["RAMB18_equivalents"] == 12
+    assert ordered["RAMB18_equivalents"] - compact["RAMB18_equivalents"] == 3
+    assert compact["RAMB18_equivalents"] == 18
+    assert payload_polar_cost(geometry="threshold", fraction_bits=1)["RAMB18_equivalents"] == 22
+    assert compact["geometry_threshold_comparisons"] == 2
+    assert compact["register_bits"]["ordered_rate1_cursor_and_base"] == 20
+    banks = compact["physical_banks"]
+    assert all(not name.startswith(("('I'", "('O'")) for name in banks)
+    assert banks["('U', 0)"]["depth"] == 448
+    assert banks["('T', 0)"] == dict(depth=1984, width=8, ports=1, ramb18=1)
+    assert banks["('T', 1)"] == dict(depth=1979, width=8, ports=1, ramb18=1)
+    assert not compact["synthesized"]
+    with pytest.raises(ValueError, match="indexed"):
+        payload_polar_cost(geometry="unknown")
+    with pytest.raises(ValueError, match="indexed"):
+        decode_payload_polar_word([0] * 64, 64, 44, geometry="unknown")

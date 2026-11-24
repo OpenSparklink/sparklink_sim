@@ -1044,5 +1044,36 @@
     "shared_banks_credit": 0,
     "synthesis_evidence": false,
     "reference": "payload-polar-flow.md"
+  },
+  "standard_B1_compact_geometry": {
+    "geometry": "ordered contiguous U and two 8-bit threshold banks",
+    "estimated_RAMB18": {
+      "indexed": [
+        33,
+        37
+      ],
+      "ordered": [
+        21,
+        25
+      ],
+      "threshold": [
+        18,
+        22
+      ]
+    },
+    "estimated_unchanged_DSP": 0,
+    "estimated_BRAM36_sites_upper": {
+      "indexed": 27,
+      "threshold": 18
+    },
+    "exact_finite_shape_count": 36,
+    "fixed_schedule_count": 216,
+    "independent_schedule_count": 108,
+    "fixed_200MHz_2lane_new_frame_losses": 1,
+    "independent_100MHz_2lane_new_frame_losses": 2,
+    "default_adopted": false,
+    "synthesis_evidence": false,
+    "whole_rx_gates_closed": false,
+    "reference": "payload-polar-geometry.md"
   }
 }

@@ -4,14 +4,16 @@ The decoder consumes descrambled, finite LLRs. Scheduling at this boundary does
 not charge carrier, demapping, reassembly, or CRC work as zero service.
 """
 
+from bisect import bisect_left
 from collections import Counter
 from dataclasses import dataclass
 from fractions import Fraction
+from functools import lru_cache
 from itertools import islice
 from math import ceil, isfinite
 
 from nearlink_sdr.common.code_block_seg import b1_code_block_plan
-from nearlink_sdr.common.polar import RATE_TABLE
+from nearlink_sdr.common.polar import RATE_TABLE, RELIABILITY_SEQ_1024
 from nearlink_sdr.phy.control_polar_word import ssc_geometry
 
 __all__ = [
@@ -27,11 +29,42 @@ _SHAPES = frozenset(
 )
 
 
-def _formats(lanes, fraction_bits):
+def _formats(lanes, fraction_bits, geometry):
     if type(lanes) is not int or lanes not in (1, 2):
         raise ValueError("Need one or two SSC issue lanes")
     if type(fraction_bits) is not int or fraction_bits not in (0, 1):
         raise ValueError("Need Q8.0 or Q9.1 ingress")
+    if geometry not in ("indexed", "ordered", "threshold"):
+        raise ValueError("Need indexed, ordered or threshold Polar geometry")
+
+
+@lru_cache(maxsize=1)
+def _threshold_rom():
+    """Compile two read-only banks shared by all code lengths and rates.
+
+    Each 8-bit word holds the first allowed rank with any information bits and
+    the first with all information bits. A heap node absent from all formats
+    uses the size of its format family as a sentinel.
+    """
+    banks = [[], []]
+    directories = {}
+    for n in sorted({n for n, _ in _SHAPES}):
+        dimensions = tuple(sorted(k for size, k in _SHAPES if size == n))
+        base = tuple(map(len, banks))
+        directories[n] = dimensions, base
+        heap = [0] * (2 * n - 1)
+        for rank, position in enumerate(i for i in RELIABILITY_SEQ_1024 if i < n):
+            first = bisect_left(dimensions, n - rank)
+            assert first < 16
+            heap[n - 1 + position] = (first << 4) | first
+        for node in range(n - 2, -1, -1):
+            left, right = heap[2 * node + 1:2 * node + 3]
+            some = min(left >> 4, right >> 4)
+            full = max(left & 15, right & 15)
+            heap[node] = (some << 4) | full
+        for parity in range(2):
+            banks[parity].extend(heap[parity::2])
+    return tuple(tuple(bank) for bank in banks), directories
 
 
 def _depth_base(n_code, depth, *, beta=False):
@@ -91,18 +124,30 @@ def _evaluate(kind, operands):
 class _Datapath:
     """Registered data and ROM banks; a bounded issue/ALU/writeback pipeline."""
 
-    def __init__(self, n_code, k_info, llr, lanes, fraction_bits):
+    def __init__(self, n_code, k_info, llr, lanes, fraction_bits, geometry):
         self.n, self.k, self.lanes = n_code, k_info, lanes
+        self.ordered = geometry != "indexed"
+        self.family = None
+        self.packed_count = 0
         self.maximum = (64 << fraction_bits) * n_code
-        nodes, info = ssc_geometry(n_code, k_info)
         self.data = {bank: [None] * depth for bank, depth in _depth_shapes(n_code).items()}
         for lane in range(3):
             self.data["X", lane] = llr[lane::3]
+        if geometry == "threshold":
+            banks, directories = _threshold_rom()
+            dimensions, self.node_base = directories[n_code]
+            self.family = dimensions.index(k_info)
+            self.data["T", 0], self.data["T", 1] = banks
+        else:
+            nodes, info = ssc_geometry(n_code, k_info)
+            self.data["T", 0] = nodes
+            if not self.ordered:
+                for lane in range(2):
+                    self.data["I", lane] = info[lane::2]
+                    self.data["O", lane] = [None] * ((k_info + 1 - lane) // 2)
+        scratch_length = k_info if self.ordered else n_code
         for lane in range(2):
-            for plane, values in (("I", info),
-                                  ("U", [None] * n_code), ("O", [None] * k_info)):
-                self.data[plane, lane] = values[lane::2]
-        self.data["T", 0] = nodes
+            self.data["U", lane] = [None] * ((scratch_length + 1 - lane) // 2)
         self.limits = {bank: 2 if bank[0] in "LBU" else 1 for bank in self.data}
         self.cycles = 0
         self.peak_llr = 0
@@ -146,6 +191,10 @@ class _Datapath:
                 if kind == "extract":
                     addr = _address(self.n, "U", 0, operands[0])
                     operands = self._read((addr,), ports)
+                elif kind == "node" and self.family is not None:
+                    (cutoffs,) = operands
+                    some, full = cutoffs >> 4, cutoffs & 15
+                    operands = (0 if self.family < some else 1 if self.family >= full else 2,)
                 advance.append((writes, _evaluate(kind, operands)))
             launch = []
             for _ in range(min(self.lanes, count - i)):
@@ -180,6 +229,12 @@ class _Datapath:
             values.append(value)
         return tuple(values)
 
+    def _node_address(self, node):
+        if self.family is None:
+            return ("T", 0), node
+        parity = node & 1
+        return ("T", parity), self.node_base[parity] + node // 2
+
     def decode(self):
         n = self.n
         def a(plane, depth, i):
@@ -188,17 +243,23 @@ class _Datapath:
 
         def walk(start, length, depth, node, right):
             # A frame has only these bounded fields; the maximum depth is 11.
-            (kind,) = self.group("node", 1, lambda _: _Op(((("T", 0), node),), ()))
+            (kind,) = self.group("node", 1, lambda _: _Op((self._node_address(node),), ()))
+            info_base = self.packed_count if self.ordered else start
             def alpha(i):
                 return a("L", depth, i)
             def beta(i):
                 return a("B", depth, right * length + i)
             def u(i):
-                return a("U", 0, start + i)
+                return a("U", 0, info_base + i)
             if kind == 0:
                 self.group("zero", length, lambda i: _Op((), (beta(i),)))
                 return
             if kind == 1:
+                if self.ordered:
+                    # SSC traverses left before right. Each rate-1 node owns
+                    # the next consecutive rank range until the result drains.
+                    self.packed_count += length
+                    assert self.packed_count <= self.k
                 self.group("hard", length, lambda i: _Op((alpha(i),), (beta(i), u(i))))
                 for shift in range(length.bit_length() - 2, -1, -1):
                     h = 1 << shift
@@ -227,8 +288,34 @@ class _Datapath:
             ))
 
         walk(0, n, 0, 0, 0)
-        self.group("extract", self.k, lambda i: _Op((a("I", 0, i),), (a("O", 0, i),)))
-        return tuple(self.data["O", i & 1][i // 2] for i in range(self.k))
+        if self.ordered:
+            assert self.packed_count == self.k
+        else:
+            self.group("extract", self.k, lambda i: _Op((a("I", 0, i),), (a("O", 0, i),)))
+
+    def drain(self):
+        """Pass at most two bits per edge via registered, single-read ports."""
+        plane = "U" if self.ordered else "O"
+        result, pending = [], ()
+        read_edges = 0
+        used = Counter()
+        for start in range(0, self.k, 2):
+            result.extend(pending)
+            addrs = tuple(_address(self.n, plane, 0, i)
+                          for i in range(start, min(start + 2, self.k)))
+            ports = Counter()
+            pending = self._read(addrs, ports)
+            for bank, count in ports.items():
+                assert count == 1 and count <= self.limits[bank]
+            used.update(ports)
+            read_edges += 1
+        # The last registered pair is visible one edge after the final read.
+        result.extend(pending)
+        return tuple(result), dict(
+            output_to_last_bit_cycles=read_edges,
+            output_reads={str(bank): count for bank, count in used.items()},
+            output_peak_reads_per_bank=1,
+        )
 
     def summary(self):
         return dict(
@@ -240,13 +327,16 @@ class _Datapath:
         )
 
 
-def decode_payload_polar_word(llr, n_code, k_info, *, lanes=2, fraction_bits=0):
+def decode_payload_polar_word(
+    llr, n_code, k_info, *, lanes=2, fraction_bits=0, geometry="indexed",
+):
     """Return ordered decoded bits and a value/port-derived edge count.
 
     Input rounds nearest-even after symmetric ±64 clipping. Internal LLRs
     are exact signed integers, with hard-decision ties mapping to zero.
+    Geometry controls only node ROM storage and ordered output addressing.
     """
-    _formats(lanes, fraction_bits)
+    _formats(lanes, fraction_bits, geometry)
     if type(n_code) is not int or type(k_info) is not int or (n_code, k_info) not in _SHAPES:
         raise ValueError("Need a standard B1 physical Polar word shape")
     values = tuple(float(x) for x in islice(llr, n_code + 1))
@@ -254,39 +344,50 @@ def decode_payload_polar_word(llr, n_code, k_info, *, lanes=2, fraction_bits=0):
         raise ValueError("Need exactly N finite input LLRs")
     scale = 1 << fraction_bits
     q = [round(max(-64., min(64., value)) * scale) for value in values]
-    model = _Datapath(n_code, k_info, q, lanes, fraction_bits)
-    bits = model.decode()
-    return bits, model.summary() | dict(
+    model = _Datapath(n_code, k_info, q, lanes, fraction_bits, geometry)
+    model.decode()
+    summary = model.summary()
+    bits, output = model.drain()
+    return bits, summary | output | dict(
         clipped_inputs=sum(abs(v) > 64 for v in values), quantized_zeros=q.count(0),
         input_lsb=1 / scale, signed_alpha_bits=model.maximum.bit_length() + 1,
     )
 
 
-def payload_polar_cost(*, lanes=2, fraction_bits=0):
+def payload_polar_cost(*, lanes=2, fraction_bits=0, geometry="indexed"):
     """Maximum-width scratch/RAM packing estimate across all 36 B1 formats.
 
     ROMs are paid for all resident shapes. Each parity bank uses a separate
     physical primitive with simple one-read/one-write or true dual ports.
     """
-    _formats(lanes, fraction_bits)
+    _formats(lanes, fraction_bits, geometry)
     alpha_bits = 18 + fraction_bits
     words = _depth_shapes(1024)
     width = {bank: alpha_bits if bank[0] == "L" else 1 for bank in words}
     ports = dict.fromkeys(words, 2)
+    max_k = max(k for _, k in _SHAPES)
     for lane in range(2):
-        for plane, depth, bits, native_ports in (
-            ("U", 512, 1, 2),
-            ("I", sum((k + 1 - lane) // 2 for _, k in _SHAPES), 10, 1),
-            ("O", ceil(max(k for _, k in _SHAPES) / 2), 1, 1),
-        ):
-            bank = plane, lane
-            words[bank], width[bank], ports[bank] = depth, bits, native_ports
+        count = (max_k + 1 - lane) // 2
+        bank = "U", lane
+        words[bank], width[bank], ports[bank] = 512 if geometry == "indexed" else count, 1, 2
+        if geometry == "indexed":
+            bank = "I", lane
+            words[bank] = sum((k + 1 - lane) // 2 for _, k in _SHAPES)
+            width[bank], ports[bank] = 10, 1
+            bank = "O", lane
+            words[bank], width[bank], ports[bank] = count, 1, 1
     for slot in range(2):
         for lane in range(3):
             bank = "X", slot, lane
             words[bank], width[bank], ports[bank] = (1026 - lane) // 3, 8 + fraction_bits, 1
-    words["T", 0] = sum(2*n - 1 for n, _ in _SHAPES)
-    width["T", 0], ports["T", 0] = 2, 1
+    if geometry == "threshold":
+        threshold_banks, _ = _threshold_rom()
+        for lane, values in enumerate(threshold_banks):
+            bank = "T", lane
+            words[bank], width[bank], ports[bank] = len(values), 8, 1
+    else:
+        words["T", 0] = sum(2*n - 1 for n, _ in _SHAPES)
+        width["T", 0], ports["T", 0] = 2, 1
     # RAMB18 true dual permits x18; 19 bits need x36 on a RAMB36. Cascaded
     # banks use a registered select (the one-edge read is only an assumption).
     depth_native = {1: 16384, 2: 8192, 10: 1024, 18: 1024, 19: 1024, 8: 2048, 9: 2048}
@@ -302,8 +403,18 @@ def payload_polar_cost(*, lanes=2, fraction_bits=0):
                      control_address_select=384, ingress_ownership=2 * 128,
                      instrumentation=64 * 64, format_directory=len(_SHAPES) * 56,
                      depth_base_table=5 * 11 * 2 * 11)
+    if geometry != "indexed":
+        # Count goes through 896; the adds use non-conflicting rank ranges.
+        registers["ordered_rate1_cursor_and_base"] = 20
+    if geometry == "threshold":
+        registers["threshold_family_word_and_bases"] = 4 + 8 + 2 * 11
     return dict(
         shapes=len(_SHAPES), lanes=lanes, alpha_bits=alpha_bits, DSP=0,
+        geometry=geometry, geometry_threshold_comparisons=2 if geometry == "threshold" else 0,
+        ordered_base_and_cursor_adders=(
+            dict(address=lanes, cursor=1, width=10) if geometry != "indexed" else None
+        ),
+        threshold_bank_address_adder_bits=11 if geometry == "threshold" else 0,
         logical_ram_rom_bits=sum(v["depth"] * v["width"] for v in banks.values()),
         absolute_alpha_bound=64 * (1 << fraction_bits) * 1024,
         minsum_lanes=dict(add_subtract=lanes, magnitude_min_compare=lanes,
