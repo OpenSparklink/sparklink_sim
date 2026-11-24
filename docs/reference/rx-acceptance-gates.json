@@ -1015,5 +1015,34 @@
     "independent_held_generated": false,
     "full_receiver_16MSps": false,
     "whole_RX_four_gates_closed": false
+  },
+  "standard_B1_payload_polar_service": {
+    "scope": "standard B1 descrambled soft LLR to unchecked information bits",
+    "geometry_count": 36,
+    "estimated_DSP": 0,
+    "estimated_RAMB18": [
+      33,
+      37
+    ],
+    "estimated_BRAM36_site_upper": 27,
+    "rates_200MHz_maximum_frames": {
+      "words": 906,
+      "resource_word_drops": 18,
+      "frames": 27,
+      "frames_with_word_drop": 15
+    },
+    "word_test_numeric_loss": true,
+    "whole_rx_gates_closed": false,
+    "scheduler_stages_outside_scope": [
+      "capture",
+      "carrier",
+      "demapper",
+      "reassembly",
+      "CRC",
+      "MAC deadline"
+    ],
+    "shared_banks_credit": 0,
+    "synthesis_evidence": false,
+    "reference": "payload-polar-flow.md"
   }
 }

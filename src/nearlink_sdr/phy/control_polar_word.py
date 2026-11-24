@@ -50,19 +50,29 @@ def compile_control_rom(fmt):
 
 @lru_cache(maxsize=2)
 def _compile(fmt):
-    sequence = [value for value in RELIABILITY_SEQ_1024 if value < fmt.N]
-    if len(sequence) != fmt.N or len(set(sequence)) != fmt.N:
+    nodes, information = ssc_geometry(fmt.N, fmt.K)
+    return nodes + information
+
+
+@lru_cache(maxsize=64)
+def ssc_geometry(n_code, k_info):
+    """Compile the node types and sorted information positions for finite SSC."""
+    if (type(n_code) is not int or n_code not in (64, 128, 256, 512, 1024)
+            or type(k_info) is not int or not 0 < k_info <= n_code):
+        raise ValueError("Need a supported SSC power of two and information length")
+    sequence = [value for value in RELIABILITY_SEQ_1024 if value < n_code]
+    if len(sequence) != n_code or len(set(sequence)) != n_code:
         raise ValueError("Reliability subset is not a permutation")
-    information = sorted(sequence[-fmt.K:])
-    mask = [int(k in information) for k in range(fmt.N)]
+    information = sorted(sequence[-k_info:])
+    mask = [int(k in information) for k in range(n_code)]
     prefix = [0]
     for bit in mask:
         prefix.append(prefix[-1] + bit)
-    nodes = [0] * (2 * fmt.N - 1)
-    for depth in range(fmt.n + 1):
-        length = fmt.N >> depth
-        for start in range(0, fmt.N, length):
+    nodes = [0] * (2 * n_code - 1)
+    for depth in range(n_code.bit_length()):
+        length = n_code >> depth
+        for start in range(0, n_code, length):
             count = prefix[start + length] - prefix[start]
             index = (1 << depth) - 1 + start // length
             nodes[index] = 0 if count == 0 else 1 if count == length else 2
-    return tuple(nodes + information)
+    return tuple(nodes), tuple(information)
