@@ -225,6 +225,11 @@ class _Consumer:
 
     def event(self, event):
         kind, frame, edge = event["kind"], event["frame"], event["edge"]
+        if kind in ("result_buffered", "result_buffer_released"):
+            self.advance(edge)
+            extra = {"bits": event["bits"], "until": event["until"]} if "bits" in event else {}
+            self.emit(kind, frame, edge, **extra)
+            return
         if kind not in ("reserve", "resource_drop", "truncated"):
             return
         self.advance(edge)
@@ -305,7 +310,8 @@ class _Consumer:
 def replay_b1_payload_frames(
     frames, llrs, *, word_cycles, clock_hz, lanes=2, fraction_bits=0, geometry="indexed",
     stall_until=0, input_load_cycles=None, discard_failed_suffix=False,
-    mac_stall_until=0, observer=None, short_tail_slot=False, mac_ring=False, _frame_llrs=False,
+    mac_stall_until=0, observer=None, short_tail_slot=False, mac_ring=False,
+    short_result_slot=False, _frame_llrs=False,
 ):
     """Reassemble at actual Polar pair edges and deliver only completed, CRC-valid frames.
 
@@ -319,7 +325,11 @@ def replay_b1_payload_frames(
         raise ValueError("Need a boolean short-tail slot option")
     if type(mac_ring) is not bool:
         raise ValueError("Need a boolean MAC ring option")
-    consumer = _Consumer(mac_stall_until, observer, 4 if short_tail_slot else 3, mac_ring)
+    if type(short_result_slot) is not bool:
+        raise ValueError("Need a boolean short-result slot option")
+    consumer = _Consumer(
+        mac_stall_until, observer, 3 + short_tail_slot + short_result_slot, mac_ring,
+    )
 
     local_llrs = None
 
@@ -340,7 +350,7 @@ def replay_b1_payload_frames(
         fraction_bits=fraction_bits, geometry=geometry, stall_until=stall_until,
         input_load_cycles=input_load_cycles, discard_failed_suffix=discard_failed_suffix,
         observer=consumer.event, output_pair=consumer.pair, drain_at_eof=True,
-        short_tail_slot=short_tail_slot,
+        short_tail_slot=short_tail_slot, short_result_slot=short_result_slot,
         _frame_llrs=(lambda: local_llrs) if _frame_llrs else None,
     ):
         pass

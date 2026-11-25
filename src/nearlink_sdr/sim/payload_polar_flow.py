@@ -375,17 +375,21 @@ def decode_payload_polar_word(
 
 
 _SHORT_TAIL_CAPACITY = 128
+_SHORT_RESULT_CODE = 64
+_SHORT_RESULT_BITS = max(k for n, k in _SHAPES if n == _SHORT_RESULT_CODE)
 
 
-def payload_polar_cost(*, lanes=2, fraction_bits=0, geometry="indexed", short_tail_slot=False):
+def payload_polar_cost(
+    *, lanes=2, fraction_bits=0, geometry="indexed", short_tail_slot=False, short_result_slot=False,
+):
     """Maximum-width scratch/RAM packing estimate across all 36 B1 formats.
 
     ROMs are paid for all resident shapes. Each parity bank uses a separate
     physical primitive with simple one-read/one-write or true dual ports.
     """
     _formats(lanes, fraction_bits, geometry)
-    if type(short_tail_slot) is not bool:
-        raise ValueError("Need a boolean short-tail slot option")
+    if type(short_tail_slot) is not bool or type(short_result_slot) is not bool:
+        raise ValueError("Need boolean short-tail and short-result slot options")
     alpha_bits = 18 + fraction_bits
     words = _depth_shapes(1024)
     width = {bank: alpha_bits if bank[0] == "L" else 1 for bank in words}
@@ -438,6 +442,10 @@ def payload_polar_cost(*, lanes=2, fraction_bits=0, geometry="indexed", short_ta
         registers.update(short_tail_ingress_descriptor=128, short_tail_MAC_owner=256,
                          short_tail_registered_read=3 * (8 + fraction_bits),
                          short_tail_control_and_mux_select=32)
+    if short_result_slot:
+        registers.update(short_result_data=_SHORT_RESULT_BITS, short_result_row=128,
+                         short_result_edge=64, short_result_cursor_and_valid=7,
+                         short_result_MAC_owner=256)
     return dict(
         shapes=len(_SHAPES), lanes=lanes, alpha_bits=alpha_bits, DSP=0,
         geometry=geometry, geometry_threshold_comparisons=2 if geometry == "threshold" else 0,
@@ -475,6 +483,7 @@ def _wire_index(data_index, pilot_interval):
 def payload_polar_calendar(
     frames, *, word_cycles, clock_hz, stall_until=0, input_load_cycles=None,
     discard_failed_suffix=False, trace_ownership=False, short_tail_slot=False,
+    short_result_slot=False,
 ):
     """Schedule two ingress slots and a single ordered held output.
 
@@ -485,7 +494,9 @@ def payload_polar_calendar(
     frame incomplete. Optional suffix suppression affects later reservations.
     Ownership tracing exposes the wire geometry for finite RAM replay.
     The optional short slot is only reserved for a healthy frame's final
-    physical codeword when neither full input slot is free.
+    physical codeword when neither full input slot is free. The optional short
+    result slot detaches one complete N64 result when output is blocked at
+    decode completion. Both paths retain issue order and the two-bit output rate.
     """
     if clock_hz not in (100_000_000, 160_000_000, 200_000_000):
         raise ValueError("Use a modeled clock: 100, 160 or 200 MHz")
@@ -493,12 +504,14 @@ def payload_polar_calendar(
         raise ValueError("Downstream release edge must be non-negative")
     if type(short_tail_slot) is not bool:
         raise ValueError("Need a boolean short-tail slot option")
+    if type(short_result_slot) is not bool:
+        raise ValueError("Need a boolean short-result slot option")
     period = Fraction(clock_hz, 4_000_000)
     detailed = (trace_ownership or input_load_cycles is not None or discard_failed_suffix
-                or short_tail_slot)
+                or short_tail_slot or short_result_slot)
     # Expired reservations retain no ownership.
     slots = [0] * (3 if short_tail_slot else 2)
-    engine_until = 0
+    engine_until = output_until = short_result_until = 0
     next_boundary = 0
     peak = 0
     for frame_no, frame in enumerate(frames):
@@ -550,13 +563,22 @@ def payload_polar_calendar(
                     failed = True
                     scheduled = row | dict(lost=True, peak_ingress=peak)
                 else:
-                    prior_slot, prior_engine = slots[slot], engine_until
+                    prior = slots[slot], engine_until, output_until, short_result_until
                     start = max(last + 1, engine_until)
                     done = start + cost
-                    output_start = max(done, stall_until)
+                    output_start = max(done, stall_until, output_until)
                     # Result RAM banks have registered reads, two bits per edge.
-                    release_output = output_start + (k + 1) // 2
-                    engine_until = release_output + 1
+                    pair_count = (k + 1) // 2
+                    detached = (short_result_slot and n == _SHORT_RESULT_CODE
+                                and short_result_until <= done and done < output_start)
+                    if detached:
+                        row["short_result_ready"] = done + pair_count
+                        output_start = max(output_start, row["short_result_ready"] + 1)
+                    release_output = output_start + pair_count
+                    engine_until = output_until = release_output + 1
+                    if detached:
+                        short_result_until = output_until
+                        engine_until = row["short_result_ready"] + 1
                     slots[slot] = start + load
                     peak = max(peak, sum(end > first for end in slots))
                     if detailed:
@@ -572,7 +594,7 @@ def payload_polar_calendar(
                 # Only the word whose input beat was missing is speculative.
                 # All earlier complete words keep their ownership and deadlines.
                 if slot is not None:
-                    slots[slot], engine_until = prior_slot, prior_engine
+                    slots[slot], engine_until, output_until, short_result_until = prior
                 next_boundary = absent_edge + 1
                 break
         else:

@@ -60,7 +60,7 @@ def _wave(frame, payload, damage=None):
 
 def _run(
     frames, items, *, early=True, truncate=0, mac_end=0, polar_end=0, short_tail=False,
-    mac_ring=False,
+    mac_ring=False, short_result=False,
 ):
     values, service, loads = [], {}, {}
     for spec, (payload, damage) in zip(frames, items, strict=True):
@@ -75,7 +75,7 @@ def _run(
         iter(frames), wire, word_cycles=service, input_load_cycles=loads if early else None,
         clock_hz=200_000_000, geometry="threshold", mac_stall_until=mac_end,
         stall_until=polar_end, observer=events.append, discard_failed_suffix=True,
-        short_tail_slot=short_tail, mac_ring=mac_ring,
+        short_tail_slot=short_tail, mac_ring=mac_ring, short_result_slot=short_result,
     )
     assert all(a["edge"] <= b["edge"] for a,b in pairwise(events))
     return events, report, service, loads
@@ -304,3 +304,34 @@ def test_ring_truncated_newest_frame_cannot_change_held_mac_bytes():
     ]
     assert _delivered(events,0)==wanted and not _delivered(events,1)
     assert r["mac_complete"]==1
+
+
+
+@pytest.mark.parametrize("damage", [None, "frame"])
+def test_short_result_moves_actual_older_bits_without_hiding_crc_or_mac_pressure(damage):
+    frames = [_frame(at, 2) for at in (0, 4000, 8000, 12000)]
+    inputs = [(b"ab", None), (b"cd", damage), (b"ef", None), (b"gh", None)]
+    options = dict(polar_end=100_000, mac_end=160_000, mac_ring=True)
+    baseline, _, _, _ = _run(frames, inputs, **options)
+    events, report, _, _ = _run(frames, inputs, short_result=True, **options)
+    reference_failures = [(3, "resource_drop")]
+    if damage is not None:
+        reference_failures.append((1, "crc"))
+    assert [(e["frame"], e["reason"]) for e in baseline
+            if e["kind"] == "frame_failed"] == reference_failures
+    copied, = [e for e in events if e["kind"] == "result_buffered"]
+    release, = [e for e in events if e["kind"] == "result_buffer_released"]
+    assert copied["frame"] == release["frame"] == 0
+    assert copied["bits"] == 44 and copied["edge"] < 100_000
+    assert release["edge"] == copied["until"] == 100_022
+    crc, = [e for e in events if e["kind"] == "crc_result" and e["frame"] == 0]
+    assert crc["edge"] == release["edge"] and crc["block_crc_ok"] and crc["frame_crc_ok"]
+    assert (report["result_buffered"], report["result_buffer_released"]) == (1, 1)
+    assert report["peak_payload_reservations"] == 3
+    assert _delivered(events, 0) == b"ab" and _delivered(events, 2) == b"ef"
+    failures = [(e["frame"], e["reason"]) for e in events if e["kind"] == "frame_failed"]
+    assert failures == ([(3, "mac_descriptor_full")] if damage is None else [(1, "crc")])
+    if damage is None:
+        assert _delivered(events, 1) == b"cd" and _delivered(events, 3) == b""
+    else:
+        assert _delivered(events, 1) == b"" and _delivered(events, 3) == b"gh"

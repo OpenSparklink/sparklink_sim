@@ -6,6 +6,7 @@ from itertools import islice
 from math import isfinite
 
 from nearlink_sdr.sim.payload_polar_flow import (
+    _SHORT_RESULT_BITS,
     _SHORT_TAIL_CAPACITY,
     _Datapath,
     _formats,
@@ -157,10 +158,60 @@ class _Ingress:
         self.report("read", row, slot=slot, lane=lane, address=address)
 
 
+
+class _ShortOutput:
+    """One detached result, drained in timestamp order with ingress events."""
+
+    def __init__(self, ingress, output_pair):
+        self.ingress, self.output_pair = ingress, output_pair
+        self.held = self.completed = None
+        self.next_edge = self.offset = None
+        self.last_output_edge = -1
+
+    def send(self, row, edge, offset, pair):
+        if edge <= self.last_output_edge:
+            raise RuntimeError("Polar results competed for the ordered output port")
+        self.last_output_edge = edge
+        if self.output_pair is not None:
+            self.output_pair(row, edge, offset, pair)
+
+    def hold(self, result):
+        bits = len(result["info_bits"])
+        if self.held is not None or bits > _SHORT_RESULT_BITS:
+            raise RuntimeError("Polar short-result slot capacity exceeded")
+        if self.ingress.edge != result["short_result_ready"]:
+            raise RuntimeError("Polar short result missed the copy deadline")
+        self.held = result
+        self.offset = 0
+        self.next_edge = result["output_start"] + 1
+        self.ingress.report("result_buffered", result, bits=bits, until=result["taken"])
+
+    def advance(self, edge):
+        while self.held is not None and self.next_edge <= edge:
+            at = self.next_edge
+            receipt = self.held
+            self.ingress.advance(at)
+            pair = receipt["info_bits"][self.offset:self.offset + 2]
+            self.send(receipt, at, self.offset, pair)
+            self.offset += len(pair)
+            if self.offset == len(receipt["info_bits"]):
+                if at != receipt["taken"] or self.completed is not None:
+                    raise RuntimeError("Polar short-result retirement mismatch")
+                self.ingress.report("result_buffer_released", receipt)
+                self.completed, self.held = receipt, None
+            else:
+                self.next_edge += 1
+        self.ingress.advance(edge)
+
+    def take_completed(self):
+        receipt, self.completed = self.completed, None
+        return receipt
+
 def replay_payload_polar_ingress(
     frames, llrs, *, word_cycles, clock_hz, lanes=2, fraction_bits=0, geometry="indexed",
     stall_until=0, input_load_cycles=None, discard_failed_suffix=False, observer=None,
-    output_pair=None, drain_at_eof=False, short_tail_slot=False, _frame_llrs=None,
+    output_pair=None, drain_at_eof=False, short_tail_slot=False, short_result_slot=False,
+    _frame_llrs=None,
 ):
     """Execute value and port checks on an ordered stream of input LLRs.
 
@@ -171,18 +222,25 @@ def replay_payload_polar_ingress(
     With drain_at_eof, complete admitted words retire after a truncated beat.
     The internal frame-local source callback allows the next independent frame
     to start after a truncated beat, without inserting LLRs for the missing tail.
+    A short result can be copied into one bounded slot before it is delivered.
+    Ingress and result pairs still advance in absolute clock order.
     """
     _formats(lanes, fraction_bits, geometry)
     rows = payload_polar_calendar(
         frames, word_cycles=word_cycles, clock_hz=clock_hz, stall_until=stall_until,
         input_load_cycles=input_load_cycles, discard_failed_suffix=discard_failed_suffix,
         trace_ownership=True, short_tail_slot=short_tail_slot,
+        short_result_slot=short_result_slot,
     )
     ingress = _Ingress(_sample_beats(rows, clock_hz // 4_000_000), llrs,
                        1 << fraction_bits, observer, drain_at_eof, short_tail_slot, _frame_llrs)
+    ordered = _ShortOutput(ingress, output_pair)
+    advance_clock = ordered.advance if short_result_slot else ingress.advance
     while ingress.pending is not None or ingress.ready:
         if not ingress.ready:
-            ingress.advance(ingress.pending[0])
+            advance_clock(ingress.pending[0])
+            if (completed := ordered.take_completed()) is not None:
+                yield completed
             continue
         row = ingress.ready.popleft()
         n, k = row["shape"]
@@ -190,29 +248,51 @@ def replay_payload_polar_ingress(
         launch = row["launch"]
 
         def advance(cycle):
-            ingress.advance(launch + cycle)
+            advance_clock(launch + cycle)
 
         def read_x(lane, address):
             ingress.read(row, lane, address)
 
         model = _Datapath(n, k, None, lanes, fraction_bits, geometry,
                           banks=ingress.banks[slot], advance=advance, read_x=read_x)
-        ingress.advance(launch)
+        advance_clock(launch)
         model.decode()
         if model.cycles != row["decoded"] - launch:
             raise ValueError("Decode cycles disagree with actual Polar execution")
         if input_load_cycles is not None and model.input_load_cycles != input_load_cycles[n, k]:
             raise ValueError("LOAD retirement disagrees with actual Polar execution")
-        ingress.advance(row["decoded"])
-        def emit(offset, pair):
-            edge = row["output_start"] + offset
-            ingress.advance(edge)
-            output_pair(row, edge, 2 * (offset - 1), pair)
+        advance_clock(row["decoded"])
+        copy = "short_result_ready" in row
+        drain_start = row["decoded"] if copy else row["output_start"]
+        copied_bits = []
 
-        bits, output = model.drain(emit if output_pair is not None else None)
-        if output["output_to_last_bit_cycles"] != row["taken"] - row["output_start"]:
+        def emit(offset, pair):
+            edge = drain_start + offset
+            advance_clock(edge)
+            if copy:
+                copied_bits.extend(pair)
+                if len(copied_bits) > _SHORT_RESULT_BITS:
+                    raise RuntimeError("Polar short-result copy exceeded its data width")
+                ingress.report("result_copy_pair", row, offset=2 * (offset - 1))
+            else:
+                ordered.send(row, edge, 2 * (offset - 1), pair)
+
+        bits, output = model.drain(emit if short_result_slot or output_pair is not None else None)
+        last = row["short_result_ready"] if copy else row["taken"]
+        if output["output_to_last_bit_cycles"] != last - drain_start:
             raise RuntimeError("Output retirement disagrees with actual result ports")
-        ingress.advance(row["taken"])
-        yield row | dict(info_bits=bits, input_last_read=launch + model.input_last_read_cycle,
-                         load_complete=launch + model.input_load_cycles)
+        advance_clock(last)
+        receipt = row | dict(info_bits=bits, input_last_read=launch + model.input_last_read_cycle,
+                             load_complete=launch + model.input_load_cycles)
+        if (completed := ordered.take_completed()) is not None:
+            yield completed
+        if copy:
+            if tuple(copied_bits) != bits:
+                raise RuntimeError("Polar short result changed the decoded bits")
+            ordered.hold(receipt | dict(info_bits=tuple(copied_bits)))
+        else:
+            yield receipt
+    if ordered.held is not None:
+        advance_clock(ordered.held["taken"])
+        yield ordered.take_completed()
     ingress.check_input_end()

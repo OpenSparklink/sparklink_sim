@@ -1582,5 +1582,49 @@
     "synthesis_evidence": false,
     "whole_RX_qualified": false,
     "reference": "psk-selected-carrier.md"
+  },
+  "B1_Polar_ordered_N64_result_retention": {
+    "scope": "Optional causal N64 result copy followed by actual ordered B1 CRC and MAC",
+    "data_register_bits": 52,
+    "additional_control_and_owner_bits": 455,
+    "total_additional_register_estimate": 507,
+    "added_BRAM18": 0,
+    "added_DSP": 0,
+    "copy_and_output_bits_per_edge": 2,
+    "MAC_ram_bytes": 2044,
+    "MAC_reservation_limit": 3,
+    "held_new_ring_by_clock_MHz": {
+      "100": {
+        "frames": 35,
+        "base": 0,
+        "short": 0,
+        "recovered": 0,
+        "regressed": 0,
+        "copied": 0,
+        "peak_bits": 0
+      },
+      "160": {
+        "frames": 35,
+        "base": 18,
+        "short": 20,
+        "recovered": 2,
+        "regressed": 0,
+        "copied": 4,
+        "peak_bits": 52
+      },
+      "200": {
+        "frames": 35,
+        "base": 19,
+        "short": 20,
+        "recovered": 2,
+        "regressed": 1,
+        "copied": 4,
+        "peak_bits": 52
+      }
+    },
+    "default_adoption_passed": false,
+    "synthesis_evidence": false,
+    "whole_RX_qualified": false,
+    "reference": "payload-polar-ingress.md"
   }
 }

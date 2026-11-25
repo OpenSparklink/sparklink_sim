@@ -9,6 +9,7 @@ from nearlink_sdr.sim.payload_polar_flow import (
     B1PayloadArrival,
     decode_payload_polar_word,
     payload_polar_calendar,
+    payload_polar_cost,
 )
 from nearlink_sdr.sim.payload_polar_ingress import replay_payload_polar_ingress
 
@@ -191,3 +192,77 @@ def test_frame_local_abort_keeps_completed_word_and_releases_the_partial_word_ca
     assert partial["frame"] == 0 and partial["edge"] == cut // 2 * 50
     assert partial["partial_reservation"]
     assert rows[1]["launch"] == max(rows[1]["last"] + 1, rows[0]["taken"] + 1)
+
+
+
+def test_short_result_copies_when_blocked_without_predicting_the_release():
+    frame = B1PayloadArrival(0, 40, "3/4", 3)
+    signal, expected, work, loads = _work([frame], "threshold")
+    args = dict(word_cycles=work, input_load_cycles=loads, clock_hz=200_000_000)
+    direct, = payload_polar_calendar([frame], **args)
+    done = direct["decoded"]
+    for stall, ready_offset, buffered in ((0, 0, False), (done+1, 23, True),
+                                            (done+22, 23, True), (done+55, 55, True)):
+        report = []
+        result, = replay_payload_polar_ingress(
+            [frame], signal, geometry="threshold", stall_until=stall, observer=report.append,
+            short_result_slot=True, **args,
+        )
+        assert result["info_bits"] == expected[0]
+        assert result["taken"] == done + ready_offset + 22
+        assert ("short_result_ready" in result) == buffered
+        assert sum(e["kind"] == "result_buffered" for e in report) == buffered
+    before = payload_polar_cost(geometry="threshold")
+    after = payload_polar_cost(geometry="threshold", short_result_slot=True)
+    extra_regs = {name:bits for name,bits in after["register_bits"].items()
+                  if name not in before["register_bits"]}
+    assert extra_regs["short_result_data"] == 52 and sum(extra_regs.values()) == 507
+    assert after["logical_ram_rom_bits"] == before["logical_ram_rom_bits"]
+    assert after["RAMB18_equivalents"] == before["RAMB18_equivalents"]
+    with pytest.raises(ValueError, match="boolean short-result"):
+        list(payload_polar_calendar([frame], short_result_slot=1, **args))
+
+
+def test_short_result_allows_new_load_before_old_pair_and_preserves_pair_order():
+    frames = [B1PayloadArrival(e,40,"3/4",3) for e in (0,4000,8000,12000)]
+    signal, reference, work, loads = _work(frames, "threshold")
+    events = []
+    pairs = []
+    def consume(row, edge, offset, value):
+        pairs.append((row["frame"],edge,offset,value))
+        events.append(dict(kind="pair",edge=edge,frame=row["frame"]))
+    rows = list(replay_payload_polar_ingress(
+        frames, signal, word_cycles=work, input_load_cycles=loads, clock_hz=200_000_000,
+        geometry="threshold", stall_until=100_000, short_result_slot=True, observer=events.append,
+        output_pair=consume,
+    ))
+    assert [r["info_bits"] for r in rows] == reference
+    assert [(r["frame"],r["ingress_slot"]) for r in rows] == [(0,0),(1,0),(2,0),(3,1)]
+    copied = [e for e in events if e["kind"] == "result_copy_pair"]
+    assert [e["edge"] for e in copied] == list(range(rows[0]["decoded"]+1,
+                                                      rows[0]["short_result_ready"]+1))
+    assert [e["offset"] for e in copied] == list(range(0, 44, 2))
+    assert rows[1]["load_complete"] < rows[0]["output_start"]
+    assert rows[0]["taken"] < rows[1]["output_start"]
+    assert [e["edge"] for e in events] == sorted(e["edge"] for e in events)
+    for frame,row in enumerate(rows):
+        trace = [p for j,_,_,p in pairs if j==frame]
+        assert tuple(bit for pair in trace for bit in pair) == row["info_bits"]
+
+
+def test_frame_local_truncated_short_result_restores_all_reserved_deadlines():
+    frames=[B1PayloadArrival(e,40,"3/4",3) for e in (0,4000,8000)]
+    signal, expected, work, load = _work(frames,"threshold")
+    data=iter((signal[:21],signal[64:128],signal[128:]))
+    definitions=dict(word_cycles=work, input_load_cycles=load, clock_hz=200_000_000,
+                     stall_until=99_000, short_result_slot=True)
+    events=[]
+    valid_after_abort=list(replay_payload_polar_ingress(
+        frames, (), **definitions, geometry="threshold", observer=events.append,
+        drain_at_eof=True, _frame_llrs=lambda: next(data),
+    ))
+    assert [r["info_bits"] for r in valid_after_abort]==expected[1:]
+    assert [r["frame"] for r in valid_after_abort]==[1,2]
+    assert [e["frame"] for e in events if e["kind"]=="result_buffered"]==[1]
+    expected_schedule=list(payload_polar_calendar(frames[1:], **definitions))
+    assert [r["taken"] for r in valid_after_abort]==[r["taken"] for r in expected_schedule]
