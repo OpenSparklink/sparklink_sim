@@ -1,6 +1,5 @@
 """Selected normalized word stream, actual timed B1 header and carrier join."""
 
-from collections import deque
 from dataclasses import replace
 
 from nearlink_sdr.phy.interpolation_word import rne_shift
@@ -32,6 +31,52 @@ def _signed18(value, shift):
     return clipped, clipped != scaled
 
 
+class _SuffixIQ:
+    """Contiguous Q10 I/Q ring with one registered RAM read and an empty bypass."""
+
+    def __init__(self, depth, first_index):
+        self.ram = [0] * depth
+        self.address_mask = depth - 1
+        self.first_index = first_index
+        self.count = 0
+        self.head_word = None
+
+    def __len__(self):
+        return self.count
+
+    def advance(self):
+        # Read requested when the old head retired. A clipped suffix has no live request.
+        if self.count and self.head_word is None:
+            self.head_word = self.ram[self.first_index & self.address_mask]
+
+    def append(self, index, real, imag):
+        if self.count == len(self.ram) or index != self.first_index + self.count:
+            raise RuntimeError("Noncontiguous or full B1 suffix ring")
+        word = (real & 0x3FFFF) | ((imag & 0x3FFFF) << 18)
+        if self.count:
+            self.ram[index & self.address_mask] = word
+        else:
+            self.head_word = word
+        self.count += 1
+
+    def popleft(self):
+        word = self.head_word
+        if word is None:
+            raise RuntimeError("B1 suffix head used before registered read")
+        self.head_word = None
+        self.first_index += 1
+        self.count -= 1
+        return ((word & 0x3FFFF) ^ 0x20000) - 0x20000, ((word >> 18) ^ 0x20000) - 0x20000
+
+    def discard_from(self, end):
+        kept = min(self.count, max(0, end - self.first_index))
+        removed = self.count - kept
+        self.count = kept
+        if not kept:
+            self.head_word = None
+        return removed
+
+
 class _SelectedFrame:
     """One arrival register and one ordered suffix FIFO with fixed-rate drain."""
 
@@ -53,7 +98,7 @@ class _SelectedFrame:
         self.next_input = first_edge
         self.index = 0
         self.pending = None
-        self.buffer = deque()
+        self.buffer = _SuffixIQ(depth, self.nsync)
         self.eof = False
         self.truncated = False
         self.active_index = None
@@ -111,7 +156,7 @@ class _SelectedFrame:
             if len(self.buffer) == self.depth:
                 self._fail("carrier_fifo_full")
                 return
-            self.buffer.append((index, real, imag))
+            self.buffer.append(index, real, imag)
 
     def _take_header(self):
         if not self.head.ready:
@@ -130,9 +175,7 @@ class _SelectedFrame:
         if row["data_start_symbol"] != self.data_start or not row["data_crc_present"]:
             raise RuntimeError("Verified header disagrees with owned B1 wire context")
         self.payload_cfg = cfg
-        while self.buffer and self.buffer[-1][0] >= row["frame_end_symbol"]:
-            self.buffer.pop()
-            self.post_frame_words += 1
+        self.post_frame_words += self.buffer.discard_from(row["frame_end_symbol"])
         if self.index >= row["frame_end_symbol"]:
             self.eof = True
 
@@ -160,7 +203,7 @@ class _SelectedFrame:
     def _launch(self):
         if not self.buffer or self.carrier.active is not None:
             return
-        index, real, imag = self.buffer[0]
+        index = self.buffer.first_index
         if index >= self.data_start:
             if self.payload_cfg is None or self.edge <= self.header_edge:
                 return
@@ -178,11 +221,12 @@ class _SelectedFrame:
                 self._fail("carrier_pace_missed")
                 return
             self.next_launch += self.period
-        self.buffer.popleft()
+        real, imag = self.buffer.popleft()
         self.carrier.begin(real, imag)
         self.active_index = index
 
     def _step(self):
+        self.buffer.advance()
         out = self._take_carrier()
         self._take_header()
         if self.failure is None:

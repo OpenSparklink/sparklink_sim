@@ -1206,5 +1206,40 @@
     "whole_rx_gates_closed": false,
     "synthesis_evidence": false,
     "reference": "psk-selected-carrier.md"
+  },
+  "psk_selected_B1_carrier_suffix_IQ_ring": {
+    "scope": "existing selected 4 Msym/s FT3/4 B1 only, replace tagged FIFO",
+    "baseline_RAM_bits": 6784,
+    "fifo_depth_words": 128,
+    "candidate_RAM_bits": 4608,
+    "candidate_live_head_and_control_bits": 63,
+    "candidate_logical_bits": 4671,
+    "frozen_local_limit_bits": 4680,
+    "fifo_ports": {
+      "read": 1,
+      "write": 1,
+      "registered_read_edges": 1
+    },
+    "estimated_mapping_candidate": "one RAMB18E1 512x36 SDP",
+    "added_DSP_estimate": 0,
+    "added_cycles_observed": 0,
+    "exact_comparison_arms": {
+      "developer": 50,
+      "held": 70,
+      "prior_fixed": 76,
+      "legal_max_fixed": 4
+    },
+    "new_held_200MHz_128": {
+      "head_crc_ok": 11,
+      "legal_geometry": 11,
+      "mac_complete": 8,
+      "regressed_vs_parent": 0,
+      "tail_words_released": 189
+    },
+    "no_sharing_credited": true,
+    "default_receiver_adopted": false,
+    "whole_rx_gates_closed": false,
+    "synthesis_evidence": false,
+    "reference": "psk-selected-carrier.md"
   }
 }

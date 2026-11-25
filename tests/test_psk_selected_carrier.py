@@ -11,7 +11,7 @@ from nearlink_sdr.phy.normalization_word import pack_normalized_word
 from nearlink_sdr.phy.psk_fields import map_psk_field
 from nearlink_sdr.phy.strict_rx import PSKReceiveProfile
 from nearlink_sdr.phy.tx_pipeline import TxConfig, encode_head
-from nearlink_sdr.sim.psk_selected_carrier import replay_selected_b1_carrier
+from nearlink_sdr.sim.psk_selected_carrier import _SuffixIQ, replay_selected_b1_carrier
 from nearlink_sdr.sim.psk_word_demap import B1SymbolFrame, PSKWordDemapper, TimedPSKWord
 from tests.test_b1_payload_service import _wave
 from tests.test_psk_word_demap import _symbols
@@ -134,3 +134,61 @@ def test_short_frame_pace_failure_is_owned_rejection():
     assert r["missed_launch_edge"]==r["first_payload_launch"]+40
     assert r["failure_edge"]==r["first_payload_launch"]+42
     assert not r["delivery"].get("mac_complete",0)
+
+
+@pytest.mark.parametrize("depth", [8, 64, 128])
+def test_suffix_ring_wrap_and_same_edge_read_write_addresses_are_distinct(depth):
+    fifo = _SuffixIQ(depth, 2 * depth - 1)
+    original = list(range(fifo.first_index, fifo.first_index + depth))
+    for index in original:
+        fifo.append(index, index - 131072, 131071 - index)
+    assert len(fifo) == depth
+    for index in original:
+        assert fifo.first_index == index
+        assert fifo.popleft() == (index - 131072, 131071 - index)
+        fifo.append(index + depth, index - 131072, 131071 - index)
+        with pytest.raises(RuntimeError, match="registered read"):
+            fifo.popleft()
+        fifo.advance()
+    assert len(fifo) == depth
+    for index in original:
+        assert fifo.first_index == index + depth
+        assert fifo.popleft() == (index - 131072, 131071 - index)
+        fifo.advance()
+    assert not fifo
+    fifo.append(fifo.first_index, -131072, 131071)
+    assert fifo.popleft() == (-131072, 131071)
+
+
+def test_suffix_ring_trims_across_wrap_and_detaches_discarded_head():
+    fifo = _SuffixIQ(8, 23)
+    for index in range(23, 31):
+        fifo.append(index, index, -index)
+    assert fifo.popleft() == (23, -23)
+    assert fifo.discard_from(26) == 5
+    fifo.advance()
+    assert fifo.popleft() == (24, -24)
+    assert fifo.discard_from(25) == 1
+    fifo.advance()
+    assert not fifo
+    fifo.append(25, -7, 9)
+    assert fifo.popleft() == (-7, 9)
+    with pytest.raises(RuntimeError, match="Noncontiguous"):
+        fifo.append(27, 0, 0)
+
+
+def test_extra_input_after_actual_short_frame_is_released():
+    profile, frame, _, cycles, loads = _frame(4, 11, b"")
+    input_words = iter([*frame, *([_word(3.7 + 3.7j)] * 256)])
+    front = []
+    result = replay_selected_b1_carrier(
+        input_words, profile, clock_hz=200_000_000, word_cycles=cycles,
+        geometry="threshold", input_load_cycles=loads, front_observer=front.append,
+    )
+    assert result["status"] == "delivered"
+    assert result["header"]["frame_end_symbol"] == len(frame)
+    assert result["wire_inputs"] == len(frame) + result["post_frame_buffered_words"]
+    assert 0 < result["post_frame_buffered_words"] < 128
+    assert sum(1 for _ in input_words) == 256 - result["post_frame_buffered_words"]
+    sent = [event["index"] for event in front if event["kind"] == "payload_word"]
+    assert sent == list(range(result["header"]["data_start_symbol"], len(frame)))
