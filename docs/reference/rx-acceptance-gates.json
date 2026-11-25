@@ -1286,5 +1286,34 @@
     "synthesis_evidence": false,
     "whole_rx_gates_closed": false,
     "reference": "control-polar-word.md"
+  },
+  "B2_exact_parallel_PI_selected": {
+    "scope": "explicit scheduled B2 from selected 55-bit B1 words at 4 Msym/s, FT3/4 coded QPSK/8PSK",
+    "service_edges": 38,
+    "selected_output_latency_edges": 39,
+    "baseline_selected_output_latency_edges": 42,
+    "max_added_adder_bits": 34,
+    "parallel_RNE_paths": 2,
+    "additional_register_estimate_bits": 34,
+    "additional_DSP_estimate": 0,
+    "additional_RAMB18_estimate": 0,
+    "additional_memory_ports": 0,
+    "same_suffix_depth_words": 128,
+    "held_new_inputs": 17,
+    "held_160MHz": {
+      "original_mac_delivered": 0,
+      "parallel_mac_delivered": 9,
+      "head_and_geometry_ok": 14,
+      "polar_resource_drops": 3
+    },
+    "held_200MHz": {
+      "original_mac_delivered": 11,
+      "parallel_mac_delivered": 11
+    },
+    "same_clock_regressed": 0,
+    "standalone_160MHz_4000401_all_words": 768,
+    "full_RX_qualified": false,
+    "synthesis_evidence": false,
+    "reference": "carrier-fixed.md"
   }
 }

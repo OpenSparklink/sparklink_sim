@@ -6,6 +6,7 @@ from nearlink_sdr.phy.interpolation_word import rne_shift
 from nearlink_sdr.phy.normalization_word import unpack_normalized_word
 from nearlink_sdr.phy.strict_rx import PSKReceiveProfile
 from nearlink_sdr.sim.carrier_fixed_flow import CarrierWordEngine
+from nearlink_sdr.sim.carrier_pi_flow import ParallelPICarrierEngine
 from nearlink_sdr.sim.psk_hard_flow import HeaderFromWordsService
 from nearlink_sdr.sim.psk_sync_gain import PSKSyncGain, _q14
 from nearlink_sdr.sim.psk_word_demap import (
@@ -80,7 +81,9 @@ class _SuffixIQ:
 class _SelectedFrame:
     """One arrival register and one ordered suffix FIFO with fixed-rate drain."""
 
-    def __init__(self, words, profile, first_edge, clock_hz, depth, layout, observer):
+    def __init__(
+        self, words, profile, first_edge, clock_hz, depth, layout, observer, *, engine_type,
+    ):
         self.source = iter(words)
         self.edge, self.first = first_edge, first_edge
         self.period = clock_hz // 4_000_000
@@ -93,7 +96,7 @@ class _SelectedFrame:
         template = self.head.header.profile.sync_symbols()
         self.template = tuple((_q14(z.real)[0], _q14(z.imag)[0]) for z in template)
         self.gain = PSKSyncGain(self.nsync)
-        self.carrier = CarrierWordEngine(self.head.modulation, self.nsync)
+        self.carrier = engine_type(self.head.modulation, self.nsync)
         self.profile = self.head.header.profile
         self.next_input = first_edge
         self.index = 0
@@ -282,13 +285,15 @@ class _SelectedFrame:
 
 def replay_selected_b1_carrier(
     words, profile, *, clock_hz, word_cycles, first_edge=0, suffix_depth=128,
-    head_layout="dense", observer=None, front_observer=None, **decoder_options,
+    head_layout="dense", carrier_schedule="serial", observer=None, front_observer=None,
+    **decoder_options,
 ):
     """Replay one selected normalized frame with actual clocked subservices.
 
     Arrival is one normalized word per nominal symbol. The 55-bit source owns
     acquisition, selection, sample timing and normalization, whose time is
     outside this composition. A live header alone selects payload geometry.
+    The explicit parallel-pi schedule retires the same B2 arithmetic earlier.
     """
     if (not isinstance(profile, PSKReceiveProfile) or profile.control_format != "B1"
             or profile.config.frame_type not in (3, 4)
@@ -300,8 +305,14 @@ def replay_selected_b1_carrier(
             or type(first_edge) is not int or first_edge < 0
             or type(suffix_depth) is not int or suffix_depth not in _DEPTHS):
         raise ValueError("Need bounded selected-frame clock, origin and suffix FIFO")
+    if carrier_schedule == "serial":
+        engine_type = CarrierWordEngine
+    elif carrier_schedule == "parallel-pi":
+        engine_type = ParallelPICarrierEngine
+    else:
+        raise ValueError("Need serial or parallel-pi carrier schedule")
     front = _SelectedFrame(words, profile, first_edge, clock_hz, suffix_depth,
-                           head_layout, front_observer)
+                           head_layout, front_observer, engine_type=engine_type)
     first = front.next_payload()
     if first is None:
         return front.result({})

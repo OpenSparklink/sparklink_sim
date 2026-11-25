@@ -225,3 +225,22 @@ def test_compact_b1_banks_reduce_actual_head_wait_and_retain_paced_failure():
     )
     assert slow_head["status"] == "carrier_fifo_full"
     assert slow_head["header"] is None
+
+
+def test_parallel_pi_completes_compact_b1_at_160_mhz_using_real_crc():
+    payload = bytes(range(65))
+    profile, words, _, cycles, loads = _frame(4, 9, payload, width=32)
+    opts = dict(clock_hz=160_000_000, word_cycles=cycles, input_load_cycles=loads,
+                geometry="threshold", head_layout="compact-parity")
+    events = []
+    serial = replay_selected_b1_carrier(words, profile, **opts)
+    fast = replay_selected_b1_carrier(
+        words, profile, **opts, observer=events.append, carrier_schedule="parallel-pi",
+    )
+    assert serial["status"] == "carrier_pace_missed"
+    assert fast["header"] == serial["header"] and fast["header"]["length_ok"]
+    assert fast["status"] == "delivered"
+    assert fast["first_payload_output"] - fast["first_payload_launch"] == 39
+    assert bytes(v["value"] for v in events if v["kind"] == "mac_byte") == payload
+    with pytest.raises(ValueError, match="parallel-pi"):
+        replay_selected_b1_carrier(words, profile, **opts, carrier_schedule="unknown")
