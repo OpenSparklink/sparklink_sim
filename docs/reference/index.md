@@ -132,6 +132,7 @@ payload-polar-ingress
 b1-payload-service
 psk-word-demap
 psk-sync-gain
+psk-selected-carrier
 head-length-words
 head-word-gate
 hard-header-words
@@ -203,4 +204,5 @@ psk-noise-recovery-results
 /apidocs/nearlink_sdr/nearlink_sdr.sim.b1_payload_service
 /apidocs/nearlink_sdr/nearlink_sdr.sim.psk_word_demap
 /apidocs/nearlink_sdr/nearlink_sdr.sim.psk_sync_gain
+/apidocs/nearlink_sdr/nearlink_sdr.sim.psk_selected_carrier
 ```

@@ -50,6 +50,11 @@ FT2普通A2的MCS由协商profile给定；FT3/4的B1从**已校验**头部读取
 量化 LLR 到 B1 帧服务的实值验证。
 [同步残差增益](psk-sync-gain.md)以有界整数倒数为软值准备增益，并单列到达期限。
 
+[B1 已选载波与载荷交接](psk-selected-carrier.md)把实际归一化字、有限头 CRC、
+载波和软解映射/译码连成单帧周期实验。它接收已选符号，需要另证 ADC
+到该入口的连续时序。范围限普通 FT3/4、4 Msym/s、编码 QPSK/8PSK。
+四项整体验收状态维持开放。
+
 ## 本阶段的冻结试验
 
 `tests/test_receive_scope.py`有104个针对性用例：

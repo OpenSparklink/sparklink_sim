@@ -12,7 +12,8 @@ from nearlink_sdr.sim.b1_payload_service import B1PayloadFrame, replay_b1_payloa
 from nearlink_sdr.sim.payload_polar_ingress import TimedLLR
 from nearlink_sdr.sim.psk_sync_gain import PSKSoftGain, _q14
 
-__all__ = ["B1SymbolFrame", "PSKWordDemapper", "replay_b1_symbol_frames"]
+__all__ = ["B1SymbolFrame", "PSKWordDemapper", "TimedPSKWord",
+           "replay_b1_symbol_frames"]
 
 _DELAY = 24
 _CLOCK_RATES = (100_000_000, 160_000_000, 200_000_000)
@@ -70,6 +71,21 @@ def _rne(value, shift):
     if 2 * residual > divide or (2 * residual == divide and quotient & 1):
         quotient += 1
     return sign * quotient
+
+
+@dataclass(frozen=True)
+class TimedPSKWord:
+    """Signed18 Q14 I/Q with the actual producer's registered edge."""
+
+    edge: int
+    real: int
+    imag: int
+
+    def __post_init__(self):
+        if (any(type(v) is not int for v in (self.edge, self.real, self.imag))
+                or self.edge < 0 or not all(-131072 <= v <= 131071
+                                            for v in (self.real, self.imag))):
+            raise ValueError("Need timed signed18 Q14 I/Q")
 
 
 @dataclass(frozen=True)
@@ -181,9 +197,14 @@ class PSKWordDemapper:
         """Return tagged soft bits, or an empty tuple for a pilot."""
         if self.done:
             raise ValueError("Extra PSK wire symbol after field")
-        z = complex(symbol)
-        if not isfinite(z.real) or not isfinite(z.imag):
-            raise ValueError("Need finite normalized I/Q")
+        word = isinstance(symbol, TimedPSKWord)
+        if word:
+            if symbol.edge != self.edge:
+                raise ValueError("PSK word missed its carrier output edge")
+        else:
+            symbol = complex(symbol)
+            if not isfinite(symbol.real) or not isfinite(symbol.imag):
+                raise ValueError("Need finite normalized I/Q")
         edge, index = self.edge, self.symbol_index
         self.edge += self.period
         self.symbol_index += 1
@@ -195,7 +216,9 @@ class PSKWordDemapper:
             return ()
         if self.interval:
             self.since_pilot += 1
-        values = self._maxima(self._sample(z.real), self._sample(z.imag), index & 1)
+        i, q = ((symbol.real, symbol.imag) if word else
+                (self._sample(symbol.real), self._sample(symbol.imag)))
+        values = self._maxima(i, q, index & 1)
         count = min(self.bps, self.remaining)
         result = []
         for diff in values[:count]:

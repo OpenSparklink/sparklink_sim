@@ -1169,5 +1169,42 @@
     "whole_rx_gates_closed": false,
     "synthesis_evidence": false,
     "reference": "psk-sync-gain.md"
+  },
+  "psk_selected_B1_carrier_join": {
+    "scope": "single selected normalized 55-bit 4 Msym/s FT3/4 standard B1 coded QPSK/8PSK",
+    "modeled_clocks_MHz": [
+      100,
+      160,
+      200
+    ],
+    "B2_output_edges": 42,
+    "suffix_depth_words": [
+      8,
+      64,
+      128
+    ],
+    "suffix_word_bits": 53,
+    "estimated_suffix_data_bits": 6784,
+    "suffix_read_ports": 1,
+    "suffix_write_ports": 1,
+    "estimated_input_register_bits": 72,
+    "added_converter_DSP_estimate": 0,
+    "held_200MHz": {
+      "inputs": 18,
+      "valid_header_and_length": 15,
+      "mac_delivered": 8,
+      "bad_header_crc": 3,
+      "bad_payload_crc": 4,
+      "truncated": 3,
+      "regressed": 0,
+      "recovered": 0,
+      "peak_suffix_words": 119
+    },
+    "development_200MHz_decoder_resource_drops": 1,
+    "adc_producer_or_multiple_frame_owners_clocked": false,
+    "default_receiver_adopted": false,
+    "whole_rx_gates_closed": false,
+    "synthesis_evidence": false,
+    "reference": "psk-selected-carrier.md"
   }
 }
