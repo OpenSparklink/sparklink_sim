@@ -514,54 +514,66 @@ def payload_polar_calendar(
         blocks = b1_code_block_plan(frame.payload_with_crc_bits, frame.rate, standard=True)
         physical_bit = 0
         failed = False
-        for block_no, block in enumerate(blocks):
-            for word_no, (n, k) in enumerate(block.codewords):
-                data_index, phase = divmod(physical_bit, bps)
-                first = frame.first_edge + ceil(_wire_index(data_index, pilot) * period)
-                physical_bit += n
-                last_index = _wire_index((physical_bit - 1) // bps, pilot)
-                last = frame.first_edge + ceil(last_index * period)
-                cost = word_cycles[n, k]
-                if type(cost) is not int or cost <= 0:
-                    raise ValueError("Need positive executed Polar edge counts")
-                load = cost if input_load_cycles is None else input_load_cycles[n, k]
-                if type(load) is not int or not 0 < load <= cost:
-                    raise ValueError("Need LOAD retirement within measured decode service")
-                row = dict(frame=frame_no, block=block_no, word=word_no, shape=(n,k),
-                           first=first, last=last)
-                if detailed:
-                    row.update(bits_per_symbol=bps, first_symbol_phase=phase)
-                    if pilot:
-                        row.update(pilot_interval=pilot, data_symbol_index=data_index)
-                if discard_failed_suffix and failed:
-                    yield row | dict(lost=True, peak_ingress=peak,
-                                     status="incomplete_suffix", first_frame_loss=False)
-                    continue
+        words = ((block_no, word_no, shape) for block_no, block in enumerate(blocks)
+                 for word_no, shape in enumerate(block.codewords))
+        for block_no, word_no, (n, k) in words:
+            data_index, phase = divmod(physical_bit, bps)
+            first = frame.first_edge + ceil(_wire_index(data_index, pilot) * period)
+            physical_bit += n
+            last_index = _wire_index((physical_bit - 1) // bps, pilot)
+            last = frame.first_edge + ceil(last_index * period)
+            cost = word_cycles[n, k]
+            if type(cost) is not int or cost <= 0:
+                raise ValueError("Need positive executed Polar edge counts")
+            load = cost if input_load_cycles is None else input_load_cycles[n, k]
+            if type(load) is not int or not 0 < load <= cost:
+                raise ValueError("Need LOAD retirement within measured decode service")
+            row = dict(frame=frame_no, block=block_no, word=word_no, shape=(n,k),
+                       first=first, last=last)
+            if detailed:
+                row.update(bits_per_symbol=bps, first_symbol_phase=phase)
+                if pilot:
+                    row.update(pilot_interval=pilot, data_symbol_index=data_index)
+            slot = None
+            if discard_failed_suffix and failed:
+                scheduled = row | dict(lost=True, peak_ingress=peak,
+                                       status="incomplete_suffix", first_frame_loss=False)
+            else:
                 slot = next((i for i in range(2) if slots[i] <= first), None)
                 if (slot is None and short_tail_slot and not failed and slots[2] <= first
                         and n <= _SHORT_TAIL_CAPACITY and block_no == len(blocks) - 1
-                        and word_no == len(block.codewords) - 1):
+                        and word_no == len(blocks[-1].codewords) - 1):
                     slot = 2
                 if slot is None:
                     if detailed:
                         row.update(status="resource_drop", first_frame_loss=not failed)
                     failed = True
-                    yield row | dict(lost=True, peak_ingress=peak)
-                    continue
-                start = max(last + 1, engine_until)
-                done = start + cost
-                output_start = max(done, stall_until)
-                # Result RAM banks have registered reads, two bits per edge.
-                release_output = output_start + (k + 1) // 2
-                engine_until = release_output + 1
-                slots[slot] = start + load
-                peak = max(peak, sum(end > first for end in slots))
-                if detailed:
-                    row.update(status="accepted", ingress_release=slots[slot],
-                               first_frame_loss=False)
-                yield row | dict(launch=start, decoded=done, output_start=output_start,
-                                 taken=release_output, lost=False, ingress_slot=slot,
-                                 peak_ingress=peak, queue_wait=start-last-1,
-                                 output_wait=output_start-done,
-                                 ordered_result_edge=release_output)
-        next_boundary = frame.first_edge + ceil((last_index + 1) * period)
+                    scheduled = row | dict(lost=True, peak_ingress=peak)
+                else:
+                    prior_slot, prior_engine = slots[slot], engine_until
+                    start = max(last + 1, engine_until)
+                    done = start + cost
+                    output_start = max(done, stall_until)
+                    # Result RAM banks have registered reads, two bits per edge.
+                    release_output = output_start + (k + 1) // 2
+                    engine_until = release_output + 1
+                    slots[slot] = start + load
+                    peak = max(peak, sum(end > first for end in slots))
+                    if detailed:
+                        row.update(status="accepted", ingress_release=slots[slot],
+                                   first_frame_loss=False)
+                    scheduled = row | dict(launch=start, decoded=done, output_start=output_start,
+                                           taken=release_output, lost=False, ingress_slot=slot,
+                                           peak_ingress=peak, queue_wait=start-last-1,
+                                           output_wait=output_start-done,
+                                           ordered_result_edge=release_output)
+            absent_edge = yield scheduled
+            if absent_edge is not None:
+                # Only the word whose input beat was missing is speculative.
+                # All earlier complete words keep their ownership and deadlines.
+                if slot is not None:
+                    slots[slot], engine_until = prior_slot, prior_engine
+                next_boundary = absent_edge + 1
+                break
+        else:
+            next_boundary = frame.first_edge + ceil((last_index + 1) * period)

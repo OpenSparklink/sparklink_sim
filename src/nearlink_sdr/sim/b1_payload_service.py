@@ -305,7 +305,7 @@ class _Consumer:
 def replay_b1_payload_frames(
     frames, llrs, *, word_cycles, clock_hz, lanes=2, fraction_bits=0, geometry="indexed",
     stall_until=0, input_load_cycles=None, discard_failed_suffix=False,
-    mac_stall_until=0, observer=None, short_tail_slot=False, mac_ring=False,
+    mac_stall_until=0, observer=None, short_tail_slot=False, mac_ring=False, _frame_llrs=False,
 ):
     """Reassemble at actual Polar pair edges and deliver only completed, CRC-valid frames.
 
@@ -321,8 +321,15 @@ def replay_b1_payload_frames(
         raise ValueError("Need a boolean MAC ring option")
     consumer = _Consumer(mac_stall_until, observer, 4 if short_tail_slot else 3, mac_ring)
 
+    local_llrs = None
+
     def wire():
-        for spec in frames:
+        nonlocal local_llrs
+        for entry in frames:
+            if _frame_llrs:
+                spec, local_llrs = entry
+            else:
+                spec = entry
             if not isinstance(spec, B1PayloadFrame):
                 raise ValueError("Expected validated B1 payload frame descriptions")
             consumer.offered = spec
@@ -334,6 +341,7 @@ def replay_b1_payload_frames(
         input_load_cycles=input_load_cycles, discard_failed_suffix=discard_failed_suffix,
         observer=consumer.event, output_pair=consumer.pair, drain_at_eof=True,
         short_tail_slot=short_tail_slot,
+        _frame_llrs=(lambda: local_llrs) if _frame_llrs else None,
     ):
         pass
     return consumer.finish()

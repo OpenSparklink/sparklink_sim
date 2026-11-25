@@ -236,14 +236,54 @@ class PSKWordDemapper:
 
 
 def replay_b1_symbol_frames(
-    frames, symbols, *, clock_hz, word_cycles, fraction_bits=0,
+    frames, symbols=None, *, clock_hz, word_cycles, fraction_bits=0,
     demap_observer=None, **decoder_options,
 ):
-    """Compose fixed demap edges with the bounded Polar and B1 MAC services."""
+    """Compose fixed demap edges with the bounded Polar and B1 MAC services.
+
+    Supply descriptors and a flat symbol stream, or (descriptor, symbols) pairs
+    with no flat stream. The latter keeps candidate-local source boundaries
+    so an aborted frame never consumes the following frame's symbols.
+    """
+    end = object()
+
+    def demap(item, source):
+        if not isinstance(item, B1SymbolFrame):
+            raise ValueError("Need validated B1 symbol frame descriptions")
+        a = item.payload.arrival
+        model = PSKWordDemapper(
+            bits_per_symbol=a.bits_per_symbol, n_bits=item.coded_bits,
+            pilot_interval=a.pilot_interval, symbol_index=item.symbol_index,
+            first_edge=a.first_edge, clock_hz=clock_hz, noise_variance=item.variance,
+            whitening_seed=item.whitening_seed, head_coded_bits=item.head_coded_bits,
+            fraction_bits=fraction_bits, observer=demap_observer,
+            prepared_gain=item.prepared_gain,
+        )
+        while not model.done:
+            value = next(source, end)
+            if value is end:
+                return
+            yield from model.feed(value)
+
+    if symbols is None:
+        def frame_bits(item, source):
+            yield from demap(item, source)
+            if next(source, end) is not end:
+                raise ValueError("Trailing PSK wire symbols do not belong to the frame")
+
+        def owned():
+            for item, words in frames:
+                if not isinstance(item, B1SymbolFrame):
+                    raise ValueError("Need validated B1 symbol frame descriptions")
+                yield item.for_llrs(), frame_bits(item, iter(words))
+
+        return replay_b1_payload_frames(
+            owned(), (), word_cycles=word_cycles, clock_hz=clock_hz,
+            fraction_bits=fraction_bits, _frame_llrs=True, **decoder_options,
+        )
+
     waiting = deque()
     source = iter(symbols)
-    ended = False
-    end = object()
 
     def descriptions():
         for item in frames:
@@ -255,29 +295,13 @@ def replay_b1_symbol_frames(
             yield item.for_llrs()
 
     def bits():
-        nonlocal ended
         while waiting:
-            item = waiting.popleft()
-            a = item.payload.arrival
-            model = PSKWordDemapper(
-                bits_per_symbol=a.bits_per_symbol, n_bits=item.coded_bits,
-                pilot_interval=a.pilot_interval, symbol_index=item.symbol_index,
-                first_edge=a.first_edge, clock_hz=clock_hz, noise_variance=item.variance,
-                whitening_seed=item.whitening_seed, head_coded_bits=item.head_coded_bits,
-                fraction_bits=fraction_bits, observer=demap_observer,
-                prepared_gain=item.prepared_gain,
-            )
-            while not model.done:
-                value = next(source, end)
-                if value is end:
-                    ended = True
-                    return
-                yield from model.feed(value)
+            yield from demap(waiting.popleft(), source)
 
     result = replay_b1_payload_frames(
         descriptions(), bits(), word_cycles=word_cycles, clock_hz=clock_hz,
         fraction_bits=fraction_bits, **decoder_options,
     )
-    if not ended and next(source, end) is not end:
+    if next(source, end) is not end:
         raise ValueError("Trailing PSK wire symbols do not belong to any frame")
     return result

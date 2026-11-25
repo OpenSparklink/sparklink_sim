@@ -169,3 +169,25 @@ def test_compact_tail_slot_estimate_charges_real_banks_and_owner():
     assert candidate["RAMB18_equivalents"]-baseline["RAMB18_equivalents"]==3
     p,q = [sum(x["register_bits"].values()) for x in (baseline,candidate)]
     assert q-p == 443
+
+
+def test_frame_local_abort_keeps_completed_word_and_releases_the_partial_word_calendar():
+    first = B1PayloadArrival(0, 2048, "3/4", 2)
+    plan = b1_code_block_plan(first.payload_with_crc_bits, first.rate, standard=True)
+    cut = plan[0].codewords[0][0] + 4
+    second = B1PayloadArrival((cut // 2 + 2) * 50, 40, "3/4", 3)
+    frames = [first, second]
+    signal, decoded, service, loads = _work(frames, "threshold")
+    owned = iter([signal[:cut], signal[-64:]])
+    events = []
+    rows = list(replay_payload_polar_ingress(
+        frames, (), clock_hz=200_000_000, word_cycles=service,
+        input_load_cycles=loads, geometry="threshold", drain_at_eof=True,
+        observer=events.append, _frame_llrs=lambda: next(owned),
+    ))
+    assert [r["info_bits"] for r in rows] == [decoded[0], decoded[-1]]
+    assert [r["frame"] for r in rows] == [0, 1]
+    partial, = [e for e in events if e["kind"] == "truncated"]
+    assert partial["frame"] == 0 and partial["edge"] == cut // 2 * 50
+    assert partial["partial_reservation"]
+    assert rows[1]["launch"] == max(rows[1]["last"] + 1, rows[0]["taken"] + 1)

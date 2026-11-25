@@ -1,6 +1,8 @@
 """Selected normalized word stream, actual timed B1 header and carrier join."""
 
-from dataclasses import replace
+from collections import Counter
+from collections.abc import Iterable
+from dataclasses import dataclass, replace
 
 from nearlink_sdr.phy.interpolation_word import rne_shift
 from nearlink_sdr.phy.normalization_word import unpack_normalized_word
@@ -15,7 +17,7 @@ from nearlink_sdr.sim.psk_word_demap import (
     replay_b1_symbol_frames,
 )
 
-__all__ = ["replay_selected_b1_carrier"]
+__all__ = ["B1SelectedInput", "replay_selected_b1_carrier", "replay_selected_b1_train"]
 
 _CLOCKS = (100_000_000, 160_000_000, 200_000_000)
 _DEPTHS = (8, 64, 128)
@@ -35,8 +37,8 @@ def _signed18(value, shift):
 class _SuffixIQ:
     """Contiguous Q10 I/Q ring with one registered RAM read and an empty bypass."""
 
-    def __init__(self, depth, first_index):
-        self.ram = [0] * depth
+    def __init__(self, depth, first_index, ram=None):
+        self.ram = [0] * depth if ram is None else ram
         self.address_mask = depth - 1
         self.first_index = first_index
         self.count = 0
@@ -83,6 +85,7 @@ class _SelectedFrame:
 
     def __init__(
         self, words, profile, first_edge, clock_hz, depth, layout, observer, *, engine_type,
+        suffix_ram=None,
     ):
         self.source = iter(words)
         self.edge, self.first = first_edge, first_edge
@@ -101,7 +104,7 @@ class _SelectedFrame:
         self.next_input = first_edge
         self.index = 0
         self.pending = None
-        self.buffer = _SuffixIQ(depth, self.nsync)
+        self.buffer = _SuffixIQ(depth, self.nsync, suffix_ram)
         self.eof = False
         self.truncated = False
         self.active_index = None
@@ -283,6 +286,44 @@ class _SelectedFrame:
                     output_saturations=self.output_saturations, delivery=delivery)
 
 
+def _engine_type(carrier_schedule):
+    if carrier_schedule == "serial":
+        return CarrierWordEngine
+    if carrier_schedule == "parallel-pi":
+        return ParallelPICarrierEngine
+    raise ValueError("Need serial or parallel-pi carrier schedule")
+
+
+def _validate_front(profile, clock_hz, first_edge, suffix_depth):
+    if (not isinstance(profile, PSKReceiveProfile) or profile.control_format != "B1"
+            or profile.config.frame_type not in (3, 4)
+            or profile.config.b1_code_block_mode != "standard"
+            or profile.config.symbol_rate_mhz != 4 or profile.length_contract != "standard"
+            or profile.payload_bitorder != "big"):
+        raise ValueError("Need standard 4 Msym/s FT3/4 B1 profile")
+    if (type(clock_hz) is not int or clock_hz not in _CLOCKS
+            or type(first_edge) is not int or first_edge < 0
+            or type(suffix_depth) is not int or suffix_depth not in _DEPTHS):
+        raise ValueError("Need bounded selected-frame clock, origin and suffix FIFO")
+
+
+def _payload_frame(front, first):
+    row = front.header_row
+    frame = B1SymbolFrame.from_config(
+        first.edge, row["payload_length_bytes"], front.payload_cfg,
+        symbol_index=row["data_start_symbol"], prepared_gain=front.gain.result,
+    )
+    if frame.coded_bits != row["coded_bits"]:
+        raise RuntimeError("B1 payload service bit extent differs from actual header")
+    return frame
+
+
+def _payload_words(front, first):
+    yield first
+    while (word := front.next_payload()) is not None:
+        yield word
+
+
 def replay_selected_b1_carrier(
     words, profile, *, clock_hz, word_cycles, first_edge=0, suffix_depth=128,
     head_layout="dense", carrier_schedule="serial", observer=None, front_observer=None,
@@ -295,42 +336,93 @@ def replay_selected_b1_carrier(
     outside this composition. A live header alone selects payload geometry.
     The explicit parallel-pi schedule retires the same B2 arithmetic earlier.
     """
-    if (not isinstance(profile, PSKReceiveProfile) or profile.control_format != "B1"
-            or profile.config.frame_type not in (3, 4)
-            or profile.config.b1_code_block_mode != "standard"
-            or profile.config.symbol_rate_mhz != 4 or profile.length_contract != "standard"
-            or profile.payload_bitorder != "big"):
-        raise ValueError("Need standard 4 Msym/s FT3/4 B1 profile")
-    if (type(clock_hz) is not int or clock_hz not in _CLOCKS
-            or type(first_edge) is not int or first_edge < 0
-            or type(suffix_depth) is not int or suffix_depth not in _DEPTHS):
-        raise ValueError("Need bounded selected-frame clock, origin and suffix FIFO")
-    if carrier_schedule == "serial":
-        engine_type = CarrierWordEngine
-    elif carrier_schedule == "parallel-pi":
-        engine_type = ParallelPICarrierEngine
-    else:
-        raise ValueError("Need serial or parallel-pi carrier schedule")
+    _validate_front(profile, clock_hz, first_edge, suffix_depth)
+    engine_type = _engine_type(carrier_schedule)
     front = _SelectedFrame(words, profile, first_edge, clock_hz, suffix_depth,
                            head_layout, front_observer, engine_type=engine_type)
     first = front.next_payload()
     if first is None:
         return front.result({})
-    row = front.header_row
-    frame = B1SymbolFrame.from_config(
-        first.edge, row["payload_length_bytes"], front.payload_cfg,
-        symbol_index=row["data_start_symbol"], prepared_gain=front.gain.result,
-    )
-    if frame.coded_bits != row["coded_bits"]:
-        raise RuntimeError("B1 payload service bit extent differs from actual header")
-
-    def payload():
-        yield first
-        while (word := front.next_payload()) is not None:
-            yield word
-
     delivery = replay_b1_symbol_frames(
-        [frame], payload(), clock_hz=clock_hz, word_cycles=word_cycles,
-        observer=observer, **decoder_options,
+        [_payload_frame(front, first)], _payload_words(front, first),
+        clock_hz=clock_hz, word_cycles=word_cycles, observer=observer, **decoder_options,
     )
     return front.result(delivery)
+
+
+@dataclass(frozen=True)
+class B1SelectedInput:
+    """A candidate-local normalized source offered at its absolute first-word edge."""
+
+    first_edge: int
+    profile: PSKReceiveProfile
+    words: Iterable[int]
+
+
+def replay_selected_b1_train(
+    offers, *, clock_hz, word_cycles, suffix_depth=128, head_layout="dense",
+    carrier_schedule="serial", observer=None, front_observer=None, **decoder_options,
+):
+    """Share one selected front lane and one downstream service across ordered offers.
+
+    The caller owns the normalized candidate boundaries. An offer before the
+    prior front retires is rejected at its arrival edge without reading its
+    source. Independently framed inputs can continue after a truncated prefix.
+    Front events tag the candidate index. The payload_selected event associates
+    that index with the frame index used by the downstream observer. Compare
+    timestamps, since lazy lookahead can report an earlier rejected offer after
+    the older owner's last event.
+    """
+    if clock_hz not in _CLOCKS or suffix_depth not in _DEPTHS:
+        raise ValueError("Need bounded selected-frame clock and suffix FIFO")
+    engine_type = _engine_type(carrier_schedule)
+    outcomes = Counter()
+    peak = 0
+
+    def report(candidate, kind, edge, **fields):
+        if front_observer is not None:
+            front_observer(dict(candidate=candidate, kind=kind, edge=edge, **fields))
+
+    def frames():
+        nonlocal peak
+        suffix_ram = [0] * suffix_depth
+        last_edge, free_at, next_frame = -1, 0, 0
+        for candidate, offer in enumerate(offers):
+            if not isinstance(offer, B1SelectedInput):
+                raise ValueError("Need B1 selected input offers")
+            edge = offer.first_edge
+            _validate_front(offer.profile, clock_hz, edge, suffix_depth)
+            if edge < last_edge:
+                raise ValueError("B1 candidate arrival edges must be nondecreasing")
+            last_edge = edge
+            if edge < free_at:
+                outcomes["selected_front_busy"] += 1
+                report(candidate, "front_failed", edge, reason="selected_front_busy",
+                       free_at=free_at)
+                continue
+
+            front = _SelectedFrame(
+                offer.words, offer.profile, edge, clock_hz, suffix_depth, head_layout,
+                None if front_observer is None else
+                lambda row: front_observer(dict(candidate=candidate, **row)),
+                engine_type=engine_type, suffix_ram=suffix_ram,
+            )
+            first = front.next_payload()
+            if first is not None:
+                report(candidate, "payload_selected", first.edge, frame=next_frame)
+                next_frame += 1
+                yield _payload_frame(front, first), _payload_words(front, first)
+            free_at = front.edge + int(front.edge == front.failure_edge)
+            status = front.failure or "payload_complete"
+            outcomes[status] += 1
+            peak = max(peak, front.peak)
+            final = front.result({})
+            final["status"] = status
+            del final["delivery"]
+            report(candidate, "front_retired", free_at - 1, result=final)
+
+    delivery = replay_b1_symbol_frames(
+        frames(), clock_hz=clock_hz, word_cycles=word_cycles,
+        observer=observer, **decoder_options,
+    )
+    return dict(front=dict(outcomes), peak_suffix_words=peak, delivery=delivery)

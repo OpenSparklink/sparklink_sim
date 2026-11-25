@@ -25,7 +25,8 @@ class TimedLLR:
 
 
 def _sample_beats(rows, period):
-    for row in rows:
+    row = next(rows, None)
+    while row is not None:
         n, _ = row["shape"]
         bps, phase = row["bits_per_symbol"], row["first_symbol_phase"]
         start = 0
@@ -34,7 +35,9 @@ def _sample_beats(rows, period):
         data_index = row.get("data_symbol_index", 0)
         while True:
             count = min(bps - phase, n - start)
-            yield edge, row, start, count
+            absent_edge = yield edge, row, start, count
+            if absent_edge is not None:
+                break
             start += count
             if start == n:
                 assert edge == row["last"]
@@ -42,15 +45,21 @@ def _sample_beats(rows, period):
             phase = 0
             data_index += 1
             edge += period * (2 if pilot and data_index % pilot == 0 else 1)
+        try:
+            row = rows.send(absent_edge)
+        except StopIteration:
+            return
 
 
 class _Ingress:
     """Each slot has one access per modulo-three bank and one logical owner."""
 
-    def __init__(self, beats, llrs, scale, observer, drain_at_eof, short_tail_slot):
+    def __init__(self, beats, llrs, scale, observer, drain_at_eof, short_tail_slot, frame_llrs):
         self.beats = iter(beats)
         self.pending = next(self.beats, None)
-        self.llrs = iter(llrs)
+        self.llrs = iter(llrs) if frame_llrs is None else iter(())
+        self.frame_llrs = frame_llrs
+        self.input_frame = None
         self.scale = scale
         self.observer = observer
         self.drain_at_eof = drain_at_eof
@@ -72,13 +81,25 @@ class _Ingress:
             raise RuntimeError("Ingress clock moved backwards")
         while self.pending is not None and self.pending[0] <= edge:
             self.edge, row, start, count = self.pending
+            if self.frame_llrs is not None and row["frame"] != self.input_frame:
+                self.check_input_end()
+                self.input_frame = row["frame"]
+                self.llrs = iter(self.frame_llrs())
             values = tuple(self._value(x) for x in islice(self.llrs, count))
             if len(values) != count:
                 self.report("truncated", row, partial_reservation=start > 0 and not row["lost"])
                 if not self.drain_at_eof:
                     raise ValueError("Truncated input before complete B1 LLR stream")
-                self.pending = None
-                break
+                if self.frame_llrs is None:
+                    self.pending = None
+                    break
+                if start > 0 and not row["lost"]:
+                    self.owners[row["ingress_slot"]] = None
+                try:
+                    self.pending = self.beats.send(self.edge)
+                except StopIteration:
+                    self.pending = None
+                continue
             if not all(map(isfinite, values)):
                 raise ValueError("Need finite B1 input LLRs")
             if row["lost"]:
@@ -88,6 +109,11 @@ class _Ingress:
                 self._write(row, start, values)
             self.pending = next(self.beats, None)
         self.edge = edge
+
+    def check_input_end(self):
+        end = object()
+        if next(self.llrs, end) is not end:
+            raise ValueError("Trailing LLRs do not belong to any scheduled B1 frame")
 
     def _value(self, item):
         if isinstance(item, TimedLLR):
@@ -134,7 +160,7 @@ class _Ingress:
 def replay_payload_polar_ingress(
     frames, llrs, *, word_cycles, clock_hz, lanes=2, fraction_bits=0, geometry="indexed",
     stall_until=0, input_load_cycles=None, discard_failed_suffix=False, observer=None,
-    output_pair=None, drain_at_eof=False, short_tail_slot=False,
+    output_pair=None, drain_at_eof=False, short_tail_slot=False, _frame_llrs=None,
 ):
     """Execute value and port checks on an ordered stream of input LLRs.
 
@@ -143,6 +169,8 @@ def replay_payload_polar_ingress(
     Returned words remain unchecked. In particular, a later missing word can
     invalidate a frame that has already produced a prefix of unchecked bits.
     With drain_at_eof, complete admitted words retire after a truncated beat.
+    The internal frame-local source callback allows the next independent frame
+    to start after a truncated beat, without inserting LLRs for the missing tail.
     """
     _formats(lanes, fraction_bits, geometry)
     rows = payload_polar_calendar(
@@ -151,7 +179,7 @@ def replay_payload_polar_ingress(
         trace_ownership=True, short_tail_slot=short_tail_slot,
     )
     ingress = _Ingress(_sample_beats(rows, clock_hz // 4_000_000), llrs,
-                       1 << fraction_bits, observer, drain_at_eof, short_tail_slot)
+                       1 << fraction_bits, observer, drain_at_eof, short_tail_slot, _frame_llrs)
     while ingress.pending is not None or ingress.ready:
         if not ingress.ready:
             ingress.advance(ingress.pending[0])
@@ -187,6 +215,4 @@ def replay_payload_polar_ingress(
         ingress.advance(row["taken"])
         yield row | dict(info_bits=bits, input_last_read=launch + model.input_last_read_cycle,
                          load_complete=launch + model.input_load_cycles)
-    end = object()
-    if next(ingress.llrs, end) is not end:
-        raise ValueError("Trailing LLRs do not belong to any scheduled B1 frame")
+    ingress.check_input_end()

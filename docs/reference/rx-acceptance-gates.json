@@ -1387,5 +1387,92 @@
     "synthesis_evidence": false,
     "whole_RX_qualified": false,
     "reference": "b1-payload-service.md"
+  },
+  "B1_shared_selected_normalized_train": {
+    "scope": "Preselected ordinary FT3/4 B1 normalized candidate offers, one exclusive front and one real shared Polar/CRC/MAC service",
+    "source_partition_known_at_entry": true,
+    "additional_RAM_bits": 0,
+    "additional_DSP_estimate": 0,
+    "additional_control_bits_estimate_64_bit_edges": 208,
+    "suffix_q10_IQ": {
+      "depth": 128,
+      "width_bits": 36,
+      "read_ports": 1,
+      "write_ports": 1
+    },
+    "frame_local_abort": "Rollback only the partial word and its decode/load deadline; preserve earlier complete words and independent successor",
+    "held_new_arms_by_clock_MHz": {
+      "100": {
+        "total": 25,
+        "isolated": 0,
+        "healthy_heads": 3,
+        "single": 0,
+        "ring": 0,
+        "ring_lost_isolated": 0,
+        "longest_busy_deficit": 1932,
+        "peak_suffix_words": 128,
+        "peak_ring_bytes": 0,
+        "front": {
+          "carrier_fifo_full": 17,
+          "carrier_pace_missed": 3,
+          "bad_header_crc": 1,
+          "selected_front_busy": 3,
+          "truncated_sync": 1
+        },
+        "ring_failures": {}
+      },
+      "160": {
+        "total": 25,
+        "isolated": 20,
+        "healthy_heads": 19,
+        "single": 11,
+        "ring": 14,
+        "ring_lost_isolated": 6,
+        "longest_busy_deficit": 4461,
+        "peak_suffix_words": 112,
+        "peak_ring_bytes": 2043,
+        "front": {
+          "payload_complete": 17,
+          "selected_front_busy": 4,
+          "bad_header_crc": 1,
+          "truncated_payload": 2,
+          "truncated_sync": 1
+        },
+        "ring_failures": {
+          "mac_capacity_full": 1,
+          "truncated": 2,
+          "crc": 1,
+          "mac_descriptor_full": 1
+        }
+      },
+      "200": {
+        "total": 25,
+        "isolated": 20,
+        "healthy_heads": 19,
+        "single": 11,
+        "ring": 14,
+        "ring_lost_isolated": 6,
+        "longest_busy_deficit": 4440,
+        "peak_suffix_words": 90,
+        "peak_ring_bytes": 2043,
+        "front": {
+          "payload_complete": 17,
+          "selected_front_busy": 4,
+          "bad_header_crc": 1,
+          "truncated_payload": 2,
+          "truncated_sync": 1
+        },
+        "ring_failures": {
+          "mac_capacity_full": 1,
+          "truncated": 2,
+          "crc": 1,
+          "mac_descriptor_full": 1
+        }
+      }
+    },
+    "dense_selected_front_adoption_passed": false,
+    "synthesis_evidence": false,
+    "whole_RX_qualified": false,
+    "reference": "psk-selected-carrier.md"
   }
 }

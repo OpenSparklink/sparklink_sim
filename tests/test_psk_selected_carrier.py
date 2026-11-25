@@ -11,7 +11,12 @@ from nearlink_sdr.phy.normalization_word import pack_normalized_word
 from nearlink_sdr.phy.psk_fields import map_psk_field
 from nearlink_sdr.phy.strict_rx import PSKReceiveProfile
 from nearlink_sdr.phy.tx_pipeline import TxConfig, encode_head
-from nearlink_sdr.sim.psk_selected_carrier import _SuffixIQ, replay_selected_b1_carrier
+from nearlink_sdr.sim.psk_selected_carrier import (
+    B1SelectedInput,
+    _SuffixIQ,
+    replay_selected_b1_carrier,
+    replay_selected_b1_train,
+)
 from nearlink_sdr.sim.psk_word_demap import B1SymbolFrame, PSKWordDemapper, TimedPSKWord
 from tests.test_b1_payload_service import _wave
 from tests.test_psk_word_demap import _symbols
@@ -244,3 +249,118 @@ def test_parallel_pi_completes_compact_b1_at_160_mhz_using_real_crc():
     assert bytes(v["value"] for v in events if v["kind"] == "mac_byte") == payload
     with pytest.raises(ValueError, match="parallel-pi"):
         replay_selected_b1_carrier(words, profile, **opts, carrier_schedule="unknown")
+
+
+def _replay_train(offers, service, loads, **options):
+    front, downstream = [], []
+    report = replay_selected_b1_train(
+        iter(offers), clock_hz=200_000_000, word_cycles=service, input_load_cycles=loads,
+        geometry="threshold", fraction_bits=1, carrier_schedule="parallel-pi",
+        head_layout="compact-parity", observer=downstream.append, front_observer=front.append,
+        **options,
+    )
+    return report, front, downstream
+
+
+def _mac_bytes(events, frame):
+    return bytes(r["value"] for r in events if r["kind"] == "mac_byte" and r["frame"] == frame)
+
+
+@pytest.mark.parametrize("mac_ring", [False, True])
+def test_selected_train_uses_one_actual_stalled_mac(mac_ring):
+    a = bytes(range(61))
+    b = bytes(range(31, 46))
+    p, x, _, c1, l1 = _frame(3, 4, a, pilot=8)
+    q, y, _, c2, l2 = _frame(4, 10, b, pilot=0, width=32)
+    second_edge = len(x) * 50 + 7000
+    report, front, events = _replay_train(
+        [B1SelectedInput(0, p, iter(x)), B1SelectedInput(second_edge, q, iter(y))],
+        c1 | c2, l1 | l2, mac_ring=mac_ring, mac_stall_until=180_000,
+    )
+    assert report["front"] == {"payload_complete": 2}
+    assert report["peak_suffix_words"] <= 128
+    assert [(r["candidate"], r["frame"]) for r in front if r["kind"] == "payload_selected"] == [
+        (0, 0), (1, 1),
+    ]
+    assert _mac_bytes(events, 0) == a
+    if mac_ring:
+        assert _mac_bytes(events, 1) == b
+        assert report["delivery"]["peak_payload_reservations"] == 2
+        assert [r["frame"] for r in events if r["kind"] == "mac_complete"] == [0, 1]
+    else:
+        failed, = [r for r in events if r["kind"] == "frame_failed"]
+        assert (failed["frame"], failed["reason"]) == (1, "mac_buffer_busy")
+        assert not _mac_bytes(events, 1)
+    assert all(r["edge"] > 180_000 for r in events if r["kind"] == "mac_complete")
+
+
+def test_selected_train_rolls_back_partial_word_and_preserves_next_fully_verified_payload():
+    a = bytes((n * 7) % 256 for n in range(612))
+    b = bytes(range(5, 25))
+    p, x, start, c1, l1 = _frame(3, 4, a, pilot=0)
+    q, y, _, c2, l2 = _frame(4, 11, b, pilot=8, width=32)
+    cut = start + 530
+    second_edge = cut * 50 + 7000
+    assert second_edge < len(x) * 50
+    report, front, events = _replay_train(
+        [B1SelectedInput(0, p, iter(x[:cut])), B1SelectedInput(second_edge, q, iter(y))],
+        c1 | c2, l1 | l2, mac_ring=True,
+    )
+    assert report["front"] == {"truncated_payload": 1, "payload_complete": 1}
+    summaries = [r["result"] for r in front if r["kind"] == "front_retired"]
+    assert all(r["header"]["header_crc"] for r in summaries)
+    assert summaries[0]["carrier_payload_outputs"] == cut - start
+    assert report["delivery"]["frame_failed"] == 1
+    failed, = [e for e in events if e["kind"] == "frame_failed"]
+    assert (failed["frame"], failed["reason"]) == (0, "truncated")
+    assert not _mac_bytes(events, 0)
+    assert _mac_bytes(events, 1) == b
+
+
+def test_busy_selected_front_does_not_pull_or_delay_the_rejected_source():
+    p, x, _, c1, l1 = _frame(4, 11, b"one", pilot=8)
+    q, y, _, c2, l2 = _frame(3, 4, b"third", pilot=0)
+
+    def untouched():
+        raise AssertionError("Resource-dropped source must never be read")
+        yield
+
+    busy_edge = len(x) * 50
+    recovery_edge = busy_edge + 7000
+    report, front, events = _replay_train(
+        [B1SelectedInput(0, p, iter(x)), B1SelectedInput(busy_edge, q, untouched()),
+         B1SelectedInput(recovery_edge, q, iter(y))],
+        c1 | c2, l1 | l2, mac_ring=True,
+    )
+    blocked, = [r for r in front if r.get("reason") == "selected_front_busy"]
+    assert blocked["candidate"] == 1 and blocked["edge"] == busy_edge
+    assert busy_edge < blocked["free_at"] <= recovery_edge
+    assert report["front"] == {"payload_complete": 2, "selected_front_busy": 1}
+    assert _mac_bytes(events, 0) == b"one"
+    assert _mac_bytes(events, 1) == b"third"
+
+
+def test_bad_head_does_not_consume_downstream_frame_index_and_bad_data_is_not_delivered():
+    p, x, _, c1, l1 = _frame(3, 4, b"bad head", bad_head=True)
+    q, y, _, c2, l2 = _frame(4, 9, b"bad payload", bad_data="frame", width=32)
+    r, z, _, c3, l3 = _frame(3, 6, b"next true payload", pilot=0)
+    second_edge = len(x) * 50 + 7000
+    third_edge = second_edge + len(y) * 50 + 7000
+    report, front, events = _replay_train(
+        [B1SelectedInput(0, p, iter(x)), B1SelectedInput(second_edge, q, iter(y)),
+         B1SelectedInput(third_edge, r, iter(z))],
+        c1 | c2 | c3, l1 | l2 | l3, mac_ring=True,
+    )
+    assert report["front"] == {"bad_header_crc": 1, "payload_complete": 2}
+    assert [(e["candidate"], e["frame"]) for e in front if e["kind"] == "payload_selected"] == [
+        (1, 0), (2, 1),
+    ]
+    assert [e["frame_crc_ok"] for e in events if e["kind"] == "crc_result"] == [False, True]
+    assert not _mac_bytes(events, 0)
+    assert _mac_bytes(events, 1) == b"next true payload"
+
+
+def test_train_rejects_unsorted_offers_even_if_previous_frame_aborted():
+    p, _, _, c1, l1 = _frame(3, 4, b"short", pilot=0)
+    with pytest.raises(ValueError, match="nondecreasing"):
+        _replay_train([B1SelectedInput(1, p, ()), B1SelectedInput(0, p, ())], c1, l1)
