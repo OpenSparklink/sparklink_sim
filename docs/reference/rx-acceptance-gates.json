@@ -1474,5 +1474,56 @@
     "synthesis_evidence": false,
     "whole_RX_qualified": false,
     "reference": "psk-selected-carrier.md"
+  },
+  "B1_sync_prefix_overlap": {
+    "scope": "Optional causal known-sync prefix on the selected-normalized ordinary FT3/4 B1 timeline",
+    "input_offers_per_edge": 1,
+    "maximum_staged_syncs": 1,
+    "logical_additional_control_bits_estimate": 574,
+    "estimated_added_data_RAM_bits": 0,
+    "estimated_added_DSP": 0,
+    "single_shared_input_gain_head_B2": true,
+    "held_new_by_clock_MHz": {
+      "100": {
+        "frames": 29,
+        "reference": 0,
+        "overlap": 0,
+        "recovered": 0,
+        "regressed": 0,
+        "equal_Q14": 0,
+        "sync_overlap_started": 2,
+        "sync_overlap_promoted": 2,
+        "selected_suffix_busy": 0,
+        "peak_suffix_words": 128
+      },
+      "160": {
+        "frames": 29,
+        "reference": 12,
+        "overlap": 17,
+        "recovered": 6,
+        "regressed": 1,
+        "equal_Q14": 15,
+        "sync_overlap_started": 16,
+        "sync_overlap_promoted": 11,
+        "selected_suffix_busy": 4,
+        "peak_suffix_words": 112
+      },
+      "200": {
+        "frames": 29,
+        "reference": 13,
+        "overlap": 18,
+        "recovered": 6,
+        "regressed": 1,
+        "equal_Q14": 15,
+        "sync_overlap_started": 17,
+        "sync_overlap_promoted": 13,
+        "selected_suffix_busy": 3,
+        "peak_suffix_words": 90
+      }
+    },
+    "default_adoption_passed": false,
+    "synthesis_evidence": false,
+    "whole_RX_qualified": false,
+    "reference": "psk-selected-carrier.md"
   }
 }

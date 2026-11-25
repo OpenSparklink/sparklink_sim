@@ -364,3 +364,103 @@ def test_train_rejects_unsorted_offers_even_if_previous_frame_aborted():
     p, _, _, c1, l1 = _frame(3, 4, b"short", pilot=0)
     with pytest.raises(ValueError, match="nondecreasing"):
         _replay_train([B1SelectedInput(1, p, ()), B1SelectedInput(0, p, ())], c1, l1)
+
+
+def _overlap_frames():
+    a = bytes((i * 7 + 53) % 256 for i in range(65))
+    b = bytes((i * 5 + 33) % 256 for i in range(30))
+    p, x, _, c1, l1 = _frame(3, 4, a, pilot=8)
+    q, y, _, c2, l2 = _frame(4, 10, b, pilot=8, width=32)
+    return (p, x, a), (q, y, b), c1 | c2, l1 | l2
+
+
+def test_b1_sync_overlap_recovers_contiguous_source_without_shifting_its_header():
+    (p, x, a), (q, y, b), service, loads = _overlap_frames()
+    second_edge = len(x) * 50
+    offers = [B1SelectedInput(0, p, x), B1SelectedInput(second_edge, q, y)]
+    base, _, _ = _replay_train(offers, service, loads, mac_ring=True)
+    got, front, out = _replay_train(offers, service, loads, mac_ring=True, sync_overlap=True)
+    assert base["front"] == {"payload_complete": 1, "selected_front_busy": 1}
+    assert got["front"] == {"payload_complete": 2}
+    started, = [r for r in front if r["kind"] == "sync_overlap_started"]
+    promoted, = [r for r in front if r["kind"] == "sync_overlap_promoted"]
+    assert started["edge"] == second_edge < promoted["edge"] <= started["header_edge"]
+    assert promoted["candidate"] == 1 and promoted["sync_words"] > 0
+    assert [_mac_bytes(out, i) for i in range(2)] == [a, b]
+
+    reference = replay_selected_b1_carrier(
+        y, q, first_edge=second_edge, clock_hz=200_000_000, word_cycles=service,
+        input_load_cycles=loads, geometry="threshold", fraction_bits=1,
+        carrier_schedule="parallel-pi", head_layout="compact-parity", mac_ring=True,
+    )
+    actual, = [r["result"] for r in front if r["kind"] == "front_retired" and r["candidate"] == 1]
+    for k in actual.keys() - {"status"}:
+        assert actual[k] == reference[k], k
+
+
+@pytest.mark.parametrize("slack", [0, -1])
+def test_b1_sync_overlap_retires_at_first_header_edge_or_expires_without_pull(slack):
+    (p, x, a), _, c1, l1 = _overlap_frames()
+    q, y, _, c2, l2 = _frame(3, 4, b"short sync", pilot=0)
+    service, loads = c1 | c2, l1 | l2
+    _, solo, _ = _replay_train([B1SelectedInput(0, p, x)], service, loads)
+    retired, = [r for r in solo if r["kind"] == "front_retired"]
+    free_at = retired["edge"] + 1
+    nsync = len(q.sync_symbols())
+    second_edge = free_at - nsync * 50 + slack
+    assert len(x) * 50 <= second_edge < free_at
+    pulls = []
+
+    def successor():
+        for i, word in enumerate(y):
+            pulls.append(i)
+            yield word
+
+    offers = [B1SelectedInput(0, p, x), B1SelectedInput(second_edge, q, successor())]
+    got, front, out = _replay_train(offers, service, loads, sync_overlap=True, mac_ring=True)
+    assert _mac_bytes(out, 0) == a
+    if slack == 0:
+        promoted, = [r for r in front if r["kind"] == "sync_overlap_promoted"]
+        assert (promoted["edge"], promoted["sync_words"]) == (free_at, nsync)
+        assert _mac_bytes(out, 1) == b"short sync"
+        assert got["front"] == {"payload_complete": 2}
+    else:
+        failed, = [r for r in front if r.get("reason") == "selected_suffix_busy"]
+        assert (failed["edge"], failed["sync_words"]) == (free_at - 1, nsync)
+        assert pulls == list(range(nsync))
+        assert got["front"] == {"payload_complete": 1, "selected_suffix_busy": 1}
+
+
+def test_b1_sync_overlap_checks_ports_and_recovers_after_empty_staged_offer():
+    (p, x, a), (q, y, b), service, loads = _overlap_frames()
+    second_edge = len(x) * 50
+
+    def untouched():
+        raise AssertionError("An unowned input port must not read the offered source")
+        yield
+
+    offers = [
+        B1SelectedInput(0, p, x),
+        B1SelectedInput(50, q, untouched()),
+        B1SelectedInput(second_edge, q, ()),
+        B1SelectedInput(second_edge + 1, q, y),
+        B1SelectedInput(second_edge + 2, q, untouched()),
+    ]
+    got, front, out = _replay_train(offers, service, loads, sync_overlap=True, mac_ring=True)
+    assert got["front"] == {
+        "selected_input_busy": 1, "truncated_sync": 1, "selected_sync_busy": 1,
+        "payload_complete": 2,
+    }
+    assert [(r["candidate"], r["edge"]) for r in front if r["kind"] == "front_failed"] == [
+        (1, 50), (2, second_edge), (4, second_edge + 2),
+    ]
+    assert [_mac_bytes(out, i) for i in range(2)] == [a, b]
+
+
+def test_b1_sync_overlap_limits_candidate_descriptors_to_one_per_edge():
+    (p, x, _), (q, y, _), service, loads = _overlap_frames()
+    offers = [B1SelectedInput(0, p, x), B1SelectedInput(0, q, y)]
+    with pytest.raises(ValueError, match="one offer per edge"):
+        _replay_train(offers, service, loads, sync_overlap=True)
+    with pytest.raises(ValueError, match="boolean B1 sync overlap"):
+        _replay_train(offers, service, loads, sync_overlap=1)

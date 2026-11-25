@@ -34,6 +34,65 @@ def _signed18(value, shift):
     return clipped, clipped != scaled
 
 
+def _scaled_iq(real, imag, exponent, fraction):
+    shift = exponent + fraction
+    real, clipped_real = _signed18(real, shift)
+    imag, clipped_imag = _signed18(imag, shift)
+    return real, imag, clipped_real + clipped_imag
+
+
+class _SyncGain:
+    """Own the gain pipeline until its immutable result is registered."""
+
+    def __init__(self, profile):
+        self.template = tuple((_q14(z.real)[0], _q14(z.imag)[0])
+                              for z in profile.sync_symbols())
+        self.engine = PSKSyncGain(len(self.template))
+        self.result = None
+
+    def advance(self, edge):
+        if self.engine is not None:
+            self.result = self.engine.advance(edge)
+            if self.result is not None:
+                self.engine = None
+
+    def accept(self, edge, index, real, imag, exponent):
+        real, imag, clipped = _scaled_iq(real, imag, exponent, 14)
+        self.engine.accept(edge, (real, imag), self.template[index])
+        return clipped
+
+
+class _SyncOffer:
+    """A candidate consuming sync words only, without head or suffix storage."""
+
+    def __init__(self, candidate, offer, period):
+        self.candidate, self.offer = candidate, offer
+        self.source = iter(offer.words)
+        self.gain = _SyncGain(offer.profile)
+        self.period = period
+        self.next_input = offer.first_edge
+        self.header_edge = self.next_input + period * len(self.gain.template)
+        self.index = self.saturations = 0
+        self.pending = None
+
+    def step(self, edge):
+        self.gain.advance(edge)
+        if self.pending is not None:
+            self.saturations += self.gain.accept(edge, *self.pending)
+            self.pending = None
+        if edge != self.next_input:
+            return True
+        if edge >= self.header_edge:
+            raise RuntimeError("Staged B1 source reached an unowned header")
+        word = next(self.source, _END)
+        if word is _END:
+            return False
+        self.pending = self.index, *unpack_normalized_word(word)
+        self.index += 1
+        self.next_input += self.period
+        return True
+
+
 class _SuffixIQ:
     """Contiguous Q10 I/Q ring with one registered RAM read and an empty bypass."""
 
@@ -85,10 +144,10 @@ class _SelectedFrame:
 
     def __init__(
         self, words, profile, first_edge, clock_hz, depth, layout, observer, *, engine_type,
-        suffix_ram=None,
+        suffix_ram=None, staged_sync=None,
     ):
-        self.source = iter(words)
-        self.edge, self.first = first_edge, first_edge
+        self.source = iter(words) if staged_sync is None else staged_sync.source
+        self.edge = first_edge
         self.period = clock_hz // 4_000_000
         self.depth = depth
         self.observer = observer
@@ -96,9 +155,7 @@ class _SelectedFrame:
         assert self.head.begin()
         self.nsync = self.head.start
         self.data_start = self.head.header.geometry.data_start
-        template = self.head.header.profile.sync_symbols()
-        self.template = tuple((_q14(z.real)[0], _q14(z.imag)[0]) for z in template)
-        self.gain = PSKSyncGain(self.nsync)
+        self.gain = _SyncGain(profile) if staged_sync is None else staged_sync.gain
         self.carrier = engine_type(self.head.modulation, self.nsync)
         self.profile = self.head.header.profile
         self.next_input = first_edge
@@ -113,6 +170,15 @@ class _SelectedFrame:
         self.failure = self.failure_edge = self.missed_launch_edge = None
         self.peak = self.warm_outputs = self.payload_outputs = 0
         self.source_saturations = self.output_saturations = self.post_frame_words = 0
+        if staged_sync is not None:
+            self.next_input = staged_sync.next_input
+            self.index, self.pending = staged_sync.index, staged_sync.pending
+            self.source_saturations = staged_sync.saturations
+
+    @property
+    def input_released(self):
+        return self.eof or (self.payload_cfg is not None
+                            and self.index >= self.header_row["frame_end_symbol"])
 
     def _send(self, kind, **fields):
         if self.observer is not None:
@@ -152,13 +218,11 @@ class _SelectedFrame:
         if self.payload_cfg is not None and index >= self.header_row["frame_end_symbol"]:
             self.post_frame_words += 1
             return
-        shift = exp + (14 if index < self.nsync else 10)
-        real, cr = _signed18(r, shift)
-        imag, ci = _signed18(i, shift)
-        self.source_saturations += cr + ci
         if index < self.nsync:
-            self.gain.accept(self.edge, (real, imag), self.template[index])
+            self.source_saturations += self.gain.accept(self.edge, index, r, i, exp)
         else:
+            real, imag, clipped = _scaled_iq(r, i, exp, 10)
+            self.source_saturations += clipped
             if len(self.buffer) == self.depth:
                 self._fail("carrier_fifo_full")
                 return
@@ -252,7 +316,7 @@ class _SelectedFrame:
         self.edge += 1
         return out if self.failure is None else None
 
-    def next_payload(self):
+    def next_payload(self, active_edge=None):
         while self.failure is None:
             if (self.header_row is not None
                     and self.payload_outputs == self.header_row["wire_data_symbols"]):
@@ -261,8 +325,13 @@ class _SelectedFrame:
                     and self.carrier.active is None and self.header_row is not None):
                 self.truncated = True
                 self._fail("truncated_payload")
+                if active_edge is not None:
+                    active_edge(self, self.edge, False)
                 return None
+            prior_index = self.index
             out = self._step()
+            if active_edge is not None:
+                active_edge(self, self.edge - 1, self.index != prior_index)
             if out is not None:
                 return out
         return None
@@ -318,9 +387,9 @@ def _payload_frame(front, first):
     return frame
 
 
-def _payload_words(front, first):
+def _payload_words(front, first, active_edge=None):
     yield first
-    while (word := front.next_payload()) is not None:
+    while (word := front.next_payload(active_edge)) is not None:
         yield word
 
 
@@ -361,13 +430,17 @@ class B1SelectedInput:
 
 def replay_selected_b1_train(
     offers, *, clock_hz, word_cycles, suffix_depth=128, head_layout="dense",
-    carrier_schedule="serial", observer=None, front_observer=None, **decoder_options,
+    carrier_schedule="serial", observer=None, front_observer=None, sync_overlap=False,
+    **decoder_options,
 ):
     """Share one selected front lane and one downstream service across ordered offers.
 
     The caller owns the normalized candidate boundaries. An offer before the
-    prior front retires is rejected at its arrival edge without reading its
-    source. Independently framed inputs can continue after a truncated prefix.
+    prior front retires is rejected at its arrival edge by default.
+    With sync_overlap, one early offer may begin its sync work after the older
+    lane releases normalized input and the gain engine. It needs the older
+    lane to retire by its first non-sync input edge. Independently framed
+    inputs can continue after a truncated prefix.
     Front events tag the candidate index. The payload_selected event associates
     that index with the frame index used by the downstream observer. Compare
     timestamps, since lazy lookahead can report an earlier rejected offer after
@@ -375,6 +448,8 @@ def replay_selected_b1_train(
     """
     if clock_hz not in _CLOCKS or suffix_depth not in _DEPTHS:
         raise ValueError("Need bounded selected-frame clock and suffix FIFO")
+    if type(sync_overlap) is not bool:
+        raise ValueError("Need a boolean B1 sync overlap option")
     engine_type = _engine_type(carrier_schedule)
     outcomes = Counter()
     peak = 0
@@ -383,35 +458,96 @@ def replay_selected_b1_train(
         if front_observer is not None:
             front_observer(dict(candidate=candidate, kind=kind, edge=edge, **fields))
 
-    def frames():
-        nonlocal peak
-        suffix_ram = [0] * suffix_depth
-        last_edge, free_at, next_frame = -1, 0, 0
+    def checked_offers():
+        last_edge = -1
         for candidate, offer in enumerate(offers):
             if not isinstance(offer, B1SelectedInput):
                 raise ValueError("Need B1 selected input offers")
-            edge = offer.first_edge
-            _validate_front(offer.profile, clock_hz, edge, suffix_depth)
-            if edge < last_edge:
+            _validate_front(offer.profile, clock_hz, offer.first_edge, suffix_depth)
+            if offer.first_edge < last_edge:
                 raise ValueError("B1 candidate arrival edges must be nondecreasing")
-            last_edge = edge
-            if edge < free_at:
-                outcomes["selected_front_busy"] += 1
-                report(candidate, "front_failed", edge, reason="selected_front_busy",
-                       free_at=free_at)
-                continue
+            if sync_overlap and offer.first_edge == last_edge:
+                raise ValueError("B1 sync overlap requires at most one offer per edge")
+            last_edge = offer.first_edge
+            yield candidate, offer
+
+    def reject(candidate, edge, reason, **fields):
+        outcomes[reason] += 1
+        report(candidate, "front_failed", edge, reason=reason, **fields)
+
+    def frames():
+        nonlocal peak
+        suffix_ram = [0] * suffix_depth
+        period = clock_hz // 4_000_000
+        arrivals = checked_offers()
+        incoming = staged = None
+        free_at, next_frame = 0, 0
+
+        def active_edge(front, edge, raw_received):
+            nonlocal incoming, staged
+            if staged is not None:
+                if raw_received:
+                    raise RuntimeError("B1 overlap reused the same normalized input port")
+                if edge == staged.header_edge:
+                    reject(staged.candidate, edge, "selected_suffix_busy",
+                           sync_words=staged.index)
+                    staged = None
+                elif not staged.step(edge):
+                    reject(staged.candidate, edge, "truncated_sync", sync_words=staged.index)
+                    staged = None
+
+            if incoming is None or incoming[1].first_edge > edge:
+                return
+            number, next_offer = incoming
+            if next_offer.first_edge != edge:
+                raise RuntimeError("Missed the original B1 sync offer edge")
+            if staged is not None:
+                reject(number, edge, "selected_sync_busy")
+            elif raw_received or not front.input_released:
+                reject(number, edge, "selected_input_busy")
+            elif front.gain.result is None:
+                reject(number, edge, "selected_gain_busy")
+            else:
+                staged = _SyncOffer(number, next_offer, period)
+                report(number, "sync_overlap_started", edge, header_edge=staged.header_edge)
+                if not staged.step(edge):
+                    reject(number, edge, "truncated_sync", sync_words=staged.index)
+                    staged = None
+            incoming = next(arrivals, None)
+
+        while True:
+            if staged is None and incoming is None:
+                incoming = next(arrivals, None)
+                if incoming is None:
+                    break
+            prefix = staged
+            if prefix is not None:
+                candidate, offer = prefix.candidate, prefix.offer
+                staged = None
+                edge = free_at
+                if edge > prefix.header_edge:
+                    raise RuntimeError("Staged B1 prefix outlived its header deadline")
+                report(candidate, "sync_overlap_promoted", edge, sync_words=prefix.index)
+            else:
+                candidate, offer = incoming
+                edge = offer.first_edge
+                incoming = next(arrivals, None) if sync_overlap else None
+                if edge < free_at:
+                    reject(candidate, edge, "selected_front_busy", free_at=free_at)
+                    continue
 
             front = _SelectedFrame(
                 offer.words, offer.profile, edge, clock_hz, suffix_depth, head_layout,
                 None if front_observer is None else
                 lambda row: front_observer(dict(candidate=candidate, **row)),
-                engine_type=engine_type, suffix_ram=suffix_ram,
+                engine_type=engine_type, suffix_ram=suffix_ram, staged_sync=prefix,
             )
-            first = front.next_payload()
+            callback = active_edge if sync_overlap else None
+            first = front.next_payload(callback)
             if first is not None:
                 report(candidate, "payload_selected", first.edge, frame=next_frame)
                 next_frame += 1
-                yield _payload_frame(front, first), _payload_words(front, first)
+                yield _payload_frame(front, first), _payload_words(front, first, callback)
             free_at = front.edge + int(front.edge == front.failure_edge)
             status = front.failure or "payload_complete"
             outcomes[status] += 1
