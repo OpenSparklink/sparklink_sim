@@ -202,6 +202,7 @@ psk-noise-recovery-results
 /apidocs/nearlink_sdr/nearlink_sdr.sim.payload_polar_flow
 /apidocs/nearlink_sdr/nearlink_sdr.sim.payload_polar_ingress
 /apidocs/nearlink_sdr/nearlink_sdr.sim.b1_payload_service
+/apidocs/nearlink_sdr/nearlink_sdr.sim.live_b1_words
 /apidocs/nearlink_sdr/nearlink_sdr.sim.psk_word_demap
 /apidocs/nearlink_sdr/nearlink_sdr.sim.psk_sync_gain
 /apidocs/nearlink_sdr/nearlink_sdr.sim.psk_selected_carrier

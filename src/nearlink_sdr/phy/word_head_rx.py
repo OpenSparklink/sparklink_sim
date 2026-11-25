@@ -26,6 +26,9 @@ class WordHeadPSKReceiver(NormalizedWordPSKReceiver):
     def _store_normalized_word(self, source_word, output_word, after_samples):
         index = self._active["count"]
         super()._store_normalized_word(source_word, output_word, after_samples)
+        self._offer_header_word(index, output_word)
+
+    def _offer_header_word(self, index, output_word):
         if self.head_owner.start <= index < self.head_owner.end and not self.head_owner.offer(
             output_word, index
         ):

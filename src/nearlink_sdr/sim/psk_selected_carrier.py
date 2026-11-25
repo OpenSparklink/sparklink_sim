@@ -197,15 +197,17 @@ class _SelectedFrame:
 
     def __init__(
         self, words, profile, first_edge, clock_hz, depth, layout, observer, *, engine_type,
-        suffix_ram=None, staged_sync=None,
+        suffix_ram=None, staged_sync=None, head_owner=None,
     ):
         self.source = iter(words) if staged_sync is None else staged_sync.source
         self.edge = first_edge
         self.period = clock_hz // 4_000_000
         self.depth = depth
         self.observer = observer
-        self.head = HeaderFromWordsService(profile, layout=layout)
-        assert self.head.begin()
+        self.owns_head = head_owner is None
+        self.head = HeaderFromWordsService(profile, layout=layout) if self.owns_head else head_owner
+        if self.owns_head:
+            assert self.head.begin()
         self.nsync = self.head.start
         self.data_start = self.head.header.geometry.data_start
         self.gain = _SyncGain(profile) if staged_sync is None else staged_sync.gain
@@ -301,9 +303,10 @@ class _SelectedFrame:
     def _take_header(self):
         if not self.head.ready:
             return
-        self.header_row = self.head.take()
-        self.header_edge = self.edge
-        row = self.header_row
+        self._install_header(self.head.take())
+
+    def _install_header(self, row):
+        self.header_row, self.header_edge = row, self.edge
         self._send("header_visible", status=row["status"], header_crc=row["header_crc"])
         if row["status"] != "header_valid":
             self._fail(row["status"])
@@ -385,7 +388,7 @@ class _SelectedFrame:
                 if self.carrier is not None:
                     self._launch()  # forward a newly committed word if B2 remains idle
                 self._receive()
-                if self.header_row is None:
+                if self.header_row is None and self.owns_head:
                     self.head.step()
         self.peak = max(self.peak, len(self.buffer))
         self.edge += 1

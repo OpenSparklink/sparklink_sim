@@ -83,6 +83,10 @@ class PSKSyncGain:
         if self.observer is not None:
             self.observer(dict(kind=kind, edge=edge, **fields))
 
+    @property
+    def input_ready(self):
+        return self._mode == "idle"
+
     def accept(self, edge, sample, reference):
         """Capture two signed Q14 pairs when the single sample slot is free."""
         self.advance(edge)

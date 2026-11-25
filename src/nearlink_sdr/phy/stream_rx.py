@@ -283,11 +283,15 @@ class PSKStreamReceiver:
             self.capture_stats.update(coherent_evaluations=0, coherent_rejections=0,
                                       coherent_accepted=0, coherent_zero_energy=0)
         self.max_frame_symbols = self._frame_bound()
-        self._values = np.empty(self.max_frame_symbols, complex)
-        self._centers = np.empty(self.max_frame_symbols)
-        self._rates = np.empty(self.max_frame_symbols)
-        self._errors = np.empty(self.max_frame_symbols)
+        trace_size = self._symbol_trace_size()
+        self._values = np.empty(trace_size, complex)
+        self._centers = np.empty(trace_size)
+        self._rates = np.empty(trace_size)
+        self._errors = np.empty(trace_size)
         self._head_required = self._header_requirement()
+
+    def _symbol_trace_size(self):
+        return self.max_frame_symbols
 
     @property
     def _filtered(self):

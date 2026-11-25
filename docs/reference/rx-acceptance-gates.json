@@ -1716,5 +1716,29 @@
     "qualified_whole_receiver": false,
     "synthesis": false,
     "reference": "split-sampling-integration.md"
+  },
+  "b1_live_selected_filtered_to_mac": {
+    "scope": "Single already-selected and prepared standard coded FT3/4 B1 QPSK/8PSK, 4 Msym/s SPS4",
+    "actual_head_decodes_per_delivered_frame": 1,
+    "raw_history_words": 512,
+    "suffix_words": 8,
+    "suffix_data_bits": 288,
+    "suffix_one_logical_read_and_write_per_edge": true,
+    "registered_normalized_output_words": 1,
+    "sync_gain_additional_word_capacity": 1,
+    "fixed_start_guard_edges": 12,
+    "carrier_edges": 39,
+    "prepared_200MHz_continuous_fixed_baseline_no_credit_delivered": 0,
+    "prepared_200MHz_continuous_fixed_with_credit_delivered": 3,
+    "prepared_200MHz_continuous_fixed_max_raw_history": 505,
+    "prepared_200MHz_continuous_held_legal_delivered": 4,
+    "prepared_200MHz_continuous_held_legal_total": 4,
+    "held_pauseable_200MHz_carrier_underflow_bytes": 1442,
+    "continuous_100_160MHz_raw_overflows_across_fixed_and_held": 20,
+    "functional_resolutions": 0,
+    "multi_frame_sharing_verified": false,
+    "qualified_whole_receiver_16MSps": false,
+    "synthesis": false,
+    "reference": "psk-selected-carrier.md"
   }
 }

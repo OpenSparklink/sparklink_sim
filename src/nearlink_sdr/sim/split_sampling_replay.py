@@ -78,6 +78,7 @@ class SplitSamplingFrameReplay(SelectedFrameReplay):
     """
 
     _retain_completed_stencil = True
+    _consumer_type = _SplitReceiver
 
     def __init__(self, profile, prepared, *, error_age, normalization_format,
                  word_timing_format, head_layout="dense", service_observer=None,
@@ -131,7 +132,7 @@ class SplitSamplingFrameReplay(SelectedFrameReplay):
         return HeaderFromWordsService(profile, layout=layout)
 
     def _make_consumer(self, profile, initial_fit, word_timing_format, selection):
-        return _SplitReceiver(
+        return self._consumer_type(
             profile, initial_fit=initial_fit, word_timing_format=word_timing_format,
             normalization_format=self.normalization_format, head_owner=self.head_owner, **selection
         )
