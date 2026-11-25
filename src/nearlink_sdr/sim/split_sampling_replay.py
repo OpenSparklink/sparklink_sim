@@ -80,7 +80,8 @@ class SplitSamplingFrameReplay(SelectedFrameReplay):
     _retain_completed_stencil = True
 
     def __init__(self, profile, prepared, *, error_age, normalization_format,
-                 word_timing_format, head_layout="dense", service_observer=None, **options):
+                 word_timing_format, head_layout="dense", service_observer=None,
+                 compact_query=False, start_stencil_on_reply=False, **options):
         if type(error_age) is not int or error_age not in (0, 1, 2, 3):
             raise ValueError("Need compiled error age0,1,2,3")
         if word_timing_format != TimingWordFormat(30, 32):
@@ -93,6 +94,9 @@ class SplitSamplingFrameReplay(SelectedFrameReplay):
             raise ValueError("Need explicit ordered stencil reuse")
         if service_observer is not None and not callable(service_observer):
             raise ValueError("Need a read-only optional service observer")
+        if type(compact_query) is not bool or type(start_stencil_on_reply) is not bool:
+            raise ValueError("Need boolean split sampling handoff options")
+        self.start_stencil_on_reply = start_stencil_on_reply
         self.error_age, self.capacity = error_age, error_age + 2
         self.normalization_format, self.service_observer = normalization_format, service_observer
         self.head_owner = self._make_head_owner(profile, head_layout)
@@ -104,7 +108,7 @@ class SplitSamplingFrameReplay(SelectedFrameReplay):
             self.consumer.detector, divider="radix4-prefix"
         )
         self.pi_service = TimingPIService(self.consumer.pi)
-        self.query_service = SplitTimingQueryService()
+        self.query_service = SplitTimingQueryService(compact_retirement=compact_query)
         self.normalization_service = PipelinedNormalizationService(
             self.consumer.claim_normalization_state()
         )
@@ -317,6 +321,10 @@ class SplitSamplingFrameReplay(SelectedFrameReplay):
             self._count("query_replies")
             self._retire(reply["retain_before"])
             self._plan_samples(queries, reply["future_end"], compaction=compaction)
+            if (self.start_stencil_on_reply and self.mode == "queries"
+                    and not self.transport_eof and len(self.staged) < 4
+                    and not self._request_stencil_word() and self.done):
+                return
         elif self.mode == "cache":
             n = self.sample_index
             if not self.cache_requested:
@@ -399,6 +407,14 @@ class SplitSamplingFrameReplay(SelectedFrameReplay):
         return result | dict(
             split_detector=self.detector_service.estimate(), PI=self.pi_service.estimate(),
             query=self.query_service.estimate(),
+            raw_read_on_registered_query_reply=self.start_stencil_on_reply,
+            same_edge_added_raw_RAM_ports=0,
+            same_edge_added_DSP=0,
+            same_edge_additional_register_bits_estimated=0,
+            same_edge_address_assumption=(
+                "registered query reply to stencil overlap, address, range and 1R1W credit "
+                "on the command edge; no read-data bypass; unsynthesized"
+            ) if self.start_stencil_on_reply else None,
             normalization=self.normalization_service.estimate(self.normalization_format.mode),
             head=self.head_owner.cost(), tagged_queue_and_receipt_bits_upper=control,
             dedicated_DSP_banks=dict(interpolation=6, detector=4, PI=4, normalization=4),

@@ -200,3 +200,86 @@ def test_query_preflight_preserves_credit_history_and_stencil_on_invalid_reply(f
     with pytest.raises(OverflowError):
         flow.step()
     assert snapshot() == before
+
+
+@pytest.mark.parametrize("ft,mcs,pilot", [(2, 8, 0), (3, 5, 8), (4, 11, 4)])
+def test_registered_handoffs_preserve_every_word_and_actual_head(ft, mcs, pilot):
+    profile = ordinary(ft, mcs, pilot)
+    values, payload, selection = selected_input(profile, length=45)
+    words = quantize_input(values)
+    runs = []
+    for fast in (False, True):
+        raw, services = [], []
+        event, flow, barriers = run(profile, words, selection, partial(
+            SplitSamplingFrameReplay, error_age=1, observer=raw.append,
+            service_observer=services.append, compact_query=fast, start_stencil_on_reply=fast,
+        ), (1, 23, 7))
+        assert barriers == ["payload"] and event["frame"]["payload"] == payload
+        runs.append((event, flow, raw, services))
+    a, before, ra, sa = runs[0]
+    b, after, rb, sb = runs[1]
+    assert before.cycle > after.cycle
+    assert before.history.stats["read_requests"] == after.history.stats["read_requests"]
+    assert [r["values"] for r in sa if r["kind"] == "joined"] == [
+        r["values"] for r in sb if r["kind"] == "joined"]
+    assert sorted((r["symbol"], r["role"], r["cell"], r["phase"], r["word"]) for r in ra) == (
+        sorted((r["symbol"], r["role"], r["cell"], r["phase"], r["word"]) for r in rb))
+    assert a["frame"] == b["frame"]
+    for key in TRACES:
+        np.testing.assert_array_equal(a[key], b[key])
+    assert after.estimate()["same_edge_added_raw_RAM_ports"] == 0
+
+
+@pytest.mark.parametrize("collide", [False, True])
+def test_early_raw_command_reuses_registered_read_and_defers_same_address(collide):
+    profile = ordinary(3, 5, 8)
+    values, _, selection = selected_input(profile, length=23)
+    words = quantize_input(values)
+    prepared, pos = prepare(profile, words, selection)
+    flow = SplitSamplingFrameReplay(
+        profile, prepared, error_age=1, normalization_format=NormalizationFormat(),
+        word_timing_format=FORMAT, reuse_stencil=True, compact_query=True,
+        start_stencil_on_reply=True, **selection,
+    )
+    while not (flow.mode == "nco_query" and flow.query_service.ready
+               and flow.sample_index > len(profile.sync_symbols())):
+        if flow.wants_replay_input:
+            pos += flow.feed_replay_words(words[pos:pos + 1])
+        flow.step()
+    reply = flow.query_service.result
+    first = reply["queries"][1]["cell"] - 1
+    reuse = max(0, 4 - (first - flow.stage_start))
+    index = first + reuse
+    assert 0 <= reuse < 3 and pos == index + 1
+    edge = flow.cycle
+    if not collide:
+        assert flow.write_input(words[pos])  # Different address on the same command edge.
+    deferrals = flow.history.stats["same_address_deferrals"]
+    flow.step()
+    assert flow.history.pending == (index, words[index], edge + 1)
+    assert len(flow.staged) == reuse
+    if collide:
+        assert flow.write_input(words[pos])  # Next request and write would share an address.
+    flow.step()
+    assert len(flow.staged) == reuse + 1
+    assert flow.history.stats["same_address_deferrals"] == deferrals + int(collide)
+    if collide:
+        assert flow.history.pending is None
+        flow.step()
+    assert flow.history.pending == (pos, words[pos], edge + 2 + int(collide))
+    flow.step()
+    assert flow.query_index == 1 and flow.kernel.live == 1
+    assert flow.history.pending is None
+    assert flow.staged == list(words[index:pos + 1])  # Actual overlap retained for the center.
+
+
+def test_invalid_registered_handoff_choice_leaves_prepared_owner_untouched():
+    profile = ordinary()
+    values, _, selection = selected_input(profile, length=7)
+    prepared, _ = prepare(profile, quantize_input(values), selection)
+    with pytest.raises(ValueError, match="handoff options"):
+        SplitSamplingFrameReplay(
+            profile, prepared, error_age=1, normalization_format=NormalizationFormat(),
+            word_timing_format=FORMAT, reuse_stencil=True, compact_query=1, **selection,
+        )
+    assert prepared.ready and not prepared.fit.output_taken

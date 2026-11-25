@@ -228,6 +228,20 @@ class SelectedFrameReplay:
     def _retire(self, index):
         self.history.retire_before(max(self.history.head, min(index, self.history.end)), self.cycle)
 
+    def _request_stencil_word(self):
+        index = self.stage_start + len(self.staged)
+        if index < self.history.head:
+            self.abort("expired_history")
+            return False
+        if self.history.pending is None:
+            if index < self.history.end:
+                if self.history.request(index, self.cycle):
+                    self._count("raw_reads")
+            elif self.eof:
+                self._finish_eof()
+                return False
+        return True
+
     def _step_queries(self):
         reply = self.history.take(self.cycle)
         if reply is not None:
@@ -257,17 +271,9 @@ class SelectedFrameReplay:
                     # Both kernels own their raw copies. Future midpoint cannot precede
                     # the current center because the existing loop step stays positive.
                     self._retire(self.queries[0 if not self.reuse_stencil else 1]["cell"] - 1)
-        if self.query_index < len(self.queries) and len(self.staged) < 4:
-            index = self.stage_start + len(self.staged)
-            if index < self.history.head:
-                self.abort("expired_history")
-                return
-            if self.history.pending is None and index < self.history.end:
-                if self.history.request(index, self.cycle):
-                    self._count("raw_reads")
-            elif self.eof and index >= self.history.end and self.history.pending is None:
-                self._finish_eof()
-                return
+        if (self.query_index < len(self.queries) and len(self.staged) < 4
+                and not self._request_stencil_word()):
+            return
         result = self.kernel.take()
         if result is not None:
             role = result["tag"]

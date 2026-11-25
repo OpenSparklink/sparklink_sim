@@ -88,3 +88,26 @@ def test_future_coordinate_and_counter_overflow_are_explicit():
     service.cycle = 2**64 - 1
     with pytest.raises(OverflowError):
         service.step()
+
+
+@pytest.mark.parametrize("count", [31, 32])
+@pytest.mark.parametrize("fraction", [0, 32768, ONE - 1])
+def test_compact_query_publishes_exact_same_receipt_one_edge_earlier(count, fraction):
+    state = WordTimingState((1, 0), 0, 32)
+    state.next_q32 = (2**63 + 3) * ONE + fraction
+    state.previous_q32 = state.next_q32 - 4 * ONE - 1
+    state.count = count
+    out = []
+    for compact in (False, True):
+        service = TimingQueryService(compact_retirement=compact)
+        latency = 2 if compact else 3
+        assert service.issue(state)
+        for _ in range(latency):
+            assert service.take() is None
+            service.step()
+        assert service.ready_cycle - service.first_cycle == latency
+        service.step()  # Hold the exact registered reply through backpressure.
+        out.append(service.take())
+        assert not service.issue(state)
+        assert service.estimate()["minimum_II_with_immediate_take"] == latency + 1
+    assert out[0] == out[1]

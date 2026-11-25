@@ -4222,5 +4222,41 @@
     "synthesis_evidence": false,
     "whole_RX_qualified": false,
     "reference": "payload-polar-ingress.md"
+  },
+  "registered_sampling_handoffs": {
+    "scope": "Opt-in selected matched-filtered constant-age-1 source and packed head; actual B1 values then replayed separately",
+    "paired_nominal_budget_at_200MHz": 100,
+    "measured_fixed_608_pair_baseline_single_factor_joint": [
+      102,
+      101,
+      101,
+      100
+    ],
+    "fixed_200MHz_fifo_lower_bound_words_base": [
+      107,
+      122,
+      139
+    ],
+    "fixed_200MHz_fifo_lower_bound_words_joint": [
+      91,
+      93,
+      93
+    ],
+    "word_bits": 55,
+    "raw_history_words": 512,
+    "raw_history_logical_read_write_ports": [
+      1,
+      1
+    ],
+    "added_DSP": 0,
+    "added_memory_bits": 0,
+    "added_register_bits_estimate": 0,
+    "added_RAMB36": 0,
+    "continuous_history_overflow_100_and_160_MHz": 12,
+    "same_words_or_shared_failed_prefix": true,
+    "new_input_contexts": 26,
+    "qualified_whole_receiver": false,
+    "synthesis": false,
+    "reference": "split-sampling-integration.md"
   }
 }
