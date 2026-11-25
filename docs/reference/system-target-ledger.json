@@ -4067,5 +4067,62 @@
     "synthesis_evidence": false,
     "whole_RX_qualified": false,
     "reference": "psk-selected-carrier.md"
+  },
+  "B1_shared_suffix_RAM_overlap": {
+    "scope": "Explicit two-region sharing in the preselected normalized FT3/4 B1 replay",
+    "physical_sample_RAM": {
+      "words": 128,
+      "bits_per_word": 36,
+      "read_ports": 1,
+      "write_ports": 1
+    },
+    "cumulative_additional_register_bits_estimate": 815,
+    "additional_register_bits_vs_sync_only": 241,
+    "added_word_RAM_bits": 0,
+    "added_DSP": 0,
+    "verified_old_suffix_failures_recovered": 13,
+    "prior_modes_reproduced": 162,
+    "independent_held_ring_by_clock_MHz": {
+      "100": {
+        "frames": 33,
+        "exclusive": 0,
+        "sync": 0,
+        "shared": 0,
+        "recovered": 0,
+        "regressed": 0,
+        "equal_Q14": 0,
+        "timing_shifts": 0,
+        "peak_while_shared": 0,
+        "paired_while_shared": 0
+      },
+      "160": {
+        "frames": 33,
+        "exclusive": 15,
+        "sync": 15,
+        "shared": 23,
+        "recovered": 8,
+        "regressed": 0,
+        "equal_Q14": 18,
+        "timing_shifts": 0,
+        "peak_while_shared": 50,
+        "paired_while_shared": 0
+      },
+      "200": {
+        "frames": 33,
+        "exclusive": 15,
+        "sync": 18,
+        "shared": 23,
+        "recovered": 6,
+        "regressed": 1,
+        "equal_Q14": 21,
+        "timing_shifts": 0,
+        "peak_while_shared": 28,
+        "paired_while_shared": 24
+      }
+    },
+    "default_adoption_passed": false,
+    "synthesis_evidence": false,
+    "whole_RX_qualified": false,
+    "reference": "psk-selected-carrier.md"
   }
 }

@@ -1064,7 +1064,9 @@ class CaptureTransport:
                 retire_queued=True, overlap_fine=True, retire_completed_fine=retire_completed_fine)
             result["fine_frame_overlap_cost"] = ownership_cost["fine_frame_overlap"]
             if retire_completed_fine:
-                result["completed_fine_retirement_cost"] = ownership_cost["completed_fine_retirement"]
+                result["completed_fine_retirement_cost"] = (
+                    ownership_cost["completed_fine_retirement"]
+                )
         if tail_replay is not None:
             assert not any(tail_replay.leases) and tail_replay.active is None
             result.update(

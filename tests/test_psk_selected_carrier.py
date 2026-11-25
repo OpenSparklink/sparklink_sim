@@ -13,7 +13,9 @@ from nearlink_sdr.phy.strict_rx import PSKReceiveProfile
 from nearlink_sdr.phy.tx_pipeline import TxConfig, encode_head
 from nearlink_sdr.sim.psk_selected_carrier import (
     B1SelectedInput,
+    _SelectedFrame,
     _SuffixIQ,
+    _SuffixRAM,
     replay_selected_b1_carrier,
     replay_selected_b1_train,
 )
@@ -464,3 +466,120 @@ def test_b1_sync_overlap_limits_candidate_descriptors_to_one_per_edge():
         _replay_train(offers, service, loads, sync_overlap=True)
     with pytest.raises(ValueError, match="boolean B1 sync overlap"):
         _replay_train(offers, service, loads, sync_overlap=1)
+
+
+
+def test_shared_b1_ram_preserves_registered_old_head_with_concurrent_wrapped_write():
+    ram = _SuffixRAM(8)
+    old, new = _SuffixIQ(8, 6, ram), _SuffixIQ(8, 101, ram)
+    for i in range(6):
+        old.append(i + 6, 210 + i, -31 - i, i)
+    new.base = (old.address(6 + len(old)) - 101) & 7
+    assert old.popleft(6) == (210, -31)
+    new.append(101, -10, 105, 6)
+    with pytest.raises(RuntimeError, match="registered read"):
+        old.popleft(6)
+    old.advance(7)
+    assert old.popleft(7) == (211, -32)
+    new.append(102, -11, 106, 7)
+    assert (ram.read_addr, ram.write_addr, ram.paired) == (0, 5, 1)
+    for i in range(2, 6):
+        old.advance(i + 6)
+        assert old.popleft(i + 6) == (210 + i, -31 - i)
+    assert new.popleft(12) == (-10, 105)
+    new.advance(13)
+    assert new.popleft(13) == (-11, 106)
+    assert not old and not new
+
+
+def test_shared_b1_ram_exercises_physical_access_conflicts():
+    ram = _SuffixRAM(8)
+    assert ram.read(5, 7) == 0
+    with pytest.raises(RuntimeError, match="write port conflict"):
+        ram.write(5, 7, 90)
+    ram.write(5, 0, 100)
+    with pytest.raises(RuntimeError, match="write port conflict"):
+        ram.write(5, 1, 20)
+    assert ram.read(6, 0) == 100
+    with pytest.raises(RuntimeError, match="read port conflict"):
+        ram.read(6, 6)
+    with pytest.raises(RuntimeError, match="clock moved backwards"):
+        ram.write(5, 1, 10)
+
+
+def test_real_shared_b1_head_commits_during_old_b2_read_without_changing_mac():
+    (p, x, a), _, c1, l1 = _overlap_frames()
+    b = bytes(range(37))
+    q, y, _, c2, l2 = _frame(3, 4, b, pilot=0)
+    service, loads = c1 | c2, l1 | l2
+    _, old, _ = _replay_train([B1SelectedInput(0, p, x)], service, loads)
+    r, = [x for x in old if x["kind"] == "front_retired"]
+    align = (r["result"]["first_payload_launch"] - 1) % 50
+    offers = [B1SelectedInput(0, p, x), B1SelectedInput(len(x) * 50 + align, q, y)]
+    base, _, _ = _replay_train(offers, service, loads, sync_overlap=True, mac_ring=True)
+    got, front, out = _replay_train(offers, service, loads, shared_suffix=True, mac_ring=True)
+    assert base["front"] == {"payload_complete": 1, "selected_suffix_busy": 1}
+    assert got["front"] == {"payload_complete": 2}
+    overlap, = [x for x in front if x["kind"] == "suffix_overlap_started"]
+    promote, = [x for x in front if x["kind"] == "suffix_overlap_promoted"]
+    assert overlap["edge"] < r["edge"] + 1 == promote["edge"]
+    assert overlap["old_words"] > 0 and promote["words"] > 0
+    assert got["shared_suffix"]["paired_while_shared"] > 0
+    assert got["shared_suffix"]["peak_while_shared"] <= 128
+    assert [_mac_bytes(out, i) for i in range(2)] == [a, b]
+
+
+def test_real_shared_b1_head_short_abort_keeps_previous_and_following_mac_bytes():
+    (p, x, a), _, c1, l1 = _overlap_frames()
+    q, y, _, c2, l2 = _frame(3, 4, b"independent next frame", pilot=0)
+    start = len(x) * 50
+    offers = [
+        B1SelectedInput(0, p, x), B1SelectedInput(start, q, y[:len(q.sync_symbols())+2]),
+        B1SelectedInput(start+len(y)*50+8500, q, y),
+    ]
+    got, front, out = _replay_train(
+        offers, c1 | c2, l1 | l2, shared_suffix=True, mac_ring=True,
+    )
+    assert got["front"] == {"truncated_header": 1, "payload_complete": 2}
+    failed, = [x for x in front if x.get("reason") == "truncated_header"]
+    assert failed["candidate"] == 1
+    assert [_mac_bytes(out, i) for i in range(2)] == [a, b"independent next frame"]
+
+
+def test_real_shared_b1_needs_old_header_release_before_new_header_read():
+    p, x, start, c1, l1 = _frame(4, 9, b"old invalid header", bad_head=True, width=32)
+    q, y, _, c2, l2 = _frame(3, 4, b"next head", pilot=0)
+    pulls = []
+
+    def successor():
+        for i, word in enumerate(y):
+            pulls.append(i)
+            yield word
+
+    offers = [B1SelectedInput(0, p, x[:start]), B1SelectedInput(start * 50, q, successor())]
+    result, front, events = _replay_train(offers, c1 | c2, l1 | l2, shared_suffix=True)
+    assert result["front"] == {"selected_suffix_busy": 1, "bad_header_crc": 1}
+    assert not events
+    assert len(pulls) == len(q.sync_symbols())
+    assert any(x["kind"] == "sync_overlap_started" for x in front)
+
+
+def test_shared_b1_capacity_abort_does_not_touch_the_older_full_ring():
+    p, _, _, _, _ = _frame(3, 4, b"valid profile", pilot=0)
+    bank = _SuffixRAM(8)
+    old = _SelectedFrame([], p, 0, 200_000_000, 8, "compact-parity", None,
+                         engine_type=None, suffix_ram=bank)
+    new = _SelectedFrame([], p, 8, 200_000_000, 8, "compact-parity", None,
+                         engine_type=None, suffix_ram=bank)
+    for i in range(8):
+        old.buffer.append(old.nsync + i, i * 10, 31 - i, i)
+    new.use_suffix_after(old)
+    old_contents = bank.words.copy()
+    new.pending = new.nsync, 16384, -16384, -14
+    new._convert()
+    assert new.failure == "selected_shared_suffix_full"
+    assert bank.words == old_contents and bank.writes == 7
+    assert not new.buffer and len(old.buffer) == 8
+    assert old.buffer.popleft(8) == (0, 31)
+    old.buffer.advance(9)
+    assert old.buffer.popleft(9) == (10, 30)
