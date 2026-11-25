@@ -374,13 +374,18 @@ def decode_payload_polar_word(
     )
 
 
-def payload_polar_cost(*, lanes=2, fraction_bits=0, geometry="indexed"):
+_SHORT_TAIL_CAPACITY = 128
+
+
+def payload_polar_cost(*, lanes=2, fraction_bits=0, geometry="indexed", short_tail_slot=False):
     """Maximum-width scratch/RAM packing estimate across all 36 B1 formats.
 
     ROMs are paid for all resident shapes. Each parity bank uses a separate
     physical primitive with simple one-read/one-write or true dual ports.
     """
     _formats(lanes, fraction_bits, geometry)
+    if type(short_tail_slot) is not bool:
+        raise ValueError("Need a boolean short-tail slot option")
     alpha_bits = 18 + fraction_bits
     words = _depth_shapes(1024)
     width = {bank: alpha_bits if bank[0] == "L" else 1 for bank in words}
@@ -396,10 +401,11 @@ def payload_polar_cost(*, lanes=2, fraction_bits=0, geometry="indexed"):
             width[bank], ports[bank] = 10, 1
             bank = "O", lane
             words[bank], width[bank], ports[bank] = count, 1, 1
-    for slot in range(2):
+    for slot, size in enumerate((1024, 1024, _SHORT_TAIL_CAPACITY) if short_tail_slot
+                                else (1024, 1024)):
         for lane in range(3):
             bank = "X", slot, lane
-            words[bank], width[bank], ports[bank] = (1026 - lane) // 3, 8 + fraction_bits, 1
+            words[bank], width[bank], ports[bank] = (size + 2 - lane) // 3, 8 + fraction_bits, 1
     if geometry == "threshold":
         threshold_banks, _ = _threshold_rom()
         for lane, values in enumerate(threshold_banks):
@@ -428,6 +434,10 @@ def payload_polar_cost(*, lanes=2, fraction_bits=0, geometry="indexed"):
         registers["ordered_rate1_cursor_and_base"] = 20
     if geometry == "threshold":
         registers["threshold_family_word_and_bases"] = 4 + 8 + 2 * 11
+    if short_tail_slot:
+        registers.update(short_tail_ingress_descriptor=128, short_tail_MAC_owner=256,
+                         short_tail_registered_read=3 * (8 + fraction_bits),
+                         short_tail_control_and_mux_select=32)
     return dict(
         shapes=len(_SHAPES), lanes=lanes, alpha_bits=alpha_bits, DSP=0,
         geometry=geometry, geometry_threshold_comparisons=2 if geometry == "threshold" else 0,
@@ -464,7 +474,7 @@ def _wire_index(data_index, pilot_interval):
 
 def payload_polar_calendar(
     frames, *, word_cycles, clock_hz, stall_until=0, input_load_cycles=None,
-    discard_failed_suffix=False, trace_ownership=False,
+    discard_failed_suffix=False, trace_ownership=False, short_tail_slot=False,
 ):
     """Schedule two ingress slots and a single ordered held output.
 
@@ -474,15 +484,20 @@ def payload_polar_calendar(
     ingress ownership may retire before decode completes. First loss marks the
     frame incomplete. Optional suffix suppression affects later reservations.
     Ownership tracing exposes the wire geometry for finite RAM replay.
+    The optional short slot is only reserved for a healthy frame's final
+    physical codeword when neither full input slot is free.
     """
     if clock_hz not in (100_000_000, 160_000_000, 200_000_000):
         raise ValueError("Use a modeled clock: 100, 160 or 200 MHz")
     if type(stall_until) is not int or stall_until < 0:
         raise ValueError("Downstream release edge must be non-negative")
+    if type(short_tail_slot) is not bool:
+        raise ValueError("Need a boolean short-tail slot option")
     period = Fraction(clock_hz, 4_000_000)
-    detailed = trace_ownership or input_load_cycles is not None or discard_failed_suffix
-    # At most two live ingress reservations; expired slots retain no state.
-    slots = [0, 0]
+    detailed = (trace_ownership or input_load_cycles is not None or discard_failed_suffix
+                or short_tail_slot)
+    # Expired reservations retain no ownership.
+    slots = [0] * (3 if short_tail_slot else 2)
     engine_until = 0
     next_boundary = 0
     peak = 0
@@ -522,7 +537,11 @@ def payload_polar_calendar(
                     yield row | dict(lost=True, peak_ingress=peak,
                                      status="incomplete_suffix", first_frame_loss=False)
                     continue
-                slot = next((i for i, avail in enumerate(slots) if avail <= first), None)
+                slot = next((i for i in range(2) if slots[i] <= first), None)
+                if (slot is None and short_tail_slot and not failed and slots[2] <= first
+                        and n <= _SHORT_TAIL_CAPACITY and block_no == len(blocks) - 1
+                        and word_no == len(block.codewords) - 1):
+                    slot = 2
                 if slot is None:
                     if detailed:
                         row.update(status="resource_drop", first_frame_loss=not failed)

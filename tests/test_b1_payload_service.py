@@ -58,7 +58,7 @@ def _wave(frame, payload, damage=None):
         offset = end
 
 
-def _run(frames, items, *, early=True, truncate=0, mac_end=0, polar_end=0):
+def _run(frames, items, *, early=True, truncate=0, mac_end=0, polar_end=0, short_tail=False):
     values, service, loads = [], {}, {}
     for spec, (payload, damage) in zip(frames, items, strict=True):
         for (n, k), x in _wave(spec, payload, damage):
@@ -72,6 +72,7 @@ def _run(frames, items, *, early=True, truncate=0, mac_end=0, polar_end=0):
         iter(frames), wire, word_cycles=service, input_load_cycles=loads if early else None,
         clock_hz=200_000_000, geometry="threshold", mac_stall_until=mac_end,
         stall_until=polar_end, observer=events.append, discard_failed_suffix=True,
+        short_tail_slot=short_tail,
     )
     assert all(a["edge"] <= b["edge"] for a,b in pairwise(events))
     return events, report, service, loads
@@ -190,3 +191,31 @@ def test_invalid_post_header_context_and_mac_readiness():
         replay_b1_payload_frames([], [], word_cycles={},clock_hz=200_000_000,mac_stall_until=-1)
     with pytest.raises(ValueError, match="descriptions"):
         replay_b1_payload_frames([frame.arrival], [], word_cycles={},clock_hz=200_000_000)
+
+
+@pytest.mark.parametrize("damage", [None, "frame", "block", "EOF"])
+def test_short_tail_storage_keeps_real_crc_and_truncation_checks(damage):
+    frame = _frame(0,63,mcs=4) if damage == "block" else _frame(0,55)
+    payload = bytes((x * 11 + 47) & 255 for x in range(frame.length_bytes))
+    choices = [(payload, damage if damage != "EOF" else None)]
+    base, _, _, _ = _run([frame], choices, early=False)
+    assert [(x["frame"], x["reason"]) for x in base if x["kind"] == "frame_failed"] == [
+        (0, "resource_drop"),
+    ]
+    result, stats, _, _ = _run([frame], choices, early=False, short_tail=True,
+                               truncate=1 if damage == "EOF" else 0)
+    if damage is None:
+        assert _delivered(result, 0) == payload and stats["mac_complete"] == 1
+    else:
+        assert not _delivered(result, 0)
+        fail, = [x for x in result if x["kind"] == "frame_failed"]
+        assert fail["reason"] == ("truncated" if damage == "EOF" else "crc")
+        assert "mac_complete" not in stats
+
+
+def test_short_terminal_owner_and_two_regular_owners_can_overlap_active_decode():
+    frames = [_frame(at, size) for at, size in ((0,39), (9000,3), (11300,3), (13450,3))]
+    payloads = [bytes([x+51])*f.length_bytes for x,f in enumerate(frames)]
+    events,r,_,_ = _run(frames, [(p,None) for p in payloads], short_tail=True)
+    assert r["peak_frame_owners"] == 4
+    assert [_delivered(events, x) for x in range(4)] == payloads

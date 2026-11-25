@@ -1315,5 +1315,42 @@
     "full_RX_qualified": false,
     "synthesis_evidence": false,
     "reference": "carrier-fixed.md"
+  },
+  "B1_bounded_last_codeword_slot": {
+    "scope": "explicit last physical codeword of a valid selected B1 frame when two regular slots are occupied",
+    "max_LLR_entries": 128,
+    "nine_bit_LLR_logic_bits": 1152,
+    "extra_control_and_owner_bits_upper": 443,
+    "bank_shapes_9bit": [
+      43,
+      43,
+      42
+    ],
+    "bank_access_ports": 1,
+    "owner_bound": 4,
+    "estimated_LUTRAM_primitives": 27,
+    "alternate_RAMB18_upper": 3,
+    "additional_DSP_estimate": 0,
+    "held": {
+      "inputs": 16,
+      "160MHz_mac": [
+        7,
+        11
+      ],
+      "200MHz_mac": [
+        9,
+        11
+      ],
+      "multi_frame_MAC_blocked_regressions": 2
+    },
+    "fixed_resource_failures_recovered": {
+      "160MHz": 3,
+      "200MHz": 1
+    },
+    "general_adoption_passed": false,
+    "default_adopted": false,
+    "whole_RX_qualified": false,
+    "synthesis_evidence": false,
+    "reference": "payload-polar-ingress.md"
   }
 }

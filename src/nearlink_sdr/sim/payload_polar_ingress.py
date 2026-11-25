@@ -1,4 +1,4 @@
-"""Replay the standard B1 Polar ingress calendar with two actual RAM owners."""
+"""Replay the standard B1 Polar ingress calendar with bounded actual RAM owners."""
 
 from collections import deque
 from dataclasses import dataclass
@@ -6,6 +6,7 @@ from itertools import islice
 from math import isfinite
 
 from nearlink_sdr.sim.payload_polar_flow import (
+    _SHORT_TAIL_CAPACITY,
     _Datapath,
     _formats,
     _quantize_llr,
@@ -46,16 +47,17 @@ def _sample_beats(rows, period):
 class _Ingress:
     """Each slot has one access per modulo-three bank and one logical owner."""
 
-    def __init__(self, beats, llrs, scale, observer, drain_at_eof):
+    def __init__(self, beats, llrs, scale, observer, drain_at_eof, short_tail_slot):
         self.beats = iter(beats)
         self.pending = next(self.beats, None)
         self.llrs = iter(llrs)
         self.scale = scale
         self.observer = observer
         self.drain_at_eof = drain_at_eof
-        self.banks = tuple(tuple([None] * ((1026 - lane) // 3) for lane in range(3))
-                           for _ in range(2))
-        self.owners = [None, None]
+        sizes = (1024, 1024, _SHORT_TAIL_CAPACITY) if short_tail_slot else (1024, 1024)
+        self.banks = tuple(tuple([None] * ((size + 2 - lane) // 3) for lane in range(3))
+                           for size in sizes)
+        self.owners = [None] * len(sizes)
         self.ready = deque()
         self.edge = self.write_edge = -1
         self.written = set()
@@ -116,8 +118,8 @@ class _Ingress:
             self.banks[slot][lane][address] = _quantize_llr(value, self.scale)
         self.report("write", row, slot=slot, address=start, count=len(values))
         if start + len(values) == row["shape"][0]:
-            if len(self.ready) == 2:
-                raise RuntimeError("More than two complete words own ingress slots")
+            if len(self.ready) == len(self.banks):
+                raise RuntimeError("More complete words than owned ingress slots")
             self.ready.append(row)
 
     def read(self, row, lane, address):
@@ -132,7 +134,7 @@ class _Ingress:
 def replay_payload_polar_ingress(
     frames, llrs, *, word_cycles, clock_hz, lanes=2, fraction_bits=0, geometry="indexed",
     stall_until=0, input_load_cycles=None, discard_failed_suffix=False, observer=None,
-    output_pair=None, drain_at_eof=False,
+    output_pair=None, drain_at_eof=False, short_tail_slot=False,
 ):
     """Execute value and port checks on an ordered stream of input LLRs.
 
@@ -146,10 +148,10 @@ def replay_payload_polar_ingress(
     rows = payload_polar_calendar(
         frames, word_cycles=word_cycles, clock_hz=clock_hz, stall_until=stall_until,
         input_load_cycles=input_load_cycles, discard_failed_suffix=discard_failed_suffix,
-        trace_ownership=True,
+        trace_ownership=True, short_tail_slot=short_tail_slot,
     )
     ingress = _Ingress(_sample_beats(rows, clock_hz // 4_000_000), llrs,
-                       1 << fraction_bits, observer, drain_at_eof)
+                       1 << fraction_bits, observer, drain_at_eof, short_tail_slot)
     while ingress.pending is not None or ingress.ready:
         if not ingress.ready:
             ingress.advance(ingress.pending[0])

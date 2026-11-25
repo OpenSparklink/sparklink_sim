@@ -130,8 +130,9 @@ class _Delivery:
 
 
 class _Consumer:
-    def __init__(self, mac_stall_until, observer):
+    def __init__(self, mac_stall_until, observer, owner_limit):
         self.mac_stall_until = mac_stall_until
+        self.owner_limit = owner_limit
         self.observer = observer
         self.memory = bytearray(_MAX_BYTES)
         self.owners = {}
@@ -183,8 +184,8 @@ class _Consumer:
             self.wire_frame, self.wire_failed = frame, False
         if kind == "reserve":
             if frame not in self.owners:
-                if len(self.owners) == 3:
-                    raise RuntimeError("B1 ingress exceeded three outstanding frame owners")
+                if len(self.owners) == self.owner_limit:
+                    raise RuntimeError("B1 ingress exceeded its outstanding frame owner limit")
                 self.owners[frame] = _Owner(self.offered, failed=self.wire_failed)
             self.owners[frame].pending += 1
             self.peak_owners = max(self.peak_owners, len(self.owners))
@@ -248,7 +249,7 @@ class _Consumer:
 def replay_b1_payload_frames(
     frames, llrs, *, word_cycles, clock_hz, lanes=2, fraction_bits=0, geometry="indexed",
     stall_until=0, input_load_cycles=None, discard_failed_suffix=False,
-    mac_stall_until=0, observer=None,
+    mac_stall_until=0, observer=None, short_tail_slot=False,
 ):
     """Run a bounded single-frame sink at the actual Polar pair delivery edges.
 
@@ -258,7 +259,9 @@ def replay_b1_payload_frames(
     """
     if type(mac_stall_until) is not int or mac_stall_until < 0:
         raise ValueError("Need a nonnegative MAC readiness edge")
-    consumer = _Consumer(mac_stall_until, observer)
+    if type(short_tail_slot) is not bool:
+        raise ValueError("Need a boolean short-tail slot option")
+    consumer = _Consumer(mac_stall_until, observer, 4 if short_tail_slot else 3)
 
     def wire():
         for spec in frames:
@@ -272,6 +275,7 @@ def replay_b1_payload_frames(
         fraction_bits=fraction_bits, geometry=geometry, stall_until=stall_until,
         input_load_cycles=input_load_cycles, discard_failed_suffix=discard_failed_suffix,
         observer=consumer.event, output_pair=consumer.pair, drain_at_eof=True,
+        short_tail_slot=short_tail_slot,
     ):
         pass
     return consumer.finish()

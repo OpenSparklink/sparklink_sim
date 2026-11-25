@@ -118,3 +118,54 @@ def test_ingress_detects_size_values_and_forged_service_metadata():
                                           word_cycles={n_k: service[n_k] + 1}))
     with pytest.raises(ValueError, match="within measured"):
         list(replay_payload_polar_ingress(frames, signal, input_load_cycles={n_k: 0}, **kwargs))
+
+
+def test_short_slot_has_real_banked_access_only_for_final_codeword():
+    arrival = B1PayloadArrival(12, 464, "3/4", 3)
+    signal, expected, service, _ = _work([arrival], "threshold", fraction=1)
+    events = []
+    output = list(replay_payload_polar_ingress(
+        [arrival], signal, word_cycles=service, clock_hz=200_000_000,
+        geometry="threshold", fraction_bits=1, short_tail_slot=True, observer=events.append,
+    ))
+    assert [r["ingress_slot"] for r in output] == [0, 1, 2]
+    assert [r["info_bits"] for r in output] == expected
+    final = output[-1]
+    assert final["shape"] == (64, 44)
+    assert final["peak_ingress"] == 3
+    assert final["launch"] > output[-2]["taken"]
+    assert final["input_last_read"] < final["ingress_release"]
+    writes = [x for x in events if x["kind"] == "write" and x["slot"] == 2]
+    reads = [x for x in events if x["kind"] == "read" and x["slot"] == 2]
+    assert sum(x["count"] for x in writes) == len(reads) == 64
+    assert max(x["edge"] for x in writes) < min(x["edge"] for x in reads)
+
+
+def test_short_slot_is_not_general_overflow_or_a_failed_frame_retry():
+    from itertools import islice
+    small = [B1PayloadArrival(4000*x, 40, "3/4", 3) for x in range(2)]
+    many = B1PayloadArrival(8000, 464, "3/4", 3)
+    big = B1PayloadArrival(20000, 336, "3/4", 3)
+    service = {(64,44):50000, (512,352):50000, (128,88):50000}
+    result = list(payload_polar_calendar([*small,many,big],word_cycles=service,
+                                         clock_hz=200_000_000,short_tail_slot=True))
+    assert [x["ingress_slot"] for x in islice(result,2)] == [0,1]
+    assert all(x["status"]=="resource_drop" for x in result[2:])
+    assert not any(x.get("ingress_slot")==2 for x in result)
+    with pytest.raises(ValueError,match="boolean"):
+        list(payload_polar_calendar([],word_cycles={},clock_hz=200_000_000,short_tail_slot=1))
+
+
+def test_compact_tail_slot_estimate_charges_real_banks_and_owner():
+    from nearlink_sdr.sim.payload_polar_flow import payload_polar_cost
+    args = dict(geometry="threshold", fraction_bits=1)
+    baseline = payload_polar_cost(**args)
+    candidate = payload_polar_cost(**args, short_tail_slot=True)
+    banks = [v for k,v in candidate["physical_banks"].items()
+             if k not in baseline["physical_banks"]]
+    assert [b["depth"] for b in banks] == [43,43,42]
+    assert all(b["width"]==9 and b["ports"]==1 for b in banks)
+    assert candidate["logical_ram_rom_bits"]-baseline["logical_ram_rom_bits"]==1152
+    assert candidate["RAMB18_equivalents"]-baseline["RAMB18_equivalents"]==3
+    p,q = [sum(x["register_bits"].values()) for x in (baseline,candidate)]
+    assert q-p == 443
