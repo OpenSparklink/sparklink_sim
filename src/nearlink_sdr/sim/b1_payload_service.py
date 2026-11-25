@@ -1,6 +1,6 @@
 """Bounded FT3/4 B1 reassembly and CRC at registered Polar-result edges."""
 
-from collections import Counter
+from collections import Counter, deque
 from dataclasses import dataclass
 
 from nearlink_sdr.common.code_block_seg import b1_code_block_plan
@@ -12,6 +12,7 @@ from nearlink_sdr.sim.payload_polar_ingress import replay_payload_polar_ingress
 __all__ = ["B1PayloadFrame", "replay_b1_payload_frames"]
 
 _MAX_BYTES = 2044
+_RING_FRAME_LIMIT = 3
 _FRAME_POLY = {24: CRC24A_POLY, 32: CRC32_POLY}
 
 
@@ -56,11 +57,15 @@ def _crc_pair(state, pair, poly, width):
     return state
 
 
+def _ring_address(address):
+    return address - _MAX_BYTES if address >= _MAX_BYTES else address
+
+
 class _Assembly:
     """One active logical block and one running frame CRC."""
 
-    def __init__(self, frame, spec):
-        self.frame, self.spec = frame, spec
+    def __init__(self, frame, spec, base):
+        self.frame, self.spec, self.base = frame, spec, base
         plan = b1_code_block_plan(spec.arrival.payload_with_crc_bits,
                                   spec.arrival.rate, standard=True)
         self.first_block, self.last_block = plan[0], plan[-1]
@@ -72,7 +77,7 @@ class _Assembly:
         self.block_crc = spec.crc_seed & 0xFFFFFF
         self.bad_blocks = self.checked_blocks = 0
 
-    def consume(self, row, offset, pair, memory, counts):
+    def consume(self, row, offset, pair, write_byte, counts):
         block = self.last_block if self.block_index == self.block_count - 1 else self.first_block
         word = block.codewords[self.word_index]
         if (row["frame"], row["block"], row["word"], row["shape"]) != (
@@ -96,7 +101,7 @@ class _Assembly:
                 if self.frame_pos < self.spec.length_bytes * 8:
                     self.byte = (self.byte << 2) | (pair[0] << 1) | pair[1]
                     if self.frame_pos % 8 == 6:
-                        memory[self.bytes_written] = self.byte
+                        write_byte(_ring_address(self.base + self.bytes_written), self.byte)
                         self.bytes_written += 1
                         self.byte = 0
                         counts["frame_ram_writes"] += 1
@@ -125,12 +130,13 @@ class _Delivery:
     frame: int
     length: int
     edge: int
+    base: int
     position: int = 0
     pending: int | None = None
 
 
 class _Consumer:
-    def __init__(self, mac_stall_until, observer, owner_limit):
+    def __init__(self, mac_stall_until, observer, owner_limit, mac_ring):
         self.mac_stall_until = mac_stall_until
         self.owner_limit = owner_limit
         self.observer = observer
@@ -138,8 +144,12 @@ class _Consumer:
         self.owners = {}
         self.wire_frame = self.offered = None
         self.wire_failed = False
-        self.active = self.delivery = None
-        self.edge = -1
+        self.active = None
+        self.deliveries = deque()
+        self.mac_ring = mac_ring
+        self.ring_tail = self.ring_bytes = self.ring_peak = self.ring_owners_peak = 0
+        self.ring_wraps = self.ring_read_write_edges = 0
+        self.edge = self.last_read_edge = self.last_read_address = -1
         self.counts = Counter()
         self.peak_owners = self.peak_buffered_bytes = 0
 
@@ -151,20 +161,55 @@ class _Consumer:
     def advance(self, edge):
         if edge < self.edge:
             raise RuntimeError("B1 service clock moved backwards")
-        while self.delivery is not None and self.delivery.edge <= edge:
-            out = self.delivery
+        while self.deliveries and self.deliveries[0].edge <= edge:
+            out = self.deliveries[0]
             if out.pending is not None:
                 self.emit("mac_byte", out.frame, out.edge,
                           position=out.position - 1, value=out.pending)
             if out.position == out.length:
                 self.emit("mac_complete", out.frame, out.edge, length_bytes=out.length)
-                self.delivery = None
+                self.deliveries.popleft()
+                if self.mac_ring:
+                    self.ring_bytes -= out.length
+                if self.deliveries:
+                    next_frame = self.deliveries[0]
+                    next_frame.edge = max(next_frame.edge, out.edge + 1)
             else:
-                out.pending = self.memory[out.position]
+                address = _ring_address(out.base + out.position)
+                out.pending = self.memory[address]
+                self.last_read_edge, self.last_read_address = out.edge, address
                 self.counts["frame_ram_reads"] += 1
                 out.position += 1
                 out.edge += 1
         self.edge = edge
+
+    def write_byte(self, address, value):
+        if self.edge == self.last_read_edge:
+            if self.last_read_address == address:
+                raise RuntimeError("B1 RAM read and write addressed the same byte")
+            self.ring_read_write_edges += 1
+        self.memory[address] = value
+
+    def reserve_payload(self, frame, spec, edge):
+        base = 0
+        if self.mac_ring:
+            if len(self.deliveries) >= _RING_FRAME_LIMIT:
+                self.fail(frame, edge, "mac_descriptor_full")
+                return
+            if self.ring_bytes + spec.length_bytes > _MAX_BYTES:
+                self.fail(frame, edge, "mac_capacity_full")
+                return
+            base = self.ring_tail
+            end = base + spec.length_bytes
+            self.ring_wraps += int(end > _MAX_BYTES)
+            self.ring_tail = _ring_address(end)
+            self.ring_bytes += spec.length_bytes
+            self.ring_peak = max(self.ring_peak, self.ring_bytes)
+            self.ring_owners_peak = max(self.ring_owners_peak, len(self.deliveries) + 1)
+        elif self.deliveries:
+            self.fail(frame, edge, "mac_buffer_busy")
+            return
+        self.active = _Assembly(frame, spec, base)
 
     def fail(self, frame, edge, reason):
         if frame == self.wire_frame:
@@ -172,6 +217,9 @@ class _Consumer:
         if owner := self.owners.get(frame):
             owner.failed = True
         if self.active is not None and self.active.frame == frame:
+            if self.mac_ring:
+                self.ring_tail = self.active.base
+                self.ring_bytes -= self.active.spec.length_bytes
             self.active = None
         self.emit("frame_failed", frame, edge, reason=reason)
 
@@ -209,13 +257,10 @@ class _Consumer:
         frame = row["frame"]
         owner = self.owners[frame]
         if not owner.failed and self.active is None:
-            if self.delivery is not None:
-                self.fail(frame, edge, "mac_buffer_busy")
-            else:
-                self.active = _Assembly(frame, owner.spec)
+            self.reserve_payload(frame, owner.spec, edge)
         if not owner.failed:
             state = self.active
-            complete = state.consume(row, offset, pair, self.memory, self.counts)
+            complete = state.consume(row, offset, pair, self.write_byte, self.counts)
             self.peak_buffered_bytes = max(self.peak_buffered_bytes, state.bytes_written)
             if complete:
                 self.finish_frame(state, edge)
@@ -223,7 +268,6 @@ class _Consumer:
             self.retire(frame)
 
     def finish_frame(self, state, edge):
-        self.active = None
         length = state.spec.length_bytes
         if (state.frame_pos != length * 8 + state.spec.crc_width
                 or state.bytes_written != length):
@@ -233,35 +277,49 @@ class _Consumer:
                   frame_crc_ok=frame_ok, checked_blocks=state.checked_blocks,
                   bad_blocks=state.bad_blocks, length_bytes=length)
         if block_ok and frame_ok:
-            self.delivery = _Delivery(state.frame, length, max(edge + 1, self.mac_stall_until))
+            self.active = None
+            self.deliveries.append(
+                _Delivery(state.frame, length, max(edge + 1, self.mac_stall_until), state.base)
+            )
         else:
             self.fail(state.frame, edge, "crc")
 
     def finish(self):
         if self.active is not None or self.owners:
             raise RuntimeError("B1 consumer has unfinished owned state")
-        if self.delivery is not None:
-            self.advance(self.delivery.edge + self.delivery.length)
-        return dict(self.counts, peak_frame_owners=self.peak_owners,
-                    peak_buffered_bytes=self.peak_buffered_bytes, frame_ram_bytes=_MAX_BYTES)
+        while self.deliveries:
+            out = self.deliveries[0]
+            self.advance(out.edge + out.length - out.position)
+        if self.ring_bytes:
+            raise RuntimeError("B1 payload reservations leaked")
+        result = dict(self.counts, peak_frame_owners=self.peak_owners,
+                      peak_buffered_bytes=self.peak_buffered_bytes, frame_ram_bytes=_MAX_BYTES)
+        if self.mac_ring:
+            result.update(peak_ram_reserved_bytes=self.ring_peak,
+                          peak_payload_reservations=self.ring_owners_peak,
+                          ram_wrap_reservations=self.ring_wraps,
+                          ram_same_edge_read_writes=self.ring_read_write_edges)
+        return result
 
 
 def replay_b1_payload_frames(
     frames, llrs, *, word_cycles, clock_hz, lanes=2, fraction_bits=0, geometry="indexed",
     stall_until=0, input_load_cycles=None, discard_failed_suffix=False,
-    mac_stall_until=0, observer=None, short_tail_slot=False,
+    mac_stall_until=0, observer=None, short_tail_slot=False, mac_ring=False,
 ):
-    """Run a bounded single-frame sink at the actual Polar pair delivery edges.
+    """Reassemble at actual Polar pair edges and deliver only completed, CRC-valid frames.
 
-    MAC output events only follow both CRC checks and complete length. The sink
-    reports frames that first reach it while a verified frame owns the RAM.
-    Clocks and costs are offline service assumptions.
+    Default ownership is one frame in the 2044-byte RAM. Opt-in mac_ring
+    reserves disjoint byte ranges in the same RAM, with at most three owners.
+    CRC failure rolls back only the active, newest reservation.
     """
     if type(mac_stall_until) is not int or mac_stall_until < 0:
         raise ValueError("Need a nonnegative MAC readiness edge")
     if type(short_tail_slot) is not bool:
         raise ValueError("Need a boolean short-tail slot option")
-    consumer = _Consumer(mac_stall_until, observer, 4 if short_tail_slot else 3)
+    if type(mac_ring) is not bool:
+        raise ValueError("Need a boolean MAC ring option")
+    consumer = _Consumer(mac_stall_until, observer, 4 if short_tail_slot else 3, mac_ring)
 
     def wire():
         for spec in frames:

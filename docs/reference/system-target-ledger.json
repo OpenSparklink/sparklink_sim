@@ -3894,5 +3894,40 @@
     "whole_RX_qualified": false,
     "synthesis_evidence": false,
     "reference": "payload-polar-ingress.md"
+  },
+  "B1_bounded_MAC_byte_ring": {
+    "scope": "optional post-header B1 MAC ring with exact CRC and ordered delivery",
+    "payload_RAM_bytes": 2044,
+    "maximum_reservations": 3,
+    "additional_estimated_state_bits": 377,
+    "estimated_new_RAM_blocks": 0,
+    "estimated_new_DSP": 0,
+    "ports": {
+      "read": 1,
+      "write": 1,
+      "registered_read_edges": 1
+    },
+    "held_new": {
+      "frame_arms": 46,
+      "delivered": {
+        "two_single": 22,
+        "tail_single": 24,
+        "two_ring": 28,
+        "tail_ring": 36
+      },
+      "ring_only_regressed": 0,
+      "tail_ring_regressed_vs_default": 2
+    },
+    "fixed": {
+      "frame_arms": 60,
+      "tail_single": 38,
+      "tail_ring": 42,
+      "tail_ring_losses_vs_tail": 0
+    },
+    "general_combined_adoption_passed": false,
+    "default_changed": false,
+    "synthesis_evidence": false,
+    "whole_RX_qualified": false,
+    "reference": "b1-payload-service.md"
   }
 }

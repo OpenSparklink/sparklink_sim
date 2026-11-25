@@ -58,7 +58,10 @@ def _wave(frame, payload, damage=None):
         offset = end
 
 
-def _run(frames, items, *, early=True, truncate=0, mac_end=0, polar_end=0, short_tail=False):
+def _run(
+    frames, items, *, early=True, truncate=0, mac_end=0, polar_end=0, short_tail=False,
+    mac_ring=False,
+):
     values, service, loads = [], {}, {}
     for spec, (payload, damage) in zip(frames, items, strict=True):
         for (n, k), x in _wave(spec, payload, damage):
@@ -72,7 +75,7 @@ def _run(frames, items, *, early=True, truncate=0, mac_end=0, polar_end=0, short
         iter(frames), wire, word_cycles=service, input_load_cycles=loads if early else None,
         clock_hz=200_000_000, geometry="threshold", mac_stall_until=mac_end,
         stall_until=polar_end, observer=events.append, discard_failed_suffix=True,
-        short_tail_slot=short_tail,
+        short_tail_slot=short_tail, mac_ring=mac_ring,
     )
     assert all(a["edge"] <= b["edge"] for a,b in pairwise(events))
     return events, report, service, loads
@@ -219,3 +222,85 @@ def test_short_terminal_owner_and_two_regular_owners_can_overlap_active_decode()
     events,r,_,_ = _run(frames, [(p,None) for p in payloads], short_tail=True)
     assert r["peak_frame_owners"] == 4
     assert [_delivered(events, x) for x in range(4)] == payloads
+
+
+def test_ring_uses_disjoint_ranges_for_the_previously_blocked_second_frame():
+    frames = [_frame(0,55), _frame(150000,3)]
+    payloads = [bytes(range(55)), b"xyz"]
+    items = [(p,None) for p in payloads]
+    common = dict(early=False, short_tail=True, mac_end=200000)
+    old,_,_,_ = _run(frames,items,**common)
+    assert [(x["frame"],x["reason"]) for x in old if x["kind"]=="frame_failed"] == [
+        (1,"mac_buffer_busy"),
+    ]
+    events,r,_,_ = _run(frames,items,**common,mac_ring=True)
+    assert not any(x["kind"]=="frame_failed" for x in events)
+    assert [_delivered(events,i) for i in range(2)]==payloads
+    assert r["frame_ram_bytes"]==2044 and r["peak_ram_reserved_bytes"]==58
+    assert r["peak_payload_reservations"]==2
+    byte_edges = [x["edge"] for x in events if x["kind"]=="mac_byte"]
+    assert byte_edges==list(range(200001,200056))+list(range(200057,200060))
+
+
+def test_ring_allows_simultaneous_registered_read_and_distinct_write():
+    frames = [_frame(0,154,mcs=4), _frame(125000,3,mcs=10)]
+    items = [(bytes((j*13+i) % 256 for j in range(f.length_bytes)),None)
+             for i,f in enumerate(frames)]
+    observed,_,_,_ = _run(frames,items,short_tail=True)
+    checks = [x["edge"] for x in observed if x["kind"]=="crc_result"]
+    assert len(checks)==2
+    events,stat,_,_ = _run(frames,items,short_tail=True,mac_ring=True,mac_end=checks[1]-24)
+    assert [_delivered(events,i) for i in range(2)]==[p for p,_ in items]
+    assert stat["ram_same_edge_read_writes"]>0
+    assert stat["peak_ram_reserved_bytes"]==157
+
+
+def test_ring_crc_rollback_reuses_space_and_preserves_wrapped_payload_bytes():
+    frames = [_frame(i*95000,154,mcs=4) for i in range(15)]
+    payloads = [bytes((j+i*11) % 256 for j in range(154)) for i in range(len(frames))]
+    items = [(p,"frame" if i==8 else None) for i,p in enumerate(payloads)]
+    events,r,_,_ = _run(frames,items,short_tail=True,mac_ring=True)
+    assert [(x["frame"],x["reason"]) for x in events if x["kind"]=="frame_failed"]==[(8,"crc")]
+    assert [_delivered(events,i) for i in range(len(frames))]==[
+        b"" if i==8 else p for i,p in enumerate(payloads)
+    ]
+    assert r["ram_wrap_reservations"]==1
+    assert r["peak_ram_reserved_bytes"]==154
+
+
+def test_ring_empty_payloads_use_descriptors_and_never_overwrite():
+    frames = [_frame(i*5000,0,mcs=11) for i in range(4)]
+    events,r,_,_ = _run(frames,[(b"",None)]*4,short_tail=True,mac_ring=True,mac_end=90000)
+    assert r["peak_ram_reserved_bytes"]==0 and r["peak_payload_reservations"]==3
+    assert [(x["frame"],x["reason"]) for x in events if x["kind"]=="frame_failed"]==[
+        (3,"mac_descriptor_full"),
+    ]
+    assert [(x["frame"],x["edge"]) for x in events if x["kind"]=="mac_complete"]==[
+        (0,90000),(1,90001),(2,90002),
+    ]
+    assert "frame_ram_writes" not in r
+
+
+def test_ring_does_not_allow_capacity_overrun():
+    frames = [_frame(0,2044,ft=4,mcs=11), _frame(550000,3)]
+    items = [(bytes(2044),None),(b"new",None)]
+    events,r,_,_ = _run(frames,items,short_tail=True,mac_ring=True,mac_end=700000)
+    assert [(x["frame"],x["reason"]) for x in events if x["kind"]=="frame_failed"]==[
+        (1,"mac_capacity_full"),
+    ]
+    assert _delivered(events,0)==items[0][0] and not _delivered(events,1)
+    assert r["peak_ram_reserved_bytes"]==2044
+    with pytest.raises(ValueError,match="boolean"):
+        replay_b1_payload_frames([],[],word_cycles={},clock_hz=200_000_000,mac_ring=1)
+
+
+def test_ring_truncated_newest_frame_cannot_change_held_mac_bytes():
+    frames = [_frame(0,55), _frame(150000,5)]
+    wanted = bytes(range(55))
+    events,r,_,_ = _run(frames,[(wanted,None),(b"later",None)], early=False,
+                        short_tail=True,mac_ring=True,mac_end=300000,truncate=2)
+    assert [(x["frame"],x["reason"]) for x in events if x["kind"]=="frame_failed"]==[
+        (1,"truncated"),
+    ]
+    assert _delivered(events,0)==wanted and not _delivered(events,1)
+    assert r["mac_complete"]==1
