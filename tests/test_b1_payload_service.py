@@ -60,7 +60,7 @@ def _wave(frame, payload, damage=None):
 
 def _run(
     frames, items, *, early=True, truncate=0, mac_end=0, polar_end=0, short_tail=False,
-    mac_ring=False, short_result=False,
+    mac_ring=False, short_result=False, prefer_tail=False, packed_tail=False, mac_capacity=3,
 ):
     values, service, loads = [], {}, {}
     for spec, (payload, damage) in zip(frames, items, strict=True):
@@ -76,6 +76,8 @@ def _run(
         clock_hz=200_000_000, geometry="threshold", mac_stall_until=mac_end,
         stall_until=polar_end, observer=events.append, discard_failed_suffix=True,
         short_tail_slot=short_tail, mac_ring=mac_ring, short_result_slot=short_result,
+        prefer_short_tail=prefer_tail, packed_tail_slot=packed_tail,
+        mac_frame_capacity=mac_capacity,
     )
     assert all(a["edge"] <= b["edge"] for a,b in pairwise(events))
     return events, report, service, loads
@@ -335,3 +337,42 @@ def test_short_result_moves_actual_older_bits_without_hiding_crc_or_mac_pressure
         assert _delivered(events, 1) == b"cd" and _delivered(events, 3) == b""
     else:
         assert _delivered(events, 1) == b"" and _delivered(events, 3) == b"gh"
+
+
+
+def test_packed_tail_reaches_true_crc_and_ordered_mac_without_more_data_ram():
+    payloads = (bytes(range(39)), b"ab", bytes(range(39,78)), bytes(range(53)))
+    frames = [_frame(e,len(p),mcs=m) for e,p,m in zip(
+        (0,10000,12000,22000),payloads,(10,10,10,11),strict=True,
+    )]
+    arguments = dict(polar_end=100_000, short_tail=True, prefer_tail=True, mac_ring=True)
+    baseline, _, _, _ = _run(frames, [(p,None) for p in payloads], **arguments)
+    events, stats, _, _ = _run(frames, [(p,None) for p in payloads], packed_tail=True, **arguments)
+    assert [(x["frame"],x["reason"]) for x in baseline if x["kind"]=="frame_failed"] == [
+        (3,"resource_drop"),
+    ]
+    actual = tuple(_delivered(events,i) for i in range(4))
+    assert actual == payloads
+    assert all(x["block_crc_ok"] and x["frame_crc_ok"] for x in events if x["kind"]=="crc_result")
+    packed, = [x for x in events if x["kind"]=="packed_tail_reserved"]
+    assert (packed["frame"], packed["base"], packed["slot"]) == (3,512,1)
+    assert stats["mac_complete"] == 4 and stats["frame_ram_bytes"] == 2044
+
+
+
+def test_fourth_mac_descriptor_is_separate_from_data_ram_and_does_not_admit_a_fifth():
+    payloads = tuple(bytes((i,i+1)) for i in range(5))
+    frames = [_frame(i*8000,2) for i in range(5)]
+    opts = dict(mac_ring=True, mac_end=60_000)
+    base, _, _, _ = _run(frames, [(p,None) for p in payloads], **opts)
+    trial, result, _, _ = _run(frames, [(p,None) for p in payloads], mac_capacity=4, **opts)
+    assert [x["frame"] for x in base if x["kind"] == "mac_complete"] == [0,1,2]
+    assert [x["frame"] for x in trial if x["kind"] == "mac_complete"] == [0,1,2,3]
+    assert [_delivered(trial,i) for i in range(4)] == list(payloads[:4])
+    fail, = [x for x in trial if x["kind"] == "frame_failed"]
+    assert (fail["frame"],fail["reason"]) == (4,"mac_descriptor_full")
+    assert result["frame_ram_bytes"] == 2044
+    assert result["peak_ram_reserved_bytes"] == 8
+    assert result["peak_payload_reservations"] == result["mac_frame_capacity"] == 4
+    with pytest.raises(ValueError, match="four with the MAC ring"):
+        replay_b1_payload_frames([], [], word_cycles={}, clock_hz=200_000_000, mac_frame_capacity=4)

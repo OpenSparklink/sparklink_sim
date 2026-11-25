@@ -52,10 +52,23 @@ def _sample_beats(rows, period):
             return
 
 
-class _Ingress:
-    """Each slot has one access per modulo-three bank and one logical owner."""
+class _BankWindow:
+    """One decoder-local lane routed to a physical lane and base address."""
 
-    def __init__(self, beats, llrs, scale, observer, drain_at_eof, short_tail_slot, frame_llrs):
+    def __init__(self, bank, offset):
+        self.bank, self.offset = bank, offset
+
+    def __getitem__(self, address):
+        return self.bank[self.offset + address]
+
+
+class _Ingress:
+    """One access per physical bank, with one optional second region owner."""
+
+    def __init__(
+        self, beats, llrs, scale, observer, drain_at_eof, short_tail_slot, frame_llrs,
+        packed_tail_slot,
+    ):
         self.beats = iter(beats)
         self.pending = next(self.beats, None)
         self.llrs = iter(llrs) if frame_llrs is None else iter(())
@@ -68,6 +81,8 @@ class _Ingress:
         self.banks = tuple(tuple([None] * ((size + 2 - lane) // 3) for lane in range(3))
                            for size in sizes)
         self.owners = [None] * len(sizes)
+        self.packed_owner = None
+        self.ready_limit = len(sizes) + packed_tail_slot
         self.ready = deque()
         self.edge = self.write_edge = -1
         self.written = set()
@@ -95,7 +110,10 @@ class _Ingress:
                     self.pending = None
                     break
                 if start > 0 and not row["lost"]:
-                    self.owners[row["ingress_slot"]] = None
+                    if "ingress_base" in row:
+                        self.packed_owner = None
+                    else:
+                        self.owners[row["ingress_slot"]] = None
                 try:
                     self.pending = self.beats.send(self.edge)
                 except StopIteration:
@@ -123,36 +141,66 @@ class _Ingress:
             item = item.value
         return float(item)
 
+    def _reserve(self, row, slot, base):
+        primary = self.owners[slot]
+        packed = self.packed_owner
+        packed_live = packed is not None and self.edge < packed["ingress_release"]
+        if base:
+            if (slot >= 2 or base + row["shape"][0] > 1024
+                    or packed_live or primary is None or primary["frame"] != row["frame"]
+                    or primary["shape"][0] != base or primary["launch"] <= row["last"]
+                    or self.edge >= primary["ingress_release"]):
+                raise RuntimeError("Invalid packed B1 ingress ownership")
+            self.packed_owner = row
+            self.report("reserve", row, slot=slot, prior_decode=primary["decoded"],
+                        reused_during_decode=False, packed_base=base)
+        else:
+            if ((primary is not None and self.edge < primary["ingress_release"])
+                    or (packed_live and packed["ingress_slot"] == slot)):
+                raise RuntimeError("Ingress bank reused before its owner retired")
+            self.report("reserve", row, slot=slot, prior_decode=primary and primary["decoded"],
+                        reused_during_decode=primary is not None and self.edge < primary["decoded"])
+            self.owners[slot] = row
+
+    def _owner(self, row):
+        return self.packed_owner if "ingress_base" in row else self.owners[row["ingress_slot"]]
+
     def _write(self, row, start, values):
         slot = row["ingress_slot"]
-        owner = self.owners[slot]
+        base = row.get("ingress_base", 0)
         if start == 0:
-            if owner is not None and self.edge < owner["ingress_release"]:
-                raise RuntimeError("Ingress bank reused before its owner retired")
-            self.report("reserve", row, slot=slot, prior_decode=owner and owner["decoded"],
-                        reused_during_decode=owner is not None and self.edge < owner["decoded"])
-            self.owners[slot] = row
-        elif owner is not row:
+            self._reserve(row, slot, base)
+        elif self._owner(row) is not row:
             raise RuntimeError("Ingress beat has no slot ownership")
         if self.write_edge != self.edge:
             self.written.clear()
             self.write_edge = self.edge
-        for index, value in enumerate(values, start):
+        for index, value in enumerate(values, base + start):
             lane, address = index % 3, index // 3
             if (slot, lane) in self.written:
                 raise RuntimeError("Ingress beat exceeded a single-port bank")
             self.written.add((slot, lane))
             self.banks[slot][lane][address] = _quantize_llr(value, self.scale)
-        self.report("write", row, slot=slot, address=start, count=len(values))
+        self.report("write", row, slot=slot, address=base + start, count=len(values))
         if start + len(values) == row["shape"][0]:
-            if len(self.ready) == len(self.banks):
+            if len(self.ready) == self.ready_limit:
                 raise RuntimeError("More complete words than owned ingress slots")
             self.ready.append(row)
 
+    def decoder_banks(self, row):
+        banks = self.banks[row["ingress_slot"]]
+        base = row.get("ingress_base", 0)
+        if base == 0:
+            return banks
+        return tuple(_BankWindow(banks[i % 3], i // 3) for i in range(base, base + 3))
+
     def read(self, row, lane, address):
         slot = row["ingress_slot"]
-        if self.owners[slot] is not row or self.edge >= row["ingress_release"]:
+        if self._owner(row) is not row or self.edge >= row["ingress_release"]:
             raise RuntimeError("Decoder read after ingress ownership retired")
+        if base := row.get("ingress_base"):
+            offset = base + lane
+            lane, address = offset % 3, address + offset // 3
         if self.edge == self.write_edge and (slot, lane) in self.written:
             raise RuntimeError("Decoder read conflicted with ingress bank write")
         self.report("read", row, slot=slot, lane=lane, address=address)
@@ -211,7 +259,7 @@ def replay_payload_polar_ingress(
     frames, llrs, *, word_cycles, clock_hz, lanes=2, fraction_bits=0, geometry="indexed",
     stall_until=0, input_load_cycles=None, discard_failed_suffix=False, observer=None,
     output_pair=None, drain_at_eof=False, short_tail_slot=False, short_result_slot=False,
-    _frame_llrs=None,
+    prefer_short_tail=False, packed_tail_slot=False, _frame_llrs=None,
 ):
     """Execute value and port checks on an ordered stream of input LLRs.
 
@@ -230,10 +278,12 @@ def replay_payload_polar_ingress(
         frames, word_cycles=word_cycles, clock_hz=clock_hz, stall_until=stall_until,
         input_load_cycles=input_load_cycles, discard_failed_suffix=discard_failed_suffix,
         trace_ownership=True, short_tail_slot=short_tail_slot,
-        short_result_slot=short_result_slot,
+        short_result_slot=short_result_slot, prefer_short_tail=prefer_short_tail,
+        packed_tail_slot=packed_tail_slot,
     )
     ingress = _Ingress(_sample_beats(rows, clock_hz // 4_000_000), llrs,
-                       1 << fraction_bits, observer, drain_at_eof, short_tail_slot, _frame_llrs)
+                       1 << fraction_bits, observer, drain_at_eof, short_tail_slot, _frame_llrs,
+                       packed_tail_slot)
     ordered = _ShortOutput(ingress, output_pair)
     advance_clock = ordered.advance if short_result_slot else ingress.advance
     while ingress.pending is not None or ingress.ready:
@@ -244,7 +294,6 @@ def replay_payload_polar_ingress(
             continue
         row = ingress.ready.popleft()
         n, k = row["shape"]
-        slot = row["ingress_slot"]
         launch = row["launch"]
 
         def advance(cycle):
@@ -254,7 +303,7 @@ def replay_payload_polar_ingress(
             ingress.read(row, lane, address)
 
         model = _Datapath(n, k, None, lanes, fraction_bits, geometry,
-                          banks=ingress.banks[slot], advance=advance, read_x=read_x)
+                          banks=ingress.decoder_banks(row), advance=advance, read_x=read_x)
         advance_clock(launch)
         model.decode()
         if model.cycles != row["decoded"] - launch:

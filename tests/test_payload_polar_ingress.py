@@ -266,3 +266,88 @@ def test_frame_local_truncated_short_result_restores_all_reserved_deadlines():
     assert [e["frame"] for e in events if e["kind"]=="result_buffered"]==[1]
     expected_schedule=list(payload_polar_calendar(frames[1:], **definitions))
     assert [r["taken"] for r in valid_after_abort]==[r["taken"] for r in expected_schedule]
+
+
+
+def _packed_frames(pilot=0):
+    return [
+        B1PayloadArrival(0, 336, "3/4", 3),
+        B1PayloadArrival(10_000, 40, "3/4", 3),
+        B1PayloadArrival(12_000, 336, "3/4", 3),
+        B1PayloadArrival(22_000, 448, "7/8", 3, pilot),
+    ]
+
+
+@pytest.mark.parametrize("pilot", [0, 4])
+def test_packed_tail_remaps_real_bits_at_an_8psk_shared_symbol(pilot):
+    frames = _packed_frames(pilot)
+    signal, reference, work, loads = _work(frames, "threshold", fraction=1)
+    options = dict(word_cycles=work, input_load_cycles=loads, clock_hz=200_000_000,
+                   stall_until=100_000, short_tail_slot=True, prefer_short_tail=True)
+    assert list(payload_polar_calendar(frames, **options))[-1]["lost"]
+    events = []
+    rows = list(replay_payload_polar_ingress(
+        frames, signal, **options, geometry="threshold", fraction_bits=1,
+        packed_tail_slot=True, observer=events.append,
+    ))
+    assert [r["info_bits"] for r in rows] == reference
+    assert [r["ingress_slot"] for r in rows] == [0, 2, 0, 1, 1]
+    primary, tail = rows[-2:]
+    assert tail["ingress_base"] == 512 and tail["first"] == primary["last"]
+    assert tail["last"] < primary["launch"] < primary["ingress_release"] < tail["launch"]
+    boundary = [x for x in events if x["kind"] == "write" and x["edge"] == tail["first"]]
+    assert [(x["slot"], x["address"], x["count"]) for x in boundary] == [(1, 510, 2), (1, 512, 1)]
+    actual_reads = [x for x in events if x["kind"] == "read" and x["frame"] == 3 and x["word"] == 1]
+    assert len(actual_reads) == 64
+    assert {3*x["address"] + x["lane"] for x in actual_reads} == set(range(512,576))
+
+
+def test_packed_tail_cannot_write_during_predecessor_load():
+    frames = [B1PayloadArrival(e,40,"3/4",3) for e in (0,4000)]
+    frames.append(B1PayloadArrival(8000,448,"7/8",3))
+    cycles = {(64,44):1, (512,416):1, (64,52):1}
+    def calendar(stall):
+        return list(payload_polar_calendar(
+            frames, word_cycles=cycles, stall_until=stall, clock_hz=200_000_000,
+            packed_tail_slot=True,
+        ))
+    blocked = calendar(16_477)
+    assert blocked[-1]["first"] < blocked[-2]["launch"] <= blocked[-1]["last"]
+    assert blocked[-1]["status"] == "resource_drop"
+    safe = calendar(40_000)
+    assert safe[-2]["launch"] > safe[-1]["last"]
+    assert safe[-1]["ingress_base"] == 512
+
+
+def test_frame_local_truncated_packed_tail_releases_only_its_region():
+    frames = [*_packed_frames(), B1PayloadArrival(200_000,40,"3/4",3)]
+    signal, expected, work, loads = _work(frames, "threshold")
+    size = 512 + 64 + 512
+    sources = iter((signal[:512], signal[512:576], signal[576:size],
+                    signal[size:size+512+19], signal[-64:]))
+    events = []
+    rows = list(replay_payload_polar_ingress(
+        frames, (), word_cycles=work, input_load_cycles=loads, clock_hz=200_000_000,
+        stall_until=100_000, short_tail_slot=True, prefer_short_tail=True,
+        packed_tail_slot=True, drain_at_eof=True, _frame_llrs=lambda: next(sources),
+        geometry="threshold", observer=events.append,
+    ))
+    assert [r["info_bits"] for r in rows] == [*expected[:4],expected[-1]]
+    assert [r["frame"] for r in rows] == [0,1,2,3,4]
+    cut, = [x for x in events if x["kind"] == "truncated"]
+    assert (cut["frame"], cut["word"], cut["partial_reservation"]) == (3,1,True)
+    assert not any(x["kind"]=="read" and x["frame"]==3 and x["word"]==1 for x in events)
+
+
+def test_packed_tail_budget_and_affinity_option_validation():
+    opts = dict(word_cycles={}, clock_hz=200_000_000)
+    with pytest.raises(ValueError, match="dedicated short input"):
+        list(payload_polar_calendar([], prefer_short_tail=True, **opts))
+    with pytest.raises(ValueError, match="boolean packed-tail"):
+        list(payload_polar_calendar([], packed_tail_slot=1, **opts))
+    a = payload_polar_cost(geometry="threshold", fraction_bits=1, short_tail_slot=True)
+    b = payload_polar_cost(geometry="threshold", fraction_bits=1, short_tail_slot=True,
+                           packed_tail_slot=True)
+    assert a["physical_banks"] == b["physical_banks"]
+    assert b["DSP"] == a["DSP"]
+    assert sum(b["register_bits"].values()) - sum(a["register_bits"].values()) == 498

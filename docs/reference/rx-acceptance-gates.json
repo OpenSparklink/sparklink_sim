@@ -1626,5 +1626,59 @@
     "synthesis_evidence": false,
     "whole_RX_qualified": false,
     "reference": "payload-polar-ingress.md"
+  },
+  "B1_packed_ingress_and_MAC_credits": {
+    "scope": "Explicit selected normalized FT3/4 cycle path; ordinary four Msym/s QPSK/8PSK only; capture and RF gains unmeasured",
+    "ingress": {
+      "regular_slots": 2,
+      "words_per_regular_slot": 1024,
+      "banks_per_slot": 3,
+      "accesses_per_bank_per_edge": 1,
+      "existing_short_slot_words": 128,
+      "additional_region_credits": 1,
+      "additional_register_bits_estimate": 498
+    },
+    "MAC": {
+      "bytes": 2044,
+      "default_descriptors": 3,
+      "opt_in_descriptors": 4,
+      "additional_register_bits_estimate": 155
+    },
+    "joint_additional_register_bits_estimate": 653,
+    "additional_LLR_or_payload_data_bits": 0,
+    "added_BRAM18": 0,
+    "added_DSP": 0,
+    "independent_held_by_MHz": {
+      "100": {
+        "offers": 36,
+        "base": 0,
+        "joint": 0,
+        "gained": 0,
+        "regressed": 0
+      },
+      "160": {
+        "offers": 36,
+        "base": 17,
+        "joint": 18,
+        "gained": 1,
+        "regressed": 0
+      },
+      "200": {
+        "offers": 36,
+        "base": 17,
+        "joint": 18,
+        "gained": 1,
+        "regressed": 0
+      }
+    },
+    "fixed_offers_all_clocks": 366,
+    "fixed_gained": 7,
+    "fixed_regressed": 0,
+    "prior_pressure": "200 MHz: restored input-dropped frame; only the independent fourth descriptor preserves the later prior success; original bad data CRC remains failed",
+    "python_and_rust_replay_identical": true,
+    "default_adoption": false,
+    "synthesis_evidence": false,
+    "whole_RX_qualified": false,
+    "reference": "payload-polar-ingress.md"
   }
 }

@@ -375,12 +375,14 @@ def decode_payload_polar_word(
 
 
 _SHORT_TAIL_CAPACITY = 128
+_PACKED_TAIL_CODE = 64
 _SHORT_RESULT_CODE = 64
 _SHORT_RESULT_BITS = max(k for n, k in _SHAPES if n == _SHORT_RESULT_CODE)
 
 
 def payload_polar_cost(
     *, lanes=2, fraction_bits=0, geometry="indexed", short_tail_slot=False, short_result_slot=False,
+    packed_tail_slot=False,
 ):
     """Maximum-width scratch/RAM packing estimate across all 36 B1 formats.
 
@@ -390,6 +392,8 @@ def payload_polar_cost(
     _formats(lanes, fraction_bits, geometry)
     if type(short_tail_slot) is not bool or type(short_result_slot) is not bool:
         raise ValueError("Need boolean short-tail and short-result slot options")
+    if type(packed_tail_slot) is not bool:
+        raise ValueError("Need a boolean packed-tail slot option")
     alpha_bits = 18 + fraction_bits
     words = _depth_shapes(1024)
     width = {bank: alpha_bits if bank[0] == "L" else 1 for bank in words}
@@ -446,6 +450,10 @@ def payload_polar_cost(
         registers.update(short_result_data=_SHORT_RESULT_BITS, short_result_row=128,
                          short_result_edge=64, short_result_cursor_and_valid=7,
                          short_result_MAC_owner=256)
+    if packed_tail_slot:
+        registers.update(packed_tail_region_base=10, packed_tail_row=128,
+                         packed_tail_bank_offsets=33, packed_tail_control=7,
+                         packed_tail_release_edge=64, packed_tail_MAC_owner=256)
     return dict(
         shapes=len(_SHAPES), lanes=lanes, alpha_bits=alpha_bits, DSP=0,
         geometry=geometry, geometry_threshold_comparisons=2 if geometry == "threshold" else 0,
@@ -483,7 +491,7 @@ def _wire_index(data_index, pilot_interval):
 def payload_polar_calendar(
     frames, *, word_cycles, clock_hz, stall_until=0, input_load_cycles=None,
     discard_failed_suffix=False, trace_ownership=False, short_tail_slot=False,
-    short_result_slot=False,
+    short_result_slot=False, prefer_short_tail=False, packed_tail_slot=False,
 ):
     """Schedule two ingress slots and a single ordered held output.
 
@@ -497,6 +505,8 @@ def payload_polar_calendar(
     physical codeword when neither full input slot is free. The optional short
     result slot detaches one complete N64 result when output is blocked at
     decode completion. Both paths retain issue order and the two-bit output rate.
+    Optionally prefer the dedicated short input slot, or pack one otherwise
+    lost terminal N64 behind its same-frame predecessor after checking ports.
     """
     if clock_hz not in (100_000_000, 160_000_000, 200_000_000):
         raise ValueError("Use a modeled clock: 100, 160 or 200 MHz")
@@ -506,12 +516,16 @@ def payload_polar_calendar(
         raise ValueError("Need a boolean short-tail slot option")
     if type(short_result_slot) is not bool:
         raise ValueError("Need a boolean short-result slot option")
+    if type(prefer_short_tail) is not bool or (prefer_short_tail and not short_tail_slot):
+        raise ValueError("Short-tail preference requires the dedicated short input slot")
+    if type(packed_tail_slot) is not bool:
+        raise ValueError("Need a boolean packed-tail slot option")
     period = Fraction(clock_hz, 4_000_000)
     detailed = (trace_ownership or input_load_cycles is not None or discard_failed_suffix
-                or short_tail_slot or short_result_slot)
+                or short_tail_slot or short_result_slot or packed_tail_slot)
     # Expired reservations retain no ownership.
     slots = [0] * (3 if short_tail_slot else 2)
-    engine_until = output_until = short_result_until = 0
+    engine_until = output_until = short_result_until = packed_until = 0
     next_boundary = 0
     peak = 0
     for frame_no, frame in enumerate(frames):
@@ -527,6 +541,7 @@ def payload_polar_calendar(
         blocks = b1_code_block_plan(frame.payload_with_crc_bits, frame.rate, standard=True)
         physical_bit = 0
         failed = False
+        previous = None
         words = ((block_no, word_no, shape) for block_no, block in enumerate(blocks)
                  for word_no, shape in enumerate(block.codewords))
         for block_no, word_no, (n, k) in words:
@@ -553,17 +568,26 @@ def payload_polar_calendar(
                                        status="incomplete_suffix", first_frame_loss=False)
             else:
                 slot = next((i for i in range(2) if slots[i] <= first), None)
-                if (slot is None and short_tail_slot and not failed and slots[2] <= first
-                        and n <= _SHORT_TAIL_CAPACITY and block_no == len(blocks) - 1
-                        and word_no == len(blocks[-1].codewords) - 1):
+                terminal = (not failed and block_no == len(blocks) - 1
+                            and word_no == len(blocks[-1].codewords) - 1)
+                if ((slot is None or prefer_short_tail) and short_tail_slot
+                        and terminal and n <= _SHORT_TAIL_CAPACITY and slots[2] <= first):
                     slot = 2
+                if (slot is None and packed_tail_slot and terminal and n == _PACKED_TAIL_CODE
+                        and packed_until <= first and previous is not None
+                        and not previous["lost"] and previous["ingress_slot"] < 2
+                        and previous["shape"][0] + n <= 1024
+                        and previous["ingress_release"] > first and previous["launch"] > last):
+                    slot = previous["ingress_slot"]
+                    row["ingress_base"] = previous["shape"][0]
                 if slot is None:
                     if detailed:
                         row.update(status="resource_drop", first_frame_loss=not failed)
                     failed = True
                     scheduled = row | dict(lost=True, peak_ingress=peak)
                 else:
-                    prior = slots[slot], engine_until, output_until, short_result_until
+                    prior = (slots[slot], engine_until, output_until, short_result_until,
+                             packed_until)
                     start = max(last + 1, engine_until)
                     done = start + cost
                     output_start = max(done, stall_until, output_until)
@@ -580,6 +604,8 @@ def payload_polar_calendar(
                         short_result_until = output_until
                         engine_until = row["short_result_ready"] + 1
                     slots[slot] = start + load
+                    if "ingress_base" in row:
+                        packed_until = slots[slot]
                     peak = max(peak, sum(end > first for end in slots))
                     if detailed:
                         row.update(status="accepted", ingress_release=slots[slot],
@@ -594,8 +620,10 @@ def payload_polar_calendar(
                 # Only the word whose input beat was missing is speculative.
                 # All earlier complete words keep their ownership and deadlines.
                 if slot is not None:
-                    slots[slot], engine_until, output_until, short_result_until = prior
+                    (slots[slot], engine_until, output_until,
+                     short_result_until, packed_until) = prior
                 next_boundary = absent_edge + 1
                 break
+            previous = scheduled
         else:
             next_boundary = frame.first_edge + ceil((last_index + 1) * period)

@@ -136,7 +136,7 @@ class _Delivery:
 
 
 class _Consumer:
-    def __init__(self, mac_stall_until, observer, owner_limit, mac_ring):
+    def __init__(self, mac_stall_until, observer, owner_limit, mac_ring, mac_frame_capacity):
         self.mac_stall_until = mac_stall_until
         self.owner_limit = owner_limit
         self.observer = observer
@@ -147,6 +147,7 @@ class _Consumer:
         self.active = None
         self.deliveries = deque()
         self.mac_ring = mac_ring
+        self.mac_frame_capacity = mac_frame_capacity
         self.ring_tail = self.ring_bytes = self.ring_peak = self.ring_owners_peak = 0
         self.ring_wraps = self.ring_read_write_edges = 0
         self.edge = self.last_read_edge = self.last_read_address = -1
@@ -193,7 +194,7 @@ class _Consumer:
     def reserve_payload(self, frame, spec, edge):
         base = 0
         if self.mac_ring:
-            if len(self.deliveries) >= _RING_FRAME_LIMIT:
+            if len(self.deliveries) >= self.mac_frame_capacity:
                 self.fail(frame, edge, "mac_descriptor_full")
                 return
             if self.ring_bytes + spec.length_bytes > _MAX_BYTES:
@@ -241,6 +242,9 @@ class _Consumer:
                     raise RuntimeError("B1 ingress exceeded its outstanding frame owner limit")
                 self.owners[frame] = _Owner(self.offered, failed=self.wire_failed)
             self.owners[frame].pending += 1
+            if "packed_base" in event:
+                self.emit("packed_tail_reserved", frame, edge,
+                          slot=event["slot"], base=event["packed_base"])
             self.peak_owners = max(self.peak_owners, len(self.owners))
         elif kind == "resource_drop":
             if event["first_frame_loss"] and not self.wire_failed:
@@ -304,6 +308,8 @@ class _Consumer:
                           peak_payload_reservations=self.ring_owners_peak,
                           ram_wrap_reservations=self.ring_wraps,
                           ram_same_edge_read_writes=self.ring_read_write_edges)
+            if self.mac_frame_capacity != _RING_FRAME_LIMIT:
+                result["mac_frame_capacity"] = self.mac_frame_capacity
         return result
 
 
@@ -311,12 +317,14 @@ def replay_b1_payload_frames(
     frames, llrs, *, word_cycles, clock_hz, lanes=2, fraction_bits=0, geometry="indexed",
     stall_until=0, input_load_cycles=None, discard_failed_suffix=False,
     mac_stall_until=0, observer=None, short_tail_slot=False, mac_ring=False,
-    short_result_slot=False, _frame_llrs=False,
+    short_result_slot=False, prefer_short_tail=False, packed_tail_slot=False,
+    mac_frame_capacity=_RING_FRAME_LIMIT, _frame_llrs=False,
 ):
     """Reassemble at actual Polar pair edges and deliver only completed, CRC-valid frames.
 
     Default ownership is one frame in the 2044-byte RAM. Opt-in mac_ring
-    reserves disjoint byte ranges in the same RAM, with at most three owners.
+    reserves disjoint byte ranges in the same RAM, with three owners by
+    default. The explicit fourth descriptor retains the original byte limit.
     CRC failure rolls back only the active, newest reservation.
     """
     if type(mac_stall_until) is not int or mac_stall_until < 0:
@@ -327,8 +335,14 @@ def replay_b1_payload_frames(
         raise ValueError("Need a boolean MAC ring option")
     if type(short_result_slot) is not bool:
         raise ValueError("Need a boolean short-result slot option")
+    if type(packed_tail_slot) is not bool:
+        raise ValueError("Need a boolean packed-tail slot option")
+    if (type(mac_frame_capacity) is not int or mac_frame_capacity not in (3, 4)
+            or (mac_frame_capacity == 4 and not mac_ring)):
+        raise ValueError("Need three MAC descriptors, or four with the MAC ring")
     consumer = _Consumer(
-        mac_stall_until, observer, 3 + short_tail_slot + short_result_slot, mac_ring,
+        mac_stall_until, observer, 3 + short_tail_slot + short_result_slot + packed_tail_slot,
+        mac_ring, mac_frame_capacity,
     )
 
     local_llrs = None
@@ -351,6 +365,7 @@ def replay_b1_payload_frames(
         input_load_cycles=input_load_cycles, discard_failed_suffix=discard_failed_suffix,
         observer=consumer.event, output_pair=consumer.pair, drain_at_eof=True,
         short_tail_slot=short_tail_slot, short_result_slot=short_result_slot,
+        prefer_short_tail=prefer_short_tail, packed_tail_slot=packed_tail_slot,
         _frame_llrs=(lambda: local_llrs) if _frame_llrs else None,
     ):
         pass
