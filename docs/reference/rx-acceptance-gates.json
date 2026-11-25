@@ -1241,5 +1241,50 @@
     "whole_rx_gates_closed": false,
     "synthesis_evidence": false,
     "reference": "psk-selected-carrier.md"
+  },
+  "B1_N256_compact_SSC_live_banks": {
+    "scope": "opt-in B1 N256/K51, actual selected normalized FT3/4 at 4 Msym/s",
+    "new_layout": "compact-parity",
+    "reference_layouts": [
+      "dense",
+      "depth-parity"
+    ],
+    "logical_ram_bits": 6132,
+    "logical_rom_bits": 4496,
+    "logical_total_bits": 13963,
+    "estimated_RAMB18_equivalents": 5,
+    "estimated_BRAM36_sites_upper": 5,
+    "DSP_estimate": 0,
+    "data_banks": 4,
+    "max_data_ports": 2,
+    "ROM_read_ports": 1,
+    "codec_cycles": {
+      "dense": 5512,
+      "depth-parity": 4042,
+      "compact-parity": 4042
+    },
+    "held": {
+      "inputs": 14,
+      "200MHz": {
+        "mac_delivered": 7,
+        "dense_peak": 119,
+        "compact_peak": 90
+      },
+      "160MHz": {
+        "dense_fifo_failures": 12,
+        "compact_fifo_failures": 0,
+        "compact_verified_legal_heads": 11,
+        "compact_pace_failures": 11,
+        "mac_delivered": 0
+      },
+      "100MHz": {
+        "compact_fifo_failures": 12,
+        "mac_delivered": 0
+      }
+    },
+    "default_adopted": false,
+    "synthesis_evidence": false,
+    "whole_rx_gates_closed": false,
+    "reference": "control-polar-word.md"
   }
 }

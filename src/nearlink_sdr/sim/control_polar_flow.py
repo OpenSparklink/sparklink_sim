@@ -28,6 +28,8 @@ class _Memory:
                 self.native_bits[name] = 18432 if cap == 1024 else 36864
             self.cells["B0"] = [None] * ((n + 1) * N)
             self.native_bits["B0"] = 18432
+        elif layout == "compact-parity":
+            self._allocate_compact(N, n)
         else:
             for parity in (0, 1):
                 length = len(range(parity, n + 1, 2)) * N
@@ -43,10 +45,37 @@ class _Memory:
         self.peak = self.used.copy()
         self.written = set()
 
+    def _allocate_compact(self, N, n):
+        sizes = dict.fromkeys(("L0", "L1", "B0", "B1"), 0)
+        self.compact_ranges = {}
+        for depth in range(n + 1):
+            length = N >> depth
+            # Alpha is dead after that subtree; beta retains both siblings until combine.
+            for plane, width in (("L", length), ("B", min(N, 2 * length))):
+                name = plane + str(depth & 1)
+                self.compact_ranges[plane, depth] = (name, sizes[name], width - 1)
+                sizes[name] += width
+        bank = "B" + str(n & 1)
+        self.u_region = bank, sizes[bank]
+        sizes[bank] += N
+        self.cells.update({bank: [None] * size for bank, size in sizes.items()})
+        self.native_bits.update(dict.fromkeys(sizes, 18432))
+
+    def information(self, position):
+        if self.layout == "compact-parity":
+            if type(position) is not int or not 0 <= position < self.fmt.N:
+                raise ValueError("Address outside compact information region")
+            bank, base = self.u_region
+            return bank, base + position
+        return self.address("B", self.fmt.n, position)
+
     def address(self, plane, depth, position):
         if not (plane in ("L", "B") and type(depth) is int and 0 <= depth <= self.fmt.n
                 and type(position) is int and 0 <= position < self.fmt.N):
             raise ValueError("Address outside compiled control plane")
+        if self.layout == "compact-parity":
+            bank, base, mask = self.compact_ranges[plane, depth]
+            return bank, base + (position & mask)
         if self.layout == "depth-parity":
             return plane + str(depth & 1), (depth >> 1) * self.fmt.N + position
         address = depth * self.fmt.N + position
@@ -106,8 +135,11 @@ class ControlPolarService:
     """
 
     def __init__(self, fmt, *, layout="dense", observer=None):
-        if not isinstance(fmt, ControlPolarFormat) or layout not in ("dense", "depth-parity"):
-            raise ValueError("Need explicit control format and dense or depth-parity banks")
+        if (not isinstance(fmt, ControlPolarFormat)
+                or layout not in ("dense", "depth-parity", "compact-parity")):
+            raise ValueError("Need explicit control format and finite control banks")
+        if layout == "compact-parity" and fmt.N != 256:
+            raise ValueError("Compact control layout requires N256/K51")
         if observer is not None and not callable(observer):
             raise ValueError("Observer must be callable or absent")
         self.fmt, self.layout, self.observer = fmt, layout, observer
@@ -205,14 +237,14 @@ class ControlPolarService:
         self._emit("block", **self.block)
 
     def _command(self, index):
-        kind, N, n = self.block["kind"], self.fmt.N, self.fmt.n
+        kind, N = self.block["kind"], self.fmt.N
         M = self.memory
         if kind == "load":
             return dict(reads=[], writes=[M.address("L", 0, index)], aux=self.input_bits[index])
         if kind == "info":
             return dict(reads=[("ROM", 2 * N - 1 + self.output_index)], writes=[])
         if kind == "extract":
-            return dict(reads=[M.address("B", n, self.info_address)], writes=[])
+            return dict(reads=[M.information(self.info_address)], writes=[])
         f = self.stack[self.depth - 1]
         start, length, d = f["start"], f["length"], f["depth"]
         half = length // 2
@@ -220,15 +252,15 @@ class ControlPolarService:
             return dict(reads=[("ROM", f["node"])], writes=[])
         if kind == "zero":
             return dict(reads=[], writes=list(dict.fromkeys(
-                [M.address("B", d, start + index), M.address("B", n, start + index)])))
+                [M.address("B", d, start + index), M.information(start + index)])))
         if kind == "hard":
             return dict(reads=[M.address("L", d, start + index)], writes=list(dict.fromkeys(
-                [M.address("B", d, start + index), M.address("B", n, start + index)])))
+                [M.address("B", d, start + index), M.information(start + index)])))
         if kind == "transform":
             h = f["step"] // 2
             position = start + (index // h) * f["step"] + index % h
-            return dict(reads=[M.address("B", n, position), M.address("B", n, position + h)],
-                        writes=[M.address("B", n, position)])
+            return dict(reads=[M.information(position), M.information(position + h)],
+                        writes=[M.information(position)])
         if kind == "combine":
             return dict(reads=[M.address("B", d + 1, start + index),
                                M.address("B", d + 1, start + half + index)],
@@ -406,7 +438,11 @@ def control_polar_cost(fmt, *, layout="dense"):
         "current_command_padded": 128,
         "bank_used_peak_and_collision_tags": 4 * len(memory.cells) + 32,
     }
-    ram = (n + 1) * N * 11
+    if layout == "compact-parity":
+        # Per depth/plane: 10-bit base + 8-bit mask; U base is charged separately.
+        state["compact_address_constants_upper"] = 2 * (n + 1) * 18 + 10
+    ram = sum(len(words) * (10 if bank.startswith("L") else 1)
+              for bank, words in memory.cells.items() if bank != "ROM")
     rom = len(compile_control_rom(fmt)) * n
     logical = ram + rom + sum(state.values())
     equivalents = sum(memory.native_bits.values()) // 18432
@@ -419,7 +455,11 @@ def control_polar_cost(fmt, *, layout="dense"):
         native_total_bits=sum(memory.native_bits.values()),
         RAMB18_equivalents=equivalents,
         BRAM36_sites_lower=(equivalents + 1) // 2, BRAM36_sites_upper=separate_sites,
-        physical_data_ports=memory.limit.copy(), DSP=0,
+        physical_data_ports=memory.limit.copy(),
+        data_bank_depths={
+            bank: len(words) for bank, words in memory.cells.items() if bank != "ROM"
+        },
+        DSP=0,
         address_adders=dict(count=4, bits=12), minsum_ALU_bits=10,
         macro_latency_cycles=dict(RAM_read=1, minsum_ALU=1, registered_writeback=1),
         input_bus_bits=N, contexts=4, runtime_stack_frames=fmt.stack_frames,

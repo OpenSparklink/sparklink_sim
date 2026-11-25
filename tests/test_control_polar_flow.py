@@ -165,3 +165,50 @@ def test_physical_padding_and_complete_incremental_state_are_charged(N, K):
         assert not cost["full_RX_acceptance"] and not cost["actual_synthesis"]
     assert (dense["RAMB18_equivalents"], parity["RAMB18_equivalents"]) == (
         (3, 5) if N == 64 else (6, 6))
+
+
+def test_compact_b1_reuses_dead_nodes_and_retains_both_sibling_betas():
+    fmt = ControlPolarFormat(256, 51)
+    service = ControlPolarService(fmt, layout="compact-parity")
+    cost = control_polar_cost(fmt, layout="compact-parity")
+    assert cost["data_bank_depths"] == {"L0": 341, "L1": 170, "B0": 682, "B1": 340}
+    assert cost["logical_RAM_bits"] == 6132
+    assert cost["logical_total_bits"] <= 16384
+    assert cost["RAMB18_equivalents"] == 5
+    assert cost["DSP"] == 0
+
+    mem = service.memory
+    assert mem.address("L", 2, 0) == mem.address("L", 2, 64)
+    assert mem.address("B", 2, 0) != mem.address("B", 2, 64)
+    assert mem.address("B", 2, 0) == mem.address("B", 2, 128)
+    assert mem.address("B", 8, 1) != mem.information(1)
+    with pytest.raises(ValueError, match="compact information"):
+        mem.information(-1)
+    with pytest.raises(ValueError, match="N256/K51"):
+        ControlPolarService(ControlPolarFormat(64, 40), layout="compact-parity")
+
+
+def test_compact_b1_exact_hard_words_after_abort_and_output_stall():
+    service = ControlPolarService(ControlPolarFormat(256, 51), layout="compact-parity")
+    assert service.issue([1] * 256)
+    for _ in range(809):
+        service.step()
+    service.abort()
+    service.reset()
+    standard = [v for v in REFERENCE["vectors"] if v["N"] == 256]
+    rng = random.Random(47117)
+    cases = [v["coded_bits"] for v in standard]
+    cases += [[rng.randrange(2) for _ in range(256)] for _ in range(12)]
+    decoder = get_polar_decoder(256, 51)
+    for bits in cases:
+        started = service.cycle
+        assert service.issue(bits)
+        drain(service)
+        assert service.cycle - started <= 4042 + 64
+        for _ in range(3):
+            service.step()
+        result = service.take()
+        assert result["information_bits"] == tuple(decoder.decode((1 - 2*np.array(bits)) * 10.))
+        assert result["crc_status"] == "not_checked"
+        service.step()
+    assert all(v <= 2 for v in service.memory.peak.values())

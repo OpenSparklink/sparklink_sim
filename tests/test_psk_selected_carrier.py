@@ -192,3 +192,36 @@ def test_extra_input_after_actual_short_frame_is_released():
     assert sum(1 for _ in input_words) == 256 - result["post_frame_buffered_words"]
     sent = [event["index"] for event in front if event["kind"] == "payload_word"]
     assert sent == list(range(result["header"]["data_start_symbol"], len(frame)))
+
+
+def test_compact_b1_banks_reduce_actual_head_wait_and_retain_paced_failure():
+    p, wire, _, service, loads = _frame(4, 9, bytes(range(65)), width=32)
+    deliver = {}
+    for layout in ("dense", "depth-parity", "compact-parity"):
+        events = []
+        row = replay_selected_b1_carrier(
+            iter(wire), p, clock_hz=200_000_000, word_cycles=service,
+            geometry="threshold", input_load_cycles=loads, head_layout=layout,
+            observer=events.append,
+        )
+        deliver[layout] = row
+        assert row["status"] == "delivered"
+        assert bytes(x["value"] for x in events if x["kind"] == "mac_byte") == bytes(range(65))
+    compact = deliver["compact-parity"]
+    assert compact["header"] == deliver["dense"]["header"] == deliver["depth-parity"]["header"]
+    assert compact["header_ready_edge"] <= deliver["depth-parity"]["header_ready_edge"] + 64
+    assert deliver["dense"]["header_ready_edge"] - compact["header_ready_edge"] >= 1200
+
+    faster_head = replay_selected_b1_carrier(
+        iter(wire), p, clock_hz=160_000_000, word_cycles=service,
+        geometry="threshold", input_load_cycles=loads, head_layout="compact-parity",
+    )
+    assert faster_head["status"] == "carrier_pace_missed"
+    assert faster_head["header"]["header_crc"] and faster_head["header"]["length_ok"]
+    assert not faster_head["delivery"].get("mac_complete", 0)
+    slow_head = replay_selected_b1_carrier(
+        iter(wire), p, clock_hz=160_000_000, word_cycles=service,
+        geometry="threshold", input_load_cycles=loads, head_layout="dense",
+    )
+    assert slow_head["status"] == "carrier_fifo_full"
+    assert slow_head["header"] is None
